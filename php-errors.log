@@ -1,0 +1,241 @@
+[27-Aug-2025 08:25:19 Asia/Tehran] خطا در درج داده اولیه: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'admin' for key 'username'
+[27-Aug-2025 08:25:30 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 08:25:31 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 08:26:58 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 08:29:10 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:43
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(43): PDO->prepare('SELECT a.*, at....')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(176): getAssetsReport('{"asset_type":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 43
+[27-Aug-2025 08:29:11 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:43
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(43): PDO->prepare('SELECT a.*, at....')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(176): getAssetsReport('{"asset_type":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 43
+[27-Aug-2025 08:29:21 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:43
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(43): PDO->prepare('SELECT a.*, at....')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(176): getAssetsReport('{"asset_type":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 43
+[27-Aug-2025 08:29:21 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:43
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(43): PDO->prepare('SELECT a.*, at....')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(176): getAssetsReport('{"asset_type":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 43
+[27-Aug-2025 08:29:43 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:130
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(130): PDO->query('\r\n        SELEC...')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(188): getStatisticsReport('{"time_range":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 130
+[27-Aug-2025 08:29:51 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php:130
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(130): PDO->query('\r\n        SELEC...')
+#1 C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php(188): getStatisticsReport('{"time_range":"...')
+#2 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\advanced_reports.php on line 130
+[27-Aug-2025 08:30:01 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\edit_asset.php:17
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\edit_asset.php(17): PDO->prepare('\r\n    SELECT a....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\edit_asset.php on line 17
+[27-Aug-2025 08:37:47 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 08:39:16 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 08:49:52 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY093]: Invalid parameter number: mixed named and positional parameters in C:\xampp\htdocs\aala-niroo-system-main\customers.php:72
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\customers.php(72): PDO->prepare('SELECT * FROM c...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\customers.php on line 72
+[27-Aug-2025 08:49:55 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY093]: Invalid parameter number: mixed named and positional parameters in C:\xampp\htdocs\aala-niroo-system-main\customers.php:72
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\customers.php(72): PDO->prepare('SELECT * FROM c...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\customers.php on line 72
+[27-Aug-2025 11:41:35 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 11:42:20 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY093]: Invalid parameter number: mixed named and positional parameters in C:\xampp\htdocs\aala-niroo-system-main\customers.php:72
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\customers.php(72): PDO->prepare('SELECT * FROM c...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\customers.php on line 72
+[27-Aug-2025 11:42:24 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 12:53:14 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 12:53:23 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 12:58:45 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 13:04:22 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 13:06:47 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY093]: Invalid parameter number: mixed named and positional parameters in C:\xampp\htdocs\aala-niroo-system-main\customers.php:72
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\customers.php(72): PDO->prepare('SELECT * FROM c...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\customers.php on line 72
+[27-Aug-2025 13:37:15 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\reports.php:21
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\reports.php(21): PDO->query('\n    SELECT a.*...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\reports.php on line 21
+[27-Aug-2025 14:05:52 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 14:30:54 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 14:31:02 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 14:31:05 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 14:31:09 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\reports.php:21
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\reports.php(21): PDO->query('\n    SELECT a.*...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\reports.php on line 21
+[27-Aug-2025 14:35:58 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 14:36:00 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 14:36:02 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 14:36:06 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 14:36:44 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 14:57:12 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 15:12:11 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:13 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:12:27 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:13:08 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Warning:  Undefined array key "brand" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 478
+[27-Aug-2025 15:18:29 Asia/Tehran] PHP Warning:  Undefined array key "model" in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 479
+[27-Aug-2025 16:05:42 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 16:05:43 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'where clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 16:05:45 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 16:05:46 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'where clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 16:05:47 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
+[27-Aug-2025 16:05:50 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'device_model' in 'field list' in C:\xampp\htdocs\aala-niroo-system-main\assignments.php:107
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assignments.php(107): PDO->query('SELECT id, name...')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assignments.php on line 107
+[27-Aug-2025 16:05:55 Asia/Tehran] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'a.type_id' in 'on clause' in C:\xampp\htdocs\aala-niroo-system-main\assets.php:197
+Stack trace:
+#0 C:\xampp\htdocs\aala-niroo-system-main\assets.php(197): PDO->prepare('SELECT a.*, at....')
+#1 {main}
+  thrown in C:\xampp\htdocs\aala-niroo-system-main\assets.php on line 197
