@@ -70,18 +70,19 @@ $offset = ($page - 1) * $per_page;
 
 if (!empty($search)) {
     $stmt = $pdo->prepare("SELECT * FROM customers 
-                          WHERE full_name LIKE ? OR phone LIKE ? OR company LIKE ? 
+                          WHERE full_name LIKE :term OR phone LIKE :term OR company LIKE :term 
                           ORDER BY id DESC 
                           LIMIT :limit OFFSET :offset");
-    $search_term = "%$search%";
+    $stmt->bindValue(':term', "%$search%", PDO::PARAM_STR);
     $stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute([$search_term, $search_term, $search_term]);
+    $stmt->execute();
     
     // تعداد کل نتایج برای pagination
     $count_stmt = $pdo->prepare("SELECT COUNT(*) FROM customers 
-                                WHERE full_name LIKE ? OR phone LIKE ? OR company LIKE ?");
-    $count_stmt->execute([$search_term, $search_term, $search_term]);
+                                WHERE full_name LIKE :term OR phone LIKE :term OR company LIKE :term");
+    $count_stmt->bindValue(':term', "%$search%", PDO::PARAM_STR);
+    $count_stmt->execute();
     $total_customers = $count_stmt->fetchColumn();
 } else {
     $stmt = $pdo->prepare("SELECT * FROM customers ORDER BY id DESC LIMIT :limit OFFSET :offset");

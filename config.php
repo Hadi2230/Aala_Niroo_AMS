@@ -10,6 +10,10 @@ if (session_status() === PHP_SESSION_NONE) {
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
+// اطمینان از وجود پوشه لاگ
+if (!is_dir(__DIR__ . '/logs')) {
+    @mkdir(__DIR__ . '/logs', 0755, true);
+}
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
@@ -42,9 +46,12 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// ایجاد جداول فقط یک بار در طول session
+// ایجاد جداول و یک مهاجرت سبک فقط یک بار در طول session
 if (!isset($_SESSION['tables_created'])) {
     createDatabaseTables($pdo);
+    if (function_exists('migrateDatabaseSchema')) {
+        migrateDatabaseSchema($pdo);
+    }
     $_SESSION['tables_created'] = true;
 }
 
@@ -54,7 +61,7 @@ if (!isset($_SESSION['tables_created'])) {
 function createDatabaseTables($pdo) {
     // ایجاد پوشه logs اگر وجود ندارد
     if (!is_dir(__DIR__ . '/logs')) {
-        mkdir(__DIR__ . '/logs', 0755, true);
+        @mkdir(__DIR__ . '/logs', 0755, true);
     }
     
     // ایجاد پوشه uploads اگر وجود ندارد
@@ -304,6 +311,58 @@ function createDatabaseTables($pdo) {
                 error_log("[" . date('Y-m-d H:i:s') . "] خطا در درج داده اولیه: " . $e->getMessage());
             }
         }
+    }
+}
+
+/**
+ * مهاجرت سبک برای هم‌ترازی اسکیما موجود با کد (ایمن برای اجراهای مکرر)
+ */
+function migrateDatabaseSchema(PDO $pdo) {
+    try {
+        $columnExists = function(string $table, string $column) use ($pdo): bool {
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+            $stmt->execute([$table, $column]);
+            $row = $stmt->fetch();
+            return !empty($row) && (int)$row['cnt'] > 0;
+        };
+
+        $addColumn = function(string $table, string $ddl) use ($pdo, $columnExists) {
+            if (preg_match('/ADD\\s+(?:COLUMN\\s+)?`?([a-zA-Z0-9_]+)`?/i', $ddl, $m)) {
+                $col = $m[1];
+                if (!$columnExists($table, $col)) {
+                    $pdo->exec("ALTER TABLE $table $ddl");
+                }
+            }
+        };
+
+        // اطمینان از وجود ستونی که در لاگ خطا مفقود گزارش شده‌اند
+        $addColumn('assets', "ADD COLUMN type_id INT NULL");
+        $addColumn('assets', "ADD COLUMN device_model VARCHAR(255) NULL");
+        $addColumn('assets', "ADD COLUMN device_serial VARCHAR(255) NULL");
+        $addColumn('assets', "ADD COLUMN brand VARCHAR(255) NULL");
+        $addColumn('assets', "ADD COLUMN model VARCHAR(255) NULL");
+        $addColumn('assets', "ADD COLUMN engine_model VARCHAR(255) NULL");
+        $addColumn('assets', "ADD COLUMN engine_serial VARCHAR(255) NULL");
+
+        // جدول asset_types اگر وجود ندارد برای جلوگیری از خطای JOIN ساخته شود
+        $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(50) NOT NULL UNIQUE,
+            display_name VARCHAR(100) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+        // درج داده اولیه asset_types اگر خالی است
+        $cnt = $pdo->query("SELECT COUNT(*) AS c FROM asset_types")->fetch();
+        if ((int)$cnt['c'] === 0) {
+            $pdo->exec("INSERT INTO asset_types (name, display_name) VALUES 
+                ('generator', 'ژنراتور'),
+                ('power_motor', 'موتور برق'),
+                ('consumable', 'اقلام مصرفی')");
+        }
+    } catch (Throwable $e) {
+        error_log("[" . date('Y-m-d H:i:s') . "] خطا در مهاجرت اسکیما: " . $e->getMessage());
     }
 }
 

@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_asset'])) {
         $stmt->execute([$type_id, $serial_number, $purchase_date, $status, json_encode($custom_data, JSON_UNESCAPED_UNICODE), $asset_id]);
         
         // اگر نوع دستگاه ژنراتور است، فیلدهای خاص آن را دریافت و ذخیره کنید
-        if ($asset['asset_type'] === 'ژنراتور') {
+        if ($asset['type_name'] === 'ژنراتور') {
             $brand = $_POST['brand'];
             $engine_model = $_POST['engine_model'];
             $engine_serial = $_POST['engine_serial'];
@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_asset'])) {
             $description = $_POST['description'];
             
             // آپلود عکس‌های جدید
-            $upload_dir = 'uploads/';
+            $upload_dir = 'uploads/assets/';
             if (!is_dir($upload_dir)) {
                 mkdir($upload_dir, 0777, true);
             }
@@ -181,6 +181,7 @@ foreach ($types as $type) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ویرایش دستگاه - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .image-preview {
             max-width: 200px;
@@ -190,30 +191,7 @@ foreach ($types as $type) {
     </style>
 </head>
 <body onload="loadFields(<?php echo $asset['type_id']; ?>)">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">اعلا نیرو</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">داشبورد</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="assets.php">ثبت دستگاه جدید</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="reports.php">گزارشات دستگاه‌ها</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">خروج</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <?php include 'navbar.php'; ?>
 
     <div class="container mt-5">
         <h2 class="text-center">ویرایش دستگاه #<?php echo $asset['id']; ?></h2>
