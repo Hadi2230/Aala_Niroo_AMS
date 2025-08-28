@@ -752,8 +752,8 @@ $filtered_count = count($assets);
                                             </td>
                                             <td><?= $asset['purchase_date'] ? jalaliDate($asset['purchase_date']) : '--' ?></td>
                                             <td class="action-buttons">
-                                                <a href="asset_details.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="مشاهده جزئیات">
-                                                    <i class="fas fa-eye"></i>
+                                                <a href="profile.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="پروفایل دستگاه">
+                                                    <i class="fas fa-id-card"></i>
                                                 </a>
                                                 <a href="edit_asset.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-warning" title="ویرایش">
                                                     <i class="fas fa-edit"></i>

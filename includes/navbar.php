@@ -111,6 +111,18 @@
                             <i class="fas fa-user-cog"></i> مدیریت کاربران
                         </a>
                     </li>
+                    <?php if (($_SESSION['role'] ?? '') === 'ادمین'): ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'logs.php' ? 'active' : ''; ?>" href="logs.php">
+                            <i class="fas fa-list"></i> لاگ‌ها
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'errors.php' ? 'active' : ''; ?>" href="errors.php">
+                            <i class="fas fa-bug"></i> خطاها
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
                 
                 <div class="d-flex align-items-center">
