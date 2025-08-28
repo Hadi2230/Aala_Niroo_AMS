@@ -352,6 +352,16 @@ function migrateDatabaseSchema(PDO $pdo) {
         // assignment_details: وضعیت نصب
         $addColumn('assignment_details', "ADD COLUMN installation_status ENUM('نصب شده','در حال نصب','لغو شده') NULL");
 
+        // جدول یادداشت کاربران
+        $pdo->exec("CREATE TABLE IF NOT EXISTS user_notes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            note TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_user_id (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
         // جدول asset_types اگر وجود ندارد برای جلوگیری از خطای JOIN ساخته شود
         $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
             id INT AUTO_INCREMENT PRIMARY KEY,

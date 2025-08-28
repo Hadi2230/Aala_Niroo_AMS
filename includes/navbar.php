@@ -68,9 +68,11 @@
 <div class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-bolt"></i>
-                اعلا نیرو
+            <a class="navbar-brand d-flex align-items-center" href="dashboard.php">
+                <img src="assets/img/logo1.png" alt="Logo" style="height:32px" class="me-2">
+                <img src="assets/img/logo2.png" alt="Logo" style="height:32px" class="me-2 d-none d-md-inline">
+                <img src="assets/img/logo3.png" alt="Logo" style="height:32px" class="me-2 d-none d-lg-inline">
+                <span>اعلا نیرو</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">

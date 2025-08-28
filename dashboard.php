@@ -13,6 +13,14 @@ $total_customers = $pdo->query("SELECT COUNT(*) as total FROM customers")->fetch
 $total_users = $pdo->query("SELECT COUNT(*) as total FROM users")->fetch()['total'];
 $total_assignments = $pdo->query("SELECT COUNT(*) as total FROM asset_assignments")->fetch()['total'];
 $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM asset_assignments")->fetch()['total'];
+$last_login = null;
+try {
+    if (isset($_SESSION['user_id'])) {
+        $stmt = $pdo->prepare("SELECT last_login FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $last_login = $stmt->fetch()['last_login'] ?? null;
+    }
+} catch (Throwable $e) {}
 ?>
 
 <!DOCTYPE html>
@@ -30,6 +38,9 @@ $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM as
     <div class="container mt-5">
         <h1 class="text-center">داشبورد مدیریت</h1>
         <p class="text-center">به سامانه مدیریت شرکت <strong>اعلا نیرو</strong> خوش آمدید.</p>
+        <?php if ($last_login): ?>
+            <p class="text-center text-muted">آخرین ورود شما: <?php echo htmlspecialchars($last_login); ?></p>
+        <?php endif; ?>
 
         <div class="row mt-5">
             <div class="col-md-3">
@@ -95,6 +106,44 @@ $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM as
                                     <span class="badge bg-info"><?php echo $total_assignments; ?></span>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- یادداشت‌های من -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">یادداشت‌های من</div>
+                    <div class="card-body">
+                        <form method="post" action="save_note.php">
+                            <div class="mb-3">
+                                <textarea class="form-control" name="note" rows="3" placeholder="یادداشت خود را بنویسید..."></textarea>
+                            </div>
+                            <button class="btn btn-primary" type="submit">ذخیره یادداشت</button>
+                        </form>
+                        <hr>
+                        <div>
+                            <?php
+                            try {
+                                if (isset($_SESSION['user_id'])) {
+                                    $stmt = $pdo->prepare("SELECT note, updated_at FROM user_notes WHERE user_id = ? ORDER BY updated_at DESC LIMIT 10");
+                                    $stmt->execute([$_SESSION['user_id']]);
+                                    $notes = $stmt->fetchAll();
+                                    if ($notes) {
+                                        echo '<ul class="list-group">';
+                                        foreach ($notes as $n) {
+                                            echo '<li class="list-group-item d-flex justify-content-between align-items-center">'.htmlspecialchars($n['note']).'<span class="badge bg-secondary">'.htmlspecialchars($n['updated_at']).'</span></li>';
+                                        }
+                                        echo '</ul>';
+                                    } else {
+                                        echo '<p class="text-muted">یادداشتی موجود نیست.</p>';
+                                    }
+                                }
+                            } catch (Throwable $e) {}
+                            ?>
                         </div>
                     </div>
                 </div>

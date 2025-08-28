@@ -1,7 +1,10 @@
 /* styles.css */
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap');
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
+    font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #121212;
+    color: #eaeaea;
 }
 
 .navbar {
@@ -11,22 +14,33 @@ body {
 .card {
     border: none;
     border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
+    background-color: #1e1e1e;
 }
 
 .card-header {
-    background-color: #007bff;
-    color: white;
+    background-color: #1f2937;
+    color: #eaeaea;
     border-radius: 10px 10px 0 0 !important;
 }
 
 .table th {
-    background-color: #007bff;
-    color: white;
+    background-color: #2a3442;
+    color: #eaeaea;
 }
 
 .btn {
     border-radius: 5px;
+}
+
+.btn-primary {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.btn-primary:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
 }
 
 /* استایل‌های جدید برای داشبورد */
