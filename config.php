@@ -190,6 +190,7 @@ function createDatabaseTables($pdo) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
+            email VARCHAR(255),
             full_name VARCHAR(255),
             role ENUM('ادمین', 'کاربر عادی', 'اپراتور') DEFAULT 'کاربر عادی',
             is_active BOOLEAN DEFAULT true,
@@ -233,6 +234,7 @@ function createDatabaseTables($pdo) {
             recipient_name VARCHAR(255),
             recipient_phone VARCHAR(20),
             installer_name VARCHAR(255),
+            installation_status ENUM('نصب شده','در حال نصب','لغو شده') NULL,
             installation_start_date DATE,
             installation_end_date DATE,
             temporary_delivery_date DATE,
@@ -343,6 +345,12 @@ function migrateDatabaseSchema(PDO $pdo) {
         $addColumn('assets', "ADD COLUMN model VARCHAR(255) NULL");
         $addColumn('assets', "ADD COLUMN engine_model VARCHAR(255) NULL");
         $addColumn('assets', "ADD COLUMN engine_serial VARCHAR(255) NULL");
+
+        // users: ایمیل
+        $addColumn('users', "ADD COLUMN email VARCHAR(255) NULL");
+
+        // assignment_details: وضعیت نصب
+        $addColumn('assignment_details', "ADD COLUMN installation_status ENUM('نصب شده','در حال نصب','لغو شده') NULL");
 
         // جدول asset_types اگر وجود ندارد برای جلوگیری از خطای JOIN ساخته شود
         $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
