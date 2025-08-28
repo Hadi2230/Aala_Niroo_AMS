@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $control_panel_manual_link = sanitizeInput($_POST['control_panel_manual_link'] ?? '');
         $description = sanitizeInput($_POST['description'] ?? '');
         
-        // پارت نامبرها (به همراه تصاویر)
+        // پارت نامبرها
         $oil_filter_part = sanitizeInput($_POST['oil_filter_part'] ?? '');
         $fuel_filter_part = sanitizeInput($_POST['fuel_filter_part'] ?? '');
         $water_fuel_filter_part = sanitizeInput($_POST['water_fuel_filter_part'] ?? '');
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
             if (!empty($_FILES[$field]['name'])) {
                 try {
                     $image_path = uploadFile($_FILES[$field], $upload_dir);
-                    // ذخیره تصویر
+                    
                     $stmt = $pdo->prepare("INSERT INTO asset_images (asset_id, field_name, image_path) VALUES (?, ?, ?)");
                     $stmt->execute([$asset_id, $field, $image_path]);
                 } catch (Exception $e) {
@@ -159,14 +159,12 @@ if (isset($_GET['delete_id'])) {
 }
 
 // دریافت انواع دارایی‌ها
-
 $asset_types = $pdo->query("SELECT * FROM asset_types ORDER BY display_name")->fetchAll();
 
 // جستجو و فیلتر
 $search = $_GET['search'] ?? '';
 $type_filter = $_GET['type_filter'] ?? '';
 $status_filter = $_GET['status_filter'] ?? '';
-$hasFilter = (trim($search) !== '' || trim($type_filter) !== '' || trim($status_filter) !== '');
 
 // ساخت کوئری بر اساس فیلترها
 $query = "SELECT a.*, at.display_name as type_display_name 
@@ -196,17 +194,13 @@ if (!empty($status_filter)) {
 
 $query .= " ORDER BY a.created_at DESC";
 
-// فقط در صورت وجود فیلتر جستجو انجام شود تا صفحه خلوت بماند
-$assets = [];
-if ($hasFilter) {
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-    $assets = $stmt->fetchAll();
-}
+$stmt = $pdo->prepare($query);
+$stmt->execute($params);
+$assets = $stmt->fetchAll();
 
 // دریافت تعداد کل دارایی‌ها برای نمایش
 $total_assets = $pdo->query("SELECT COUNT(*) as total FROM assets")->fetch()['total'];
-$filtered_count = $hasFilter ? count($assets) : 0;
+$filtered_count = count($assets);
 ?>
 
 <!DOCTYPE html>
@@ -721,11 +715,7 @@ $filtered_count = $hasFilter ? count($assets) : 0;
                         <h5 class="mb-0"><i class="fas fa-list"></i> لیست دارایی‌ها</h5>
                     </div>
                     <div class="card-body">
-                        <?php if (!$hasFilter): ?>
-                            <div class="alert alert-info">
-                                ابتدا با فیلتر یا جستجو، نتیجه دلخواه را نمایش دهید.
-                            </div>
-                        <?php elseif (count($assets) > 0): ?>
+                        <?php if (count($assets) > 0): ?>
                             <div class="table-responsive">
                                 <table class="table table-striped table-hover">
                                     <thead>
