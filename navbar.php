@@ -1,9 +1,8 @@
 <?php
-// navbar.php - فقط جزء ناوبری (بدون اسکلت کامل HTML)
-$current_page = basename($_SERVER['PHP_SELF']);
+// جهت حفظ سازگاری قدیمی، فایل جدید از includes/navbar.php بارگذاری شود
+include __DIR__ . '/includes/navbar.php';
+return;
 ?>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="styles.css">
 <style>
         :root {
             --primary-color: #2c3e50;
