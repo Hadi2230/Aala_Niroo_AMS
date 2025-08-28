@@ -69,10 +69,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="dashboard.php">
-                <img src="assets/img/logo1.png" alt="Logo" style="height:32px" class="me-2">
-                <img src="assets/img/logo2.png" alt="Logo" style="height:32px" class="me-2 d-none d-md-inline">
-                <img src="assets/img/logo3.png" alt="Logo" style="height:32px" class="me-2 d-none d-lg-inline">
-                <span>اعلا نیرو</span>
+                <span style="font-weight:700; letter-spacing:.5px;">اعلا نیرو</span>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
@@ -80,45 +77,45 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarContent">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav me-auto gap-1">
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="dashboard.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="dashboard.php">
                             <i class="fas fa-home"></i> داشبورد
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'assets.php' ? 'active' : ''; ?>" href="assets.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'assets.php' ? 'active' : ''; ?>" href="assets.php">
                             <i class="fas fa-server"></i> مدیریت دارایی‌ها
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'active' : ''; ?>" href="customers.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'customers.php' ? 'active' : ''; ?>" href="customers.php">
                             <i class="fas fa-users"></i> مدیریت مشتریان
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'assignments.php' ? 'active' : ''; ?>" href="assignments.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'assignments.php' ? 'active' : ''; ?>" href="assignments.php">
                             <i class="fas fa-link"></i> انتساب دستگاه
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>" href="reports.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>" href="reports.php">
                             <i class="fas fa-chart-bar"></i> گزارشات
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>" href="users.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>" href="users.php">
                             <i class="fas fa-user-cog"></i> مدیریت کاربران
                         </a>
                     </li>
                     <?php if (($_SESSION['role'] ?? '') === 'ادمین'): ?>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'logs.php' ? 'active' : ''; ?>" href="logs.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'logs.php' ? 'active' : ''; ?>" href="logs.php">
                             <i class="fas fa-list"></i> لاگ‌ها
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'errors.php' ? 'active' : ''; ?>" href="errors.php">
+                        <a class="nav-link px-3 <?php echo basename($_SERVER['PHP_SELF']) == 'errors.php' ? 'active' : ''; ?>" href="errors.php">
                             <i class="fas fa-bug"></i> خطاها
                         </a>
                     </li>
