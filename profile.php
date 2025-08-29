@@ -7,9 +7,14 @@ $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($asset_id <= 0) { header('Location: reports.php'); exit(); }
 
 // اطلاعات دستگاه
-$stmt = $pdo->prepare("SELECT a.*, at.display_name AS type_name FROM assets a LEFT JOIN asset_types at ON a.type_id = at.id WHERE a.id = ?");
-$stmt->execute([$asset_id]);
-$asset = $stmt->fetch();
+try {
+    $stmt = $pdo->prepare("SELECT a.*, at.display_name AS type_name FROM assets a LEFT JOIN asset_types at ON a.type_id = at.id WHERE a.id = ?");
+    $stmt->execute([$asset_id]);
+    $asset = $stmt->fetch();
+} catch (Throwable $ex) {
+    error_log('profile.php asset fetch error: ' . $ex->getMessage());
+    $asset = false;
+}
 if (!$asset) { header('Location: reports.php'); exit(); }
 
 // انتساب‌های مرتبط و مشتری فعلی (آخرین انتساب)
@@ -18,18 +23,33 @@ $assign->execute([$asset_id]);
 $current = $assign->fetch();
 
 // تصاویر
-$images = $pdo->prepare("SELECT * FROM asset_images WHERE asset_id = ?");
-$images->execute([$asset_id]);
-$images = $images->fetchAll();
+try {
+    $images = $pdo->prepare("SELECT * FROM asset_images WHERE asset_id = ?");
+    $images->execute([$asset_id]);
+    $images = $images->fetchAll();
+} catch (Throwable $ex) {
+    error_log('profile.php images fetch error: ' . $ex->getMessage());
+    $images = [];
+}
 
 // سرویس‌ها و تسک‌ها
-$svc = $pdo->prepare("SELECT * FROM asset_services WHERE asset_id = ? ORDER BY service_date DESC, id DESC");
-$svc->execute([$asset_id]);
-$services = $svc->fetchAll();
+try {
+    $svc = $pdo->prepare("SELECT * FROM asset_services WHERE asset_id = ? ORDER BY service_date DESC, id DESC");
+    $svc->execute([$asset_id]);
+    $services = $svc->fetchAll();
+} catch (Throwable $ex) {
+    error_log('profile.php services fetch error: ' . $ex->getMessage());
+    $services = [];
+}
 
-$tsk = $pdo->prepare("SELECT * FROM maintenance_tasks WHERE asset_id = ? ORDER BY FIELD(status,'برنامه‌ریزی','در حال انجام','انجام شده','لغو'), planned_date ASC, id DESC");
-$tsk->execute([$asset_id]);
-$tasks = $tsk->fetchAll();
+try {
+    $tsk = $pdo->prepare("SELECT * FROM maintenance_tasks WHERE asset_id = ? ORDER BY FIELD(status,'برنامه‌ریزی','در حال انجام','انجام شده','لغو'), planned_date ASC, id DESC");
+    $tsk->execute([$asset_id]);
+    $tasks = $tsk->fetchAll();
+} catch (Throwable $ex) {
+    error_log('profile.php tasks fetch error: ' . $ex->getMessage());
+    $tasks = [];
+}
 ?>
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">

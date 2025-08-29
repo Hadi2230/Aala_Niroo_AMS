@@ -46,13 +46,10 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// ایجاد جداول و یک مهاجرت سبک فقط یک بار در طول session
-if (!isset($_SESSION['tables_created'])) {
-    createDatabaseTables($pdo);
-    if (function_exists('migrateDatabaseSchema')) {
-        migrateDatabaseSchema($pdo);
-    }
-    $_SESSION['tables_created'] = true;
+// ایجاد جداول پایه همیشه و اجرای مهاجرت سبک در هر بار (ایمن idempotent)
+createDatabaseTables($pdo);
+if (function_exists('migrateDatabaseSchema')) {
+    migrateDatabaseSchema($pdo);
 }
 
 /**
