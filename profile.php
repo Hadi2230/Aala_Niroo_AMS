@@ -59,14 +59,44 @@ try {
     <title>پروفایل دستگاه #<?= $asset['id'] ?> - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/styles.css">
+    <style>
+        .no-print { }
+        .print-header { display: none; border-bottom: 2px solid #000; margin-bottom: 16px; padding-bottom: 8px; }
+        .print-title { font-weight: 700; font-size: 20px; }
+        .print-meta { font-size: 12px; color: #555; }
+
+        @media print {
+            body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            nav, .navbar, .navbar-custom, .theme-switch, .no-print, .btn, .alert { display: none !important; }
+            a[href]:after { content: "" !important; }
+            .card { border: 1px solid #000 !important; box-shadow: none !important; }
+            .card-header { background: #f2f2f2 !important; color: #000 !important; }
+            .print-header { display: block !important; }
+        }
+    </style>
 </head>
 <body>
     <?php include 'navbar.php'; ?>
 
     <div class="container mt-4" id="print-area">
+        <div class="print-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="print-title">اعلا نیرو - پروفایل دستگاه</div>
+                    <div class="print-meta">تاریخ چاپ: <?= date('Y-m-d H:i') ?></div>
+                </div>
+                <div class="text-end">
+                    <div class="print-meta">نام شرکت: اعلا نیرو</div>
+                    <?php if(isset($_SESSION['username'])): ?>
+                        <div class="print-meta">کاربر: <?= htmlspecialchars($_SESSION['username']) ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2><i class="fas fa-id-card"></i> پروفایل دستگاه #<?= $asset['id'] ?></h2>
-            <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> چاپ</button>
+            <button class="btn btn-primary no-print" onclick="window.print()"><i class="fas fa-print"></i> چاپ</button>
         </div>
 
         <div class="row g-3">
@@ -105,17 +135,87 @@ try {
                 <div class="card">
                     <div class="card-header">مشخصات فنی</div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3"><strong>مدل موتور:</strong> <?= htmlspecialchars($asset['engine_model'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>سریال موتور:</strong> <?= htmlspecialchars($asset['engine_serial'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>مدل آلترناتور:</strong> <?= htmlspecialchars($asset['alternator_model'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>سریال آلترناتور:</strong> <?= htmlspecialchars($asset['alternator_serial'] ?? '-') ?></div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-md-3"><strong>مدل دستگاه:</strong> <?= htmlspecialchars($asset['device_model'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>سریال دستگاه:</strong> <?= htmlspecialchars($asset['device_serial'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>ظرفیت توان:</strong> <?= htmlspecialchars($asset['power_capacity'] ?? '-') ?></div>
-                            <div class="col-md-3"><strong>نوع سوخت:</strong> <?= htmlspecialchars($asset['engine_type'] ?? '-') ?></div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <tbody>
+                                    <tr>
+                                        <th style="width:25%">مدل موتور</th>
+                                        <td><?= htmlspecialchars($asset['engine_model'] ?? '-') ?></td>
+                                        <th style="width:25%">سریال موتور</th>
+                                        <td><?= htmlspecialchars($asset['engine_serial'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>مدل آلترناتور</th>
+                                        <td><?= htmlspecialchars($asset['alternator_model'] ?? '-') ?></td>
+                                        <th>سریال آلترناتور</th>
+                                        <td><?= htmlspecialchars($asset['alternator_serial'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>مدل دستگاه</th>
+                                        <td><?= htmlspecialchars($asset['device_model'] ?? '-') ?></td>
+                                        <th>سریال دستگاه</th>
+                                        <td><?= htmlspecialchars($asset['device_serial'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>ظرفیت توان</th>
+                                        <td><?= htmlspecialchars($asset['power_capacity'] ?? '-') ?></td>
+                                        <th>نوع سوخت</th>
+                                        <td><?= htmlspecialchars($asset['engine_type'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>مدل کنترل پنل</th>
+                                        <td><?= htmlspecialchars($asset['control_panel_model'] ?? '-') ?></td>
+                                        <th>مدل بریکر</th>
+                                        <td><?= htmlspecialchars($asset['breaker_model'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>مشخصات تانک سوخت</th>
+                                        <td><?= htmlspecialchars($asset['fuel_tank_specs'] ?? '-') ?></td>
+                                        <th>باتری</th>
+                                        <td><?= htmlspecialchars($asset['battery'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>باتری شارژر</th>
+                                        <td><?= htmlspecialchars($asset['battery_charger'] ?? '-') ?></td>
+                                        <th>هیتر</th>
+                                        <td><?= htmlspecialchars($asset['heater'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>حجم روغن</th>
+                                        <td><?= htmlspecialchars($asset['oil_capacity'] ?? '-') ?></td>
+                                        <th>حجم آب رادیاتور</th>
+                                        <td><?= htmlspecialchars($asset['radiator_capacity'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>ضدیخ</th>
+                                        <td><?= htmlspecialchars($asset['antifreeze'] ?? '-') ?></td>
+                                        <th>سایر اقلام مولد</th>
+                                        <td><?= htmlspecialchars($asset['other_items'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>تاریخ ورود کارگاه</th>
+                                        <td><?= htmlspecialchars($asset['workshop_entry_date'] ?? '-') ?></td>
+                                        <th>تاریخ خروج کارگاه</th>
+                                        <td><?= htmlspecialchars($asset['workshop_exit_date'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>لینک دیتاشیت</th>
+                                        <td><?= htmlspecialchars($asset['datasheet_link'] ?? '-') ?></td>
+                                        <th>منوال موتور</th>
+                                        <td><?= htmlspecialchars($asset['engine_manual_link'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>منوال آلترناتور</th>
+                                        <td><?= htmlspecialchars($asset['alternator_manual_link'] ?? '-') ?></td>
+                                        <th>منوال کنترل پنل</th>
+                                        <td><?= htmlspecialchars($asset['control_panel_manual_link'] ?? '-') ?></td>
+                                    </tr>
+                                    <tr>
+                                        <th>توضیحات</th>
+                                        <td colspan="3"><?php echo nl2br(htmlspecialchars($asset['description'] ?? '-')); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
