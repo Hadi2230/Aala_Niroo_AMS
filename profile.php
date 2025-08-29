@@ -72,6 +72,10 @@ try {
             .card { border: 1px solid #000 !important; box-shadow: none !important; }
             .card-header { background: #f2f2f2 !important; color: #000 !important; }
             .print-header { display: block !important; }
+            /* Only print the area */
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: relative !important; overflow: visible !important; }
         }
     </style>
 </head>
