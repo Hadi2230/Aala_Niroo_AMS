@@ -210,8 +210,7 @@ $filtered_count = count($assets);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مدیریت دارایی‌ها - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
     <style>
         .card {
             border: none;
@@ -272,6 +271,34 @@ $filtered_count = count($assets);
                             <i class="fas fa-filter"></i> 
                             <?= $filtered_count ?> از <?= $total_assets ?> مورد
                         </span>
+                    </div>
+                </div>
+
+                <!-- کارت‌های عملیاتی -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h5 class="card-title mb-1">افزودن دارایی جدید</h5>
+                                    <p class="text-muted mb-2">ثبت دستگاه با تمام مشخصات و تصاویر</p>
+                                    <a href="#add-asset-form" class="btn btn-primary">شروع ثبت</a>
+                                </div>
+                                <div class="display-4 text-primary"><i class="fas fa-plus-circle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h5 class="card-title mb-1">پروفایل دستگاه‌ها</h5>
+                                    <p class="text-muted mb-2">مدیریت سرویس و نگهداشت هر دستگاه</p>
+                                    <a href="profiles_list.php" class="btn btn-outline-primary">مشاهده پروفایل‌ها</a>
+                                </div>
+                                <div class="display-4 text-info"><i class="fas fa-id-card"></i></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -753,8 +780,8 @@ $filtered_count = count($assets);
                                             </td>
                                             <td><?= $asset['purchase_date'] ? jalaliDate($asset['purchase_date']) : '--' ?></td>
                                             <td class="action-buttons">
-                                                <a href="asset_details.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="مشاهده جزئیات">
-                                                    <i class="fas fa-eye"></i>
+                                                <a href="profile.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="پروفایل دستگاه">
+                                                    <i class="fas fa-id-card"></i>
                                                 </a>
                                                 <a href="edit_asset.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-warning" title="ویرایش">
                                                     <i class="fas fa-edit"></i>

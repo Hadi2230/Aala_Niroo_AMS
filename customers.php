@@ -70,18 +70,19 @@ $offset = ($page - 1) * $per_page;
 
 if (!empty($search)) {
     $stmt = $pdo->prepare("SELECT * FROM customers 
-                          WHERE full_name LIKE ? OR phone LIKE ? OR company LIKE ? 
+                          WHERE full_name LIKE :term OR phone LIKE :term OR company LIKE :term 
                           ORDER BY id DESC 
                           LIMIT :limit OFFSET :offset");
-    $search_term = "%$search%";
+    $stmt->bindValue(':term', "%$search%", PDO::PARAM_STR);
     $stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute([$search_term, $search_term, $search_term]);
+    $stmt->execute();
     
     // تعداد کل نتایج برای pagination
     $count_stmt = $pdo->prepare("SELECT COUNT(*) FROM customers 
-                                WHERE full_name LIKE ? OR phone LIKE ? OR company LIKE ?");
-    $count_stmt->execute([$search_term, $search_term, $search_term]);
+                                WHERE full_name LIKE :term OR phone LIKE :term OR company LIKE :term");
+    $count_stmt->bindValue(':term', "%$search%", PDO::PARAM_STR);
+    $count_stmt->execute();
     $total_customers = $count_stmt->fetchColumn();
 } else {
     $stmt = $pdo->prepare("SELECT * FROM customers ORDER BY id DESC LIMIT :limit OFFSET :offset");
@@ -111,7 +112,7 @@ if (isset($_GET['error'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مدیریت مشتریان - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
     <style>
         .table-hover tbody tr:hover {
             background-color: rgba(52, 152, 219, 0.1);
