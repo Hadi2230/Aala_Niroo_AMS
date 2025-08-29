@@ -10,10 +10,6 @@ if (session_status() === PHP_SESSION_NONE) {
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-// اطمینان از وجود پوشه لاگ
-if (!is_dir(__DIR__ . '/logs')) {
-    @mkdir(__DIR__ . '/logs', 0755, true);
-}
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
@@ -46,12 +42,9 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// ایجاد جداول و یک مهاجرت سبک فقط یک بار در طول session
+// ایجاد جداول فقط یک بار در طول session
 if (!isset($_SESSION['tables_created'])) {
     createDatabaseTables($pdo);
-    if (function_exists('migrateDatabaseSchema')) {
-        migrateDatabaseSchema($pdo);
-    }
     $_SESSION['tables_created'] = true;
 }
 
@@ -61,7 +54,7 @@ if (!isset($_SESSION['tables_created'])) {
 function createDatabaseTables($pdo) {
     // ایجاد پوشه logs اگر وجود ندارد
     if (!is_dir(__DIR__ . '/logs')) {
-        @mkdir(__DIR__ . '/logs', 0755, true);
+        mkdir(__DIR__ . '/logs', 0755, true);
     }
     
     // ایجاد پوشه uploads اگر وجود ندارد
@@ -190,7 +183,6 @@ function createDatabaseTables($pdo) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
-            email VARCHAR(255),
             full_name VARCHAR(255),
             role ENUM('ادمین', 'کاربر عادی', 'اپراتور') DEFAULT 'کاربر عادی',
             is_active BOOLEAN DEFAULT true,
@@ -234,7 +226,6 @@ function createDatabaseTables($pdo) {
             recipient_name VARCHAR(255),
             recipient_phone VARCHAR(20),
             installer_name VARCHAR(255),
-            installation_status ENUM('نصب شده','در حال نصب','لغو شده') NULL,
             installation_start_date DATE,
             installation_end_date DATE,
             temporary_delivery_date DATE,
@@ -313,108 +304,6 @@ function createDatabaseTables($pdo) {
                 error_log("[" . date('Y-m-d H:i:s') . "] خطا در درج داده اولیه: " . $e->getMessage());
             }
         }
-    }
-}
-
-/**
- * مهاجرت سبک برای هم‌ترازی اسکیما موجود با کد (ایمن برای اجراهای مکرر)
- */
-function migrateDatabaseSchema(PDO $pdo) {
-    try {
-        $columnExists = function(string $table, string $column) use ($pdo): bool {
-            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
-            $stmt->execute([$table, $column]);
-            $row = $stmt->fetch();
-            return !empty($row) && (int)$row['cnt'] > 0;
-        };
-
-        $addColumn = function(string $table, string $ddl) use ($pdo, $columnExists) {
-            if (preg_match('/ADD\\s+(?:COLUMN\\s+)?`?([a-zA-Z0-9_]+)`?/i', $ddl, $m)) {
-                $col = $m[1];
-                if (!$columnExists($table, $col)) {
-                    $pdo->exec("ALTER TABLE $table $ddl");
-                }
-            }
-        };
-
-        // اطمینان از وجود ستونی که در لاگ خطا مفقود گزارش شده‌اند
-        $addColumn('assets', "ADD COLUMN type_id INT NULL");
-        $addColumn('assets', "ADD COLUMN device_model VARCHAR(255) NULL");
-        $addColumn('assets', "ADD COLUMN device_serial VARCHAR(255) NULL");
-        $addColumn('assets', "ADD COLUMN brand VARCHAR(255) NULL");
-        $addColumn('assets', "ADD COLUMN model VARCHAR(255) NULL");
-        $addColumn('assets', "ADD COLUMN engine_model VARCHAR(255) NULL");
-        $addColumn('assets', "ADD COLUMN engine_serial VARCHAR(255) NULL");
-
-        // users: ایمیل
-        $addColumn('users', "ADD COLUMN email VARCHAR(255) NULL");
-
-        // assignment_details: وضعیت نصب
-        $addColumn('assignment_details', "ADD COLUMN installation_status ENUM('نصب شده','در حال نصب','لغو شده') NULL");
-
-        // جدول یادداشت کاربران
-        $pdo->exec("CREATE TABLE IF NOT EXISTS user_notes (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            note TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_user_id (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-        // سرویس و نگهداشت دستگاه‌ها
-        $pdo->exec("CREATE TABLE IF NOT EXISTS asset_services (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            service_date DATE NOT NULL,
-            service_type ENUM('دوره‌ای','اضطراری','نصب','بازدید') DEFAULT 'دوره‌ای',
-            performed_by VARCHAR(255),
-            summary VARCHAR(255),
-            notes TEXT,
-            next_due_date DATE NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_service_date (service_date),
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-        $pdo->exec("CREATE TABLE IF NOT EXISTS maintenance_tasks (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            description TEXT,
-            status ENUM('برنامه‌ریزی','در حال انجام','انجام شده','لغو') DEFAULT 'برنامه‌ریزی',
-            priority ENUM('کم','متوسط','بالا','فوری') DEFAULT 'متوسط',
-            planned_date DATE NULL,
-            done_date DATE NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_status (status),
-            INDEX idx_planned_date (planned_date),
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-        // جدول asset_types اگر وجود ندارد برای جلوگیری از خطای JOIN ساخته شود
-        $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(50) NOT NULL UNIQUE,
-            display_name VARCHAR(100) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-        // درج داده اولیه asset_types اگر خالی است
-        $cnt = $pdo->query("SELECT COUNT(*) AS c FROM asset_types")->fetch();
-        if ((int)$cnt['c'] === 0) {
-            $pdo->exec("INSERT INTO asset_types (name, display_name) VALUES 
-                ('generator', 'ژنراتور'),
-                ('power_motor', 'موتور برق'),
-                ('consumable', 'اقلام مصرفی')");
-        }
-    } catch (Throwable $e) {
-        error_log("[" . date('Y-m-d H:i:s') . "] خطا در مهاجرت اسکیما: " . $e->getMessage());
     }
 }
 

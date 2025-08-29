@@ -13,7 +13,7 @@ function getAssetsReport($filters) {
     
     $query = "SELECT a.*, at.display_name as type_name 
               FROM assets a 
-              LEFT JOIN asset_types at ON a.type_id = at.id 
+              JOIN asset_types at ON a.type_id = at.id 
               WHERE 1=1";
     
     $params = [];
@@ -86,7 +86,7 @@ function getAssignmentsReport($filters) {
               FROM asset_assignments aa
               JOIN assets a ON aa.asset_id = a.id
               JOIN customers c ON aa.customer_id = c.id
-              LEFT JOIN asset_types at ON a.type_id = at.id
+              JOIN asset_types at ON a.type_id = at.id
               LEFT JOIN assignment_details ad ON aa.id = ad.assignment_id
               WHERE 1=1";
     
@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <title>سیستم گزارش‌گیری پیشرفته - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="styles.css">
     <style>
         /* استایل‌های اختصاصی گزارش‌گیری */
         :root {
@@ -339,10 +339,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
                 <!-- بخش‌های مختلف گزارش‌گیری -->
-                <?php include 'assets_report.php'; ?>
-                <?php include 'customers_report.php'; ?>
-                <?php include 'assignments_report.php'; ?>
-                <?php include 'statistics_report.php'; ?>
+                <?php include 'report_sections/assets_report.php'; ?>
+                <?php include 'report_sections/customers_report.php'; ?>
+                <?php include 'report_sections/assignments_report.php'; ?>
+                <?php include 'report_sections/statistics_report.php'; ?>
             </div>
         </div>
     </div>

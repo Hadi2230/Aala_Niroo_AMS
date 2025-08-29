@@ -14,13 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
-        // ثبت زمان آخرین ورود و لاگ سیستم
-        try {
-            $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
-            logAction($pdo, 'LOGIN', 'کاربر وارد سیستم شد');
-        } catch (Throwable $e) {
-            error_log('Login update error: ' . $e->getMessage());
-        }
         header('Location: dashboard.php');
         exit();
     } else {

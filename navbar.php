@@ -1,9 +1,17 @@
 <?php
-// جهت حفظ سازگاری قدیمی، فایل جدید از includes/navbar.php بارگذاری شود
-include __DIR__ . '/includes/navbar.php';
-return;
+// navbar.php
+$current_page = basename($_SERVER['PHP_SELF']);
 ?>
-<style>
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اعلا نیرو - سیستم مدیریت</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -65,7 +73,8 @@ return;
             margin-left: 1rem;
         }
     </style>
-<div class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
+</head>
+<body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container-fluid">
             <!-- لوگو و نام شرکت -->
@@ -181,4 +190,5 @@ return;
             if (parts.length === 2) return parts.pop().split(';').shift();
         }
     </script>
-</div>
+</body>
+</html>
