@@ -16,7 +16,8 @@ if (!$assignment_id) {
 
 // دریافت اطلاعات انتساب
 $stmt = $pdo->prepare("
-    SELECT aa.*, ad.*, a.name as asset_name, c.full_name as customer_name, c.phone as customer_phone
+    SELECT aa.*, ad.*, a.name as asset_name, a.device_model as asset_device_model, a.device_serial as asset_device_serial,
+           c.full_name as customer_name, c.phone as customer_phone
     FROM asset_assignments aa
     JOIN assets a ON aa.asset_id = a.id
     JOIN customers c ON aa.customer_id = c.id
@@ -136,9 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_assignment'])) {
     }
 }
 
-// دریافت لیست دستگاه‌ها و مشتریان
-$assets = $pdo->query("SELECT id, name, device_model, device_serial, engine_model, engine_serial FROM assets WHERE status = 'فعال' ORDER BY name")->fetchAll();
-$customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY full_name")->fetchAll();
+// لیست‌ها به صورت AJAX Select2 بارگیری می‌شوند
 ?>
 
 <!DOCTYPE html>
@@ -148,42 +147,21 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ویرایش انتساب - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .image-preview {
             max-width: 200px;
             max-height: 200px;
             margin-top: 10px;
         }
+        .select2-container--default .select2-selection--single { height: 38px; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">اعلا نیرو</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">داشبورد</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="assets.php">مدیریت دارایی‌ها</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="customers.php">مدیریت مشتریان</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="assignments.php">انتساب دستگاه</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">خروج</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    <?php include 'navbar.php'; ?>
 
     <div class="container mt-5">
         <h2 class="text-center">ویرایش انتساب #<?php echo $assignment['id']; ?></h2>
@@ -201,14 +179,9 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="mb-3">
                                 <label for="customer_id" class="form-label">انتخاب مشتری *</label>
                                 <select class="form-select" id="customer_id" name="customer_id" required>
-                                    <option value="">-- انتخاب مشتری --</option>
-                                    <?php foreach ($customers as $customer): ?>
-                                        <option value="<?php echo $customer['id']; ?>" 
-                                            <?php echo $customer['id'] == $assignment['customer_id'] ? 'selected' : ''; ?>
-                                            data-phone="<?php echo $customer['phone']; ?>">
-                                            <?php echo $customer['full_name']; ?>
-                                        </option>
-                                    <?php endforeach; ?>
+                                    <option value="<?= $assignment['customer_id'] ?>" selected data-phone="<?= htmlspecialchars($assignment['customer_phone']) ?>">
+                                        <?= htmlspecialchars($assignment['customer_name']) ?><?= $assignment['customer_phone'] ? ' - ' . htmlspecialchars($assignment['customer_phone']) : '' ?>
+                                    </option>
                                 </select>
                             </div>
                         </div>
@@ -216,15 +189,9 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="mb-3">
                                 <label for="asset_id" class="form-label">انتخاب دستگاه *</label>
                                 <select class="form-select" id="asset_id" name="asset_id" required>
-                                    <option value="">-- انتخاب دستگاه --</option>
-                                    <?php foreach ($assets as $asset): ?>
-                                        <option value="<?php echo $asset['id']; ?>"
-                                            <?php echo $asset['id'] == $assignment['asset_id'] ? 'selected' : ''; ?>
-                                            data-model="<?php echo $asset['device_model']; ?>"
-                                            data-serial="<?php echo $asset['device_serial']; ?>">
-                                            <?php echo $asset['name']; ?> (مدل: <?php echo $asset['device_model']; ?>)
-                                        </option>
-                                    <?php endforeach; ?>
+                                    <option value="<?= $assignment['asset_id'] ?>" selected data-model="<?= htmlspecialchars($assignment['asset_device_model']) ?>" data-serial="<?= htmlspecialchars($assignment['asset_device_serial']) ?>">
+                                        <?= htmlspecialchars($assignment['asset_name']) ?><?= $assignment['asset_device_model'] ? ' (مدل: ' . htmlspecialchars($assignment['asset_device_model']) . ')' : '' ?>
+                                    </option>
                                 </select>
                             </div>
                         </div>
@@ -234,8 +201,8 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="assignment_date" class="form-label">تاریخ انتساب *</label>
-                                <input type="date" class="form-control" id="assignment_date" name="assignment_date" 
-                                       value="<?php echo $assignment['assignment_date']; ?>" required>
+                                <input type="text" class="form-control jalali-date" id="assignment_date" name="assignment_date" 
+                                       value="<?php echo $assignment['assignment_date']; ?>" required placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -265,8 +232,8 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="installation_date" class="form-label">تاریخ نصب</label>
-                                <input type="date" class="form-control" id="installation_date" name="installation_date" 
-                                       value="<?php echo $assignment['installation_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="installation_date" name="installation_date" 
+                                       value="<?php echo $assignment['installation_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -311,22 +278,22 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="warranty_start_date" class="form-label">تاریخ آغاز گارانتی</label>
-                                <input type="date" class="form-control" id="warranty_start_date" name="warranty_start_date" 
-                                       value="<?php echo $assignment['warranty_start_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="warranty_start_date" name="warranty_start_date" 
+                                       value="<?php echo $assignment['warranty_start_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="installation_start_date" class="form-label">تاریخ آغاز نصب</label>
-                                <input type="date" class="form-control" id="installation_start_date" name="installation_start_date" 
-                                       value="<?php echo $assignment['installation_start_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="installation_start_date" name="installation_start_date" 
+                                       value="<?php echo $assignment['installation_start_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="installation_end_date" class="form-label">تاریخ اتمام نصب</label>
-                                <input type="date" class="form-control" id="installation_end_date" name="installation_end_date" 
-                                       value="<?php echo $assignment['installation_end_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="installation_end_date" name="installation_end_date" 
+                                       value="<?php echo $assignment['installation_end_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                     </div>
@@ -335,22 +302,22 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="temporary_delivery_date" class="form-label">تاریخ تحویل موقت</label>
-                                <input type="date" class="form-control" id="temporary_delivery_date" name="temporary_delivery_date" 
-                                       value="<?php echo $assignment['temporary_delivery_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="temporary_delivery_date" name="temporary_delivery_date" 
+                                       value="<?php echo $assignment['temporary_delivery_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="permanent_delivery_date" class="form-label">تاریخ تحویل دائم</label>
-                                <input type="date" class="form-control" id="permanent_delivery_date" name="permanent_delivery_date" 
-                                       value="<?php echo $assignment['permanent_delivery_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="permanent_delivery_date" name="permanent_delivery_date" 
+                                       value="<?php echo $assignment['permanent_delivery_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="first_service_date" class="form-label">تاریخ سرویس اولیه</label>
-                                <input type="date" class="form-control" id="first_service_date" name="first_service_date" 
-                                       value="<?php echo $assignment['first_service_date']; ?>">
+                                <input type="text" class="form-control jalali-date" id="first_service_date" name="first_service_date" 
+                                       value="<?php echo $assignment['first_service_date']; ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                     </div>
@@ -410,6 +377,8 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
     function previewImage(input, previewId) {
         const preview = document.getElementById(previewId);
@@ -446,22 +415,36 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
         }
     }
     
-    // بارگذاری اطلاعات دستگاه هنگام تغییر
-    document.getElementById('asset_id').addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption.value) {
-            document.getElementById('device_model_display').value = selectedOption.getAttribute('data-model');
-            document.getElementById('device_serial_display').value = selectedOption.getAttribute('data-serial');
-        }
-    });
-    
-    // بارگذاری اطلاعات مشتری هنگام تغییر
-    document.getElementById('customer_id').addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption.value) {
-            document.getElementById('employer_name').value = selectedOption.text;
-            document.getElementById('employer_phone').value = selectedOption.getAttribute('data-phone');
-        }
+    // Select2 + AJAX with initial selection
+    $(function(){
+        $('#customer_id').select2({
+            placeholder: '-- انتخاب مشتری --', dir:'rtl', width:'100%',
+            ajax:{ url:'search_customers.php', dataType:'json', delay:250,
+                data: params => ({ q: params.term || '', page: params.page || 1 }),
+                processResults: data => ({ results: data.items }), cache:true }
+        }).on('select2:select', function(e){
+            const d = e.params.data || {};
+            document.getElementById('employer_name').value = d.text || '';
+            document.getElementById('employer_phone').value = d.phone || '';
+            if ($('#asset_id').val()) document.getElementById('assignmentDetails').style.display = 'block';
+        });
+
+        $('#asset_id').select2({
+            placeholder: '-- انتخاب دستگاه --', dir:'rtl', width:'100%',
+            ajax:{ url:'search_assets.php', dataType:'json', delay:250,
+                data: params => ({ q: params.term || '', page: params.page || 1 }),
+                processResults: data => ({ results: data.items }), cache:true }
+        }).on('select2:select', function(e){
+            const d = e.params.data || {};
+            document.getElementById('device_model_display').value = d.device_model || '';
+            document.getElementById('device_serial_display').value = d.device_serial || '';
+            if ($('#customer_id').val()) document.getElementById('assignmentDetails').style.display = 'block';
+        });
+
+        // مقداردهی اولیه نمایش دستگاه
+        document.getElementById('device_model_display').value = <?= json_encode($assignment['asset_device_model'] ?? '') ?>;
+        document.getElementById('device_serial_display').value = <?= json_encode($assignment['asset_device_serial'] ?? '') ?>;
+        document.getElementById('assignmentDetails').style.display = 'block';
     });
     </script>
 
