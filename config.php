@@ -362,6 +362,40 @@ function migrateDatabaseSchema(PDO $pdo) {
             INDEX idx_user_id (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
 
+        // سرویس و نگهداشت دستگاه‌ها
+        $pdo->exec("CREATE TABLE IF NOT EXISTS asset_services (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            service_date DATE NOT NULL,
+            service_type ENUM('دوره‌ای','اضطراری','نصب','بازدید') DEFAULT 'دوره‌ای',
+            performed_by VARCHAR(255),
+            summary VARCHAR(255),
+            notes TEXT,
+            next_due_date DATE NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_service_date (service_date),
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS maintenance_tasks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            status ENUM('برنامه‌ریزی','در حال انجام','انجام شده','لغو') DEFAULT 'برنامه‌ریزی',
+            priority ENUM('کم','متوسط','بالا','فوری') DEFAULT 'متوسط',
+            planned_date DATE NULL,
+            done_date DATE NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_status (status),
+            INDEX idx_planned_date (planned_date),
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
         // جدول asset_types اگر وجود ندارد برای جلوگیری از خطای JOIN ساخته شود
         $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
             id INT AUTO_INCREMENT PRIMARY KEY,

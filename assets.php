@@ -274,6 +274,34 @@ $filtered_count = count($assets);
                     </div>
                 </div>
 
+                <!-- کارت‌های عملیاتی -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h5 class="card-title mb-1">افزودن دارایی جدید</h5>
+                                    <p class="text-muted mb-2">ثبت دستگاه با تمام مشخصات و تصاویر</p>
+                                    <a href="#add-asset-form" class="btn btn-primary">شروع ثبت</a>
+                                </div>
+                                <div class="display-4 text-primary"><i class="fas fa-plus-circle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h5 class="card-title mb-1">پروفایل دستگاه‌ها</h5>
+                                    <p class="text-muted mb-2">مدیریت سرویس و نگهداشت هر دستگاه</p>
+                                    <a href="profiles_list.php" class="btn btn-outline-primary">مشاهده پروفایل‌ها</a>
+                                </div>
+                                <div class="display-4 text-info"><i class="fas fa-id-card"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- جستجو و فیلتر -->
                 <div class="card search-box">
                     <div class="card-body">
