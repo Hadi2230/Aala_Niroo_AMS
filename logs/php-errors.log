@@ -1,0 +1,8 @@
+[28-Aug-2025 21:50:09 Asia/Tehran] [2025-08-28 21:50:09] خطا در اتصال به دیتابیس: SQLSTATE[HY000] [1049] Unknown database 'aala_niroo'
+[28-Aug-2025 21:50:17 Asia/Tehran] [2025-08-28 21:50:17] خطا در اتصال به دیتابیس: SQLSTATE[HY000] [1049] Unknown database 'aala_niroo'
+[28-Aug-2025 21:53:54 Asia/Tehran] [2025-08-28 21:53:54] خطا در درج داده اولیه: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'admin' for key 'username'
+[28-Aug-2025 22:33:49 Asia/Tehran] PHP Parse error:  syntax error, unexpected token ";" in C:\xampp\htdocs\Aala_Niroo_AMS\navbar.php on line 9
+[28-Aug-2025 22:33:52 Asia/Tehran] PHP Parse error:  syntax error, unexpected token ";" in C:\xampp\htdocs\Aala_Niroo_AMS\navbar.php on line 9
+[28-Aug-2025 22:33:53 Asia/Tehran] PHP Parse error:  syntax error, unexpected token ";" in C:\xampp\htdocs\Aala_Niroo_AMS\navbar.php on line 9
+[28-Aug-2025 22:33:56 Asia/Tehran] PHP Parse error:  syntax error, unexpected token ";" in C:\xampp\htdocs\Aala_Niroo_AMS\navbar.php on line 9
+[28-Aug-2025 22:33:58 Asia/Tehran] PHP Parse error:  syntax error, unexpected token ";" in C:\xampp\htdocs\Aala_Niroo_AMS\navbar.php on line 9
