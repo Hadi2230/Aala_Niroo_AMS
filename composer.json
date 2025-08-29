@@ -1,0 +1,16 @@
+{ 
+    "name": "hadi2230/aala-niroo-ams", 
+    "description": "Aala Niroo AMS System", 
+    "type": "project", 
+    "require": { 
+        "php": ">=7.4" 
+    }, 
+    "license": "MIT", 
+    "autoload": { 
+        "psr-4": { 
+            "App\\": "app/" 
+        } 
+    }, 
+    "minimum-stability": "stable", 
+    "prefer-stable": true 
+} 
