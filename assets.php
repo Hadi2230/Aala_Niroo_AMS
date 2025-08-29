@@ -398,7 +398,7 @@ $filtered_count = count($assets);
                                 <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="purchase_date" class="form-label">تاریخ خرید</label>
-                                        <input type="date" class="form-control" id="purchase_date" name="purchase_date">
+                                        <input type="text" class="form-control jalali-date" id="purchase_date" name="purchase_date" placeholder="YYYY/MM/DD">
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -649,13 +649,13 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="workshop_entry_date" class="form-label">تاریخ ورود به کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_entry_date" name="workshop_entry_date">
+                                            <input type="text" class="form-control jalali-date" id="workshop_entry_date" name="workshop_entry_date" placeholder="YYYY/MM/DD">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="workshop_exit_date" class="form-label">تاریخ خروج از کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_exit_date" name="workshop_exit_date">
+                                            <input type="text" class="form-control jalali-date" id="workshop_exit_date" name="workshop_exit_date" placeholder="YYYY/MM/DD">
                                         </div>
                                     </div>
                                 </div>

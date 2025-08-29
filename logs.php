@@ -69,11 +69,11 @@ $actions = $pdo->query("SELECT DISTINCT action FROM system_logs ORDER BY action"
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">از تاریخ</label>
-                        <input type="date" name="date_from" class="form-control" value="<?= htmlspecialchars($date_from) ?>">
+                        <input type="text" name="date_from" class="form-control jalali-date" value="<?= htmlspecialchars($date_from) ?>" placeholder="YYYY/MM/DD">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">تا تاریخ</label>
-                        <input type="date" name="date_to" class="form-control" value="<?= htmlspecialchars($date_to) ?>">
+                        <input type="text" name="date_to" class="form-control jalali-date" value="<?= htmlspecialchars($date_to) ?>" placeholder="YYYY/MM/DD">
                     </div>
                     <div class="col-12 d-flex gap-2">
                         <button class="btn btn-primary" type="submit">اعمال فیلتر</button>

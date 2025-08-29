@@ -229,8 +229,8 @@ foreach ($types as $type) {
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="purchase_date" class="form-label">تاریخ خرید *</label>
-                                <input type="date" class="form-control" id="purchase_date" name="purchase_date" 
-                                       value="<?php echo $asset['purchase_date']; ?>" required>
+                                <input type="text" class="form-control jalali-date" id="purchase_date" name="purchase_date" 
+                                       value="<?php echo $asset['purchase_date']; ?>" required placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                     </div>
@@ -337,7 +337,7 @@ foreach ($types as $type) {
                         html += `<input type="number" class="form-control" id="field_${field.id}" name="field_${field.id}" value="${fieldValue}"${field.is_required ? ' required' : ''}>`;
                         break;
                     case 'date':
-                        html += `<input type="date" class="form-control" id="field_${field.id}" name="field_${field.id}" value="${fieldValue}"${field.is_required ? ' required' : ''}>`;
+                        html += `<input type="text" class="form-control jalali-date" id="field_${field.id}" name="field_${field.id}" value="${fieldValue}"${field.is_required ? ' required' : ''} placeholder="YYYY/MM/DD">`;
                         break;
                     case 'select':
                         html += `<select class="form-select" id="field_${field.id}" name="field_${field.id}"${field.is_required ? ' required' : ''}>

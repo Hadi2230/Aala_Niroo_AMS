@@ -216,7 +216,7 @@ $tasks = $tsk->fetchAll();
                             <input type="hidden" name="asset_id" value="<?= $asset_id ?>">
                             <div class="mb-3">
                                 <label class="form-label">تاریخ سرویس</label>
-                                <input type="date" class="form-control" name="service_date" required>
+                                <input type="text" class="form-control jalali-date" name="service_date" required placeholder="YYYY/MM/DD">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">نوع سرویس</label>
@@ -237,7 +237,7 @@ $tasks = $tsk->fetchAll();
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">تاریخ سررسید بعدی</label>
-                                <input type="date" class="form-control" name="next_due_date">
+                                <input type="text" class="form-control jalali-date" name="next_due_date" placeholder="YYYY/MM/DD">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">توضیحات</label>
@@ -299,13 +299,13 @@ $tasks = $tsk->fetchAll();
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">تاریخ برنامه</label>
-                                        <input type="date" class="form-control" name="planned_date">
+                                        <input type="text" class="form-control jalali-date" name="planned_date" placeholder="YYYY/MM/DD">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">تاریخ انجام</label>
-                                        <input type="date" class="form-control" name="done_date">
+                                        <input type="text" class="form-control jalali-date" name="done_date" placeholder="YYYY/MM/DD">
                                     </div>
                                 </div>
                             </div>

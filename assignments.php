@@ -183,7 +183,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="assignment_date" class="form-label">تاریخ انتساب *</label>
-                                <input type="date" class="form-control" id="assignment_date" name="assignment_date" required value="<?php echo date('Y-m-d'); ?>">
+                                <input type="text" class="form-control jalali-date" id="assignment_date" name="assignment_date" required value="<?php echo date('Y-m-d'); ?>" placeholder="YYYY/MM/DD">
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -213,7 +213,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_date" class="form-label">تاریخ نصب</label>
-                                    <input type="date" class="form-control" id="installation_date" name="installation_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_date" name="installation_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -254,19 +254,19 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="warranty_start_date" class="form-label">تاریخ آغاز گارانتی</label>
-                                    <input type="date" class="form-control" id="warranty_start_date" name="warranty_start_date">
+                                    <input type="text" class="form-control jalali-date" id="warranty_start_date" name="warranty_start_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_start_date" class="form-label">تاریخ آغاز نصب</label>
-                                    <input type="date" class="form-control" id="installation_start_date" name="installation_start_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_start_date" name="installation_start_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_end_date" class="form-label">تاریخ اتمام نصب</label>
-                                    <input type="date" class="form-control" id="installation_end_date" name="installation_end_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_end_date" name="installation_end_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                         </div>
@@ -275,19 +275,19 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="temporary_delivery_date" class="form-label">تاریخ تحویل موقت</label>
-                                    <input type="date" class="form-control" id="temporary_delivery_date" name="temporary_delivery_date">
+                                    <input type="text" class="form-control jalali-date" id="temporary_delivery_date" name="temporary_delivery_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="permanent_delivery_date" class="form-label">تاریخ تحویل دائم</label>
-                                    <input type="date" class="form-control" id="permanent_delivery_date" name="permanent_delivery_date">
+                                    <input type="text" class="form-control jalali-date" id="permanent_delivery_date" name="permanent_delivery_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="first_service_date" class="form-label">تاریخ سرویس اولیه</label>
-                                    <input type="date" class="form-control" id="first_service_date" name="first_service_date">
+                                    <input type="text" class="form-control jalali-date" id="first_service_date" name="first_service_date" placeholder="YYYY/MM/DD">
                                 </div>
                             </div>
                         </div>
