@@ -103,9 +103,7 @@ $stmt = $pdo->query("
 ");
 $assignments = $stmt->fetchAll();
 
-// دریافت لیست دستگاه‌ها و مشتریان
-$assets = $pdo->query("SELECT id, name, device_model, device_serial, engine_model, engine_serial FROM assets WHERE status = 'فعال' ORDER BY name")->fetchAll();
-$customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY full_name")->fetchAll();
+// جستجوی مشتری و دستگاه از طریق AJAX (Select2) انجام می‌شود؛ بنابراین این لیست‌ها لازم نیستند
 ?>
 
 <!DOCTYPE html>
@@ -117,6 +115,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .assignment-details { display: none; }
         .image-preview {
@@ -125,6 +124,9 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
             margin-top: 10px;
             display: none;
         }
+        .select2-container--default .select2-selection--single { height: 38px; }
+        .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: 38px; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow { height: 38px; }
     </style>
 </head>
 <body>
@@ -150,31 +152,13 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="customer_id" class="form-label">انتخاب مشتری *</label>
-                                <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
-                                    <option value="">-- انتخاب مشتری --</option>
-                                    <?php foreach ($customers as $customer): ?>
-                                        <option value="<?php echo $customer['id']; ?>" data-phone="<?php echo $customer['phone']; ?>">
-                                            <?php echo $customer['full_name']; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <select class="form-select" id="customer_id" name="customer_id" required></select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="asset_id" class="form-label">انتخاب دستگاه *</label>
-                                <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
-                                    <option value="">-- انتخاب دستگاه --</option>
-                                    <?php foreach ($assets as $asset): ?>
-                                        <option value="<?php echo $asset['id']; ?>"
-                                                data-model="<?php echo $asset['device_model']; ?>"
-                                                data-serial="<?php echo $asset['device_serial']; ?>"
-                                                data-engine-model="<?php echo $asset['engine_model']; ?>"
-                                                data-engine-serial="<?php echo $asset['engine_serial']; ?>">
-                                            <?php echo $asset['name']; ?> (مدل: <?php echo $asset['device_model']; ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <select class="form-select" id="asset_id" name="asset_id" required></select>
                             </div>
                         </div>
                     </div>
@@ -437,6 +421,8 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     </div>
     <?php endforeach; ?>
 
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
     function loadCustomerInfo() {
         const customerSelect = document.getElementById('customer_id');
@@ -497,6 +483,45 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
             e.preventDefault();
             alert('لطفاً مشتری و دستگاه را انتخاب کنید.');
         }
+    });
+
+    // Select2 + AJAX sources
+    $(function(){
+        $('#customer_id').select2({
+            placeholder: '-- انتخاب مشتری --',
+            dir: 'rtl',
+            width: '100%',
+            ajax: {
+                url: 'search_customers.php',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '', page: params.page || 1 };
+                },
+                processResults: function (data) {
+                    return { results: data.items };
+                },
+                cache: true
+            }
+        }).on('select2:select', function(){ loadCustomerInfo(); });
+
+        $('#asset_id').select2({
+            placeholder: '-- انتخاب دستگاه --',
+            dir: 'rtl',
+            width: '100%',
+            ajax: {
+                url: 'search_assets.php',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '', page: params.page || 1 };
+                },
+                processResults: function (data) {
+                    return { results: data.items };
+                },
+                cache: true
+            }
+        }).on('select2:select', function(){ loadAssetDetails(); });
     });
     </script>
 
