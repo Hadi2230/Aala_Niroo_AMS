@@ -21,7 +21,7 @@ if (isset($_GET['delete_id']) && $_SESSION['role'] == 'ادمین') {
 $stmt = $pdo->query("
     SELECT a.*, at.display_name as type_name, at.name as type_code 
     FROM assets a
-    LEFT JOIN asset_types at ON a.type_id = at.id
+    JOIN asset_types at ON a.type_id = at.id
     ORDER BY a.created_at DESC
 ");
 $assets = $stmt->fetchAll();
@@ -65,10 +65,35 @@ if (isset($_GET['success'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>گزارشات دستگاه‌ها - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.php">اعلا نیرو</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.php">داشبورد</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="assets.php">ثبت دستگاه جدید</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="reports.php">گزارشات دستگاه‌ها</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="assignments.php">انتساب دستگاه</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="logout.php">خروج</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
     <div class="container mt-5">
         <h2 class="text-center">گزارشات دستگاه‌های ثبت شده</h2>
@@ -161,7 +186,7 @@ if (isset($_GET['success'])) {
                             <p><strong>تاریخ ثبت:</strong> <?php echo $asset['created_at']; ?></p>
                         </div>
                         <div class="col-md-6">
-                            <?php if ($asset['type_name'] === 'ژنراتور'): ?>
+                            <?php if ($asset['asset_type'] === 'ژنراتور'): ?>
                                 <h6>مشخصات ژنراتور:</h6>
                                 <p><strong>برند:</strong> <?php echo $asset['brand']; ?></p>
                                 <p><strong>مدل موتور:</strong> <?php echo $asset['engine_model']; ?></p>
@@ -169,6 +194,7 @@ if (isset($_GET['success'])) {
                                 <p><strong>مدل آلترناتور:</strong> <?php echo $asset['alternator_model']; ?></p>
                                 <p><strong>سریال آلترناتور:</strong> <?php echo $asset['alternator_serial']; ?></p>
                                 <p><strong>ظرفیت توان:</strong> <?php echo $asset['power_capacity']; ?> کیلووات</p>
+                                
                                 <?php if (!empty($asset_images[$asset['id']])): ?>
                                     <h6 class="mt-3">عکس‌ها:</h6>
                                     <div class="row">

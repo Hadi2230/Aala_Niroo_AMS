@@ -115,8 +115,6 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>انتساب دستگاه به مشتری - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .assignment-details { display: none; }
         .image-preview {
@@ -128,7 +126,36 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     </style>
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.php">اعلا نیرو</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.php">داشبورد</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="assets.php">مدیریت دارایی‌ها</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="customers.php">مدیریت مشتریان</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="assignments.php">انتساب دستگاه</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="reports.php">گزارش‌ها</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="logout.php">خروج</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
     <div class="container mt-5">
         <h2 class="text-center">انتساب دستگاه به مشتری</h2>
@@ -143,7 +170,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
 
         <!-- فرم انتساب دستگاه -->
         <div class="card mt-4">
-            <div class="card-header"><i class="fas fa-link"></i> انتساب جدید</div>
+            <div class="card-header">انتساب جدید</div>
             <div class="card-body">
                 <form method="POST" id="assignmentForm" enctype="multipart/form-data">
                     <div class="row">
