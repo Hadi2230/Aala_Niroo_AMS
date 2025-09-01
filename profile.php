@@ -106,7 +106,10 @@ try {
         <div class="row g-3">
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header">اطلاعات کلی</div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>اطلاعات کلی</span>
+                        <button class="btn btn-sm btn-outline-primary no-print" data-bs-toggle="collapse" data-bs-target="#editGeneral">ویرایش</button>
+                    </div>
                     <div class="card-body">
                         <p><strong>نام:</strong> <?= htmlspecialchars($asset['name']) ?></p>
                         <p><strong>نوع:</strong> <?= htmlspecialchars($asset['type_name'] ?? '-') ?></p>
@@ -114,6 +117,47 @@ try {
                         <p><strong>سریال:</strong> <?= htmlspecialchars($asset['serial_number'] ?? '-') ?></p>
                         <p><strong>تاریخ خرید:</strong> <?= htmlspecialchars($asset['purchase_date'] ?? '-') ?></p>
                         <p><strong>برند/مدل:</strong> <?= htmlspecialchars(($asset['brand'] ?? '') . (($asset['model'] ?? '') ? ' / ' . $asset['model'] : '')) ?></p>
+
+                        <div id="editGeneral" class="collapse mt-3">
+                            <form method="post" action="save_asset_profile.php">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                <input type="hidden" name="asset_id" value="<?= (int)$asset['id'] ?>">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">نام</label>
+                                        <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($asset['name']) ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">شماره سریال</label>
+                                        <input type="text" name="serial_number" class="form-control" value="<?= htmlspecialchars($asset['serial_number'] ?? '') ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">تاریخ خرید</label>
+                                        <input type="text" name="purchase_date" class="form-control jalali-date" placeholder="YYYY/MM/DD" value="<?= htmlspecialchars($asset['purchase_date'] ?? '') ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">وضعیت</label>
+                                        <select name="status" class="form-select">
+                                            <option value="فعال" <?= ($asset['status']==='فعال'?'selected':'') ?>>فعال</option>
+                                            <option value="غیرفعال" <?= ($asset['status']==='غیرفعال'?'selected':'') ?>>غیرفعال</option>
+                                            <option value="در حال تعمیر" <?= ($asset['status']==='در حال تعمیر'?'selected':'') ?>>در حال تعمیر</option>
+                                            <option value="آماده بهره‌برداری" <?= ($asset['status']==='آماده بهره‌برداری'?'selected':'') ?>>آماده بهره‌برداری</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">برند</label>
+                                        <input type="text" name="brand" class="form-control" value="<?= htmlspecialchars($asset['brand'] ?? '') ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">مدل</label>
+                                        <input type="text" name="model" class="form-control" value="<?= htmlspecialchars($asset['model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-success" type="submit">ذخیره اطلاعات کلی</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,7 +181,10 @@ try {
         <div class="row g-3 mt-2">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header">مشخصات فنی</div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>مشخصات فنی</span>
+                        <button class="btn btn-sm btn-outline-primary no-print" data-bs-toggle="collapse" data-bs-target="#editSpecs">ویرایش مشخصات</button>
+                    </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-bordered">
@@ -220,6 +267,43 @@ try {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div id="editSpecs" class="collapse mt-3">
+                            <form method="post" action="save_asset_profile.php">
+                                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                <input type="hidden" name="asset_id" value="<?= (int)$asset['id'] ?>">
+                                <div class="row g-3">
+                                    <div class="col-md-3"><label class="form-label">مدل موتور</label><input name="engine_model" class="form-control" value="<?= htmlspecialchars($asset['engine_model'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">سریال موتور</label><input name="engine_serial" class="form-control" value="<?= htmlspecialchars($asset['engine_serial'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">مدل آلترناتور</label><input name="alternator_model" class="form-control" value="<?= htmlspecialchars($asset['alternator_model'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">سریال آلترناتور</label><input name="alternator_serial" class="form-control" value="<?= htmlspecialchars($asset['alternator_serial'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">مدل دستگاه</label><input name="device_model" class="form-control" value="<?= htmlspecialchars($asset['device_model'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">سریال دستگاه</label><input name="device_serial" class="form-control" value="<?= htmlspecialchars($asset['device_serial'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">ظرفیت توان</label><input name="power_capacity" class="form-control" value="<?= htmlspecialchars($asset['power_capacity'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">نوع سوخت/موتور</label><input name="engine_type" class="form-control" value="<?= htmlspecialchars($asset['engine_type'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">مدل کنترل پنل</label><input name="control_panel_model" class="form-control" value="<?= htmlspecialchars($asset['control_panel_model'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">مدل بریکر</label><input name="breaker_model" class="form-control" value="<?= htmlspecialchars($asset['breaker_model'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">مشخصات تانک سوخت</label><input name="fuel_tank_specs" class="form-control" value="<?= htmlspecialchars($asset['fuel_tank_specs'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">باتری</label><input name="battery" class="form-control" value="<?= htmlspecialchars($asset['battery'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">باتری شارژر</label><input name="battery_charger" class="form-control" value="<?= htmlspecialchars($asset['battery_charger'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">هیتر</label><input name="heater" class="form-control" value="<?= htmlspecialchars($asset['heater'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">حجم روغن</label><input name="oil_capacity" class="form-control" value="<?= htmlspecialchars($asset['oil_capacity'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">حجم آب رادیاتور</label><input name="radiator_capacity" class="form-control" value="<?= htmlspecialchars($asset['radiator_capacity'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">ضدیخ</label><input name="antifreeze" class="form-control" value="<?= htmlspecialchars($asset['antifreeze'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">سایر اقلام مولد</label><input name="other_items" class="form-control" value="<?= htmlspecialchars($asset['other_items'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">تاریخ ورود کارگاه</label><input name="workshop_entry_date" class="form-control jalali-date" placeholder="YYYY/MM/DD" value="<?= htmlspecialchars($asset['workshop_entry_date'] ?? '') ?>"></div>
+                                    <div class="col-md-3"><label class="form-label">تاریخ خروج کارگاه</label><input name="workshop_exit_date" class="form-control jalali-date" placeholder="YYYY/MM/DD" value="<?= htmlspecialchars($asset['workshop_exit_date'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">لینک دیتاشیت</label><input name="datasheet_link" class="form-control" value="<?= htmlspecialchars($asset['datasheet_link'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">منوال موتور</label><input name="engine_manual_link" class="form-control" value="<?= htmlspecialchars($asset['engine_manual_link'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">منوال آلترناتور</label><input name="alternator_manual_link" class="form-control" value="<?= htmlspecialchars($asset['alternator_manual_link'] ?? '') ?>"></div>
+                                    <div class="col-md-6"><label class="form-label">منوال کنترل پنل</label><input name="control_panel_manual_link" class="form-control" value="<?= htmlspecialchars($asset['control_panel_manual_link'] ?? '') ?>"></div>
+                                    <div class="col-md-12"><label class="form-label">توضیحات</label><textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($asset['description'] ?? '') ?></textarea></div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-success" type="submit">ذخیره مشخصات فنی</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
