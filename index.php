@@ -26,15 +26,3 @@ include 'config.php';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-کل پروژه صحیح را در GitHub ببین و نگه‌داری کن (دو راه):
-با Git (پیشنهادی)
-در ریشه پروژه (همان پوشه‌ای که فایل‌ها هستند) اجرا کن:
-git config user.name "Your Name"
-git config user.email "you@example.com"
-git init
-git add -A
-git commit -m "Sync: fixed PHP headers, UI light theme, profiles, services/tasks"
-git branch -M main
-git remote remove origin 2>NUL || true
-git remote add origin https://github.com/Hadi2230/Aala_Niroo_AMS.git
-git push -u origin main
