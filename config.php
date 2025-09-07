@@ -371,16 +371,26 @@ function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 
 
     // مسیرهای امن
     $rootDir = __DIR__;
-    $uploadRoot = $rootDir . '/uploads/';
-    if (strpos($target_dir, $uploadRoot) !== 0) {
-        // اگر target_dir نسبی بود، آن را به مسیر کامل تبدیل کن
-        if ($target_dir[0] !== '/') {
-            $target_dir = rtrim($uploadRoot . ltrim($target_dir, '/'), '/') . '/';
-        } else {
-            // اگر ریشه‌ای ولی خارج از uploads بود، به uploads برگردان
+    $uploadRoot = rtrim($rootDir . '/uploads', '/') . '/';
+    $target_dir = (string)$target_dir;
+    // نرمال‌سازی مسیر هدف
+    if ($target_dir === '' || $target_dir === '/') {
+        $target_dir = $uploadRoot;
+    } else if ($target_dir[0] === '/') {
+        // مسیر مطلق: اگر خارج از uploads بود، به uploads هدایت شود
+        if (strpos($target_dir, $uploadRoot) !== 0) {
             $target_dir = $uploadRoot;
         }
+    } else {
+        // مسیر نسبی: اگر با 'uploads/' شروع می‌شود، آن را زیرشاخه‌ی uploads در نظر بگیر
+        $normalized = ltrim($target_dir, './');
+        if (strpos($normalized, 'uploads/') === 0) {
+            $normalized = substr($normalized, strlen('uploads/'));
+        }
+        $target_dir = $uploadRoot . rtrim($normalized, '/');
     }
+    // اطمینان از اسلش انتهایی
+    $target_dir = rtrim($target_dir, '/') . '/';
 
     if (!is_dir($target_dir)) {
         @mkdir($target_dir, 0755, true);
