@@ -10,6 +10,10 @@ if (session_status() === PHP_SESSION_NONE) {
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
+// اطمینان از وجود پوشه لاگ قبل از اشاره به مسیر لاگ
+if (!is_dir(__DIR__ . '/logs')) {
+    @mkdir(__DIR__ . '/logs', 0755, true);
+}
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
@@ -18,7 +22,7 @@ $dbname = 'aala_niroo';
 $username = 'root';
 $password = '';
 
-// تنظیمات زمانzone
+// تنظیمات timezone
 date_default_timezone_set('Asia/Tehran');
 
 try {
@@ -64,9 +68,9 @@ function createDatabaseTables($pdo) {
         mkdir(__DIR__ . '/uploads/assets', 0755, true);
         mkdir(__DIR__ . '/uploads/filters', 0755, true);
         
-        // ایجاد فایل htaccess برای محافظت از پوشه uploads
-        file_put_contents(__DIR__ . '/uploads/.htaccess', 
-            "Order deny,allow\nDeny from all\n<Files ~ \"\.(jpg|jpeg|png|gif)$\">\nAllow from all\n</Files>");
+        // ایجاد فایل htaccess برای محافظت از پوشه uploads (اجازه دسترسی به تصاویر و PDF)
+        file_put_contents(__DIR__ . '/uploads/.htaccess',
+            "Order deny,allow\nDeny from all\n<Files ~ \"\\.(jpg|jpeg|png|gif|pdf)$\">\nAllow from all\n</Files>");
     }
     
     $tables = [
@@ -343,8 +347,8 @@ function isAjaxRequest() {
 // پاسخ JSON
 function jsonResponse($data, $status = 200) {
     http_response_code($status);
-    header('Content-Type: application/json');
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
     exit();
 }
 
@@ -361,27 +365,64 @@ function logAction($pdo, $action, $description = '') {
 
 // آپلود فایل با اعتبارسنجی
 function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf']) {
-    if ($file['error'] !== UPLOAD_ERR_OK) {
+    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
         throw new Exception('خطا در آپلود فایل');
     }
-    
-    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if (!in_array($file_ext, $allowed_types)) {
+
+    // مسیرهای امن
+    $rootDir = __DIR__;
+    $uploadRoot = $rootDir . '/uploads/';
+    if (strpos($target_dir, $uploadRoot) !== 0) {
+        // اگر target_dir نسبی بود، آن را به مسیر کامل تبدیل کن
+        if ($target_dir[0] !== '/') {
+            $target_dir = rtrim($uploadRoot . ltrim($target_dir, '/'), '/') . '/';
+        } else {
+            // اگر ریشه‌ای ولی خارج از uploads بود، به uploads برگردان
+            $target_dir = $uploadRoot;
+        }
+    }
+
+    if (!is_dir($target_dir)) {
+        @mkdir($target_dir, 0755, true);
+    }
+
+    $originalName = isset($file['name']) ? basename($file['name']) : 'file';
+    $file_ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    if (!in_array($file_ext, $allowed_types, true)) {
         throw new Exception('نوع فایل مجاز نیست');
     }
-    
-    if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
+
+    if (!isset($file['size']) || $file['size'] > 5 * 1024 * 1024) { // 5MB limit
         throw new Exception('حجم فایل بیش از حد مجاز است');
     }
-    
-    $file_name = time() . '_' . uniqid() . '.' . $file_ext;
+
+    // بررسی MIME نوع محتوا
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = $finfo->file($file['tmp_name']);
+    $allowedMimes = [
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'pdf' => 'application/pdf'
+    ];
+    if (isset($allowedMimes[$file_ext]) && $allowedMimes[$file_ext] !== $mimeType) {
+        // اجازه برخی MIME های جایگزین برای PDF
+        if (!($file_ext === 'pdf' && in_array($mimeType, ['application/pdf', 'application/x-pdf'], true))) {
+            throw new Exception('نوع محتوای فایل معتبر نیست');
+        }
+    }
+
+    $file_name = time() . '_' . bin2hex(random_bytes(6)) . '.' . $file_ext;
     $target_file = $target_dir . $file_name;
-    
+
     if (!move_uploaded_file($file['tmp_name'], $target_file)) {
         throw new Exception('خطا در ذخیره فایل');
     }
-    
-    return $target_file;
+
+    // برگرداندن مسیر وب نسبی از ریشه پروژه برای ذخیره در دیتابیس
+    $relativePath = str_replace($rootDir . '/', '', $target_file);
+    return $relativePath;
 }
 
 // بررسی CSRF token
