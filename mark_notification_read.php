@@ -8,9 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 include 'config.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['notification_id'])) {
-    $notification_id = sanitizeInput($_POST['notification_id']);
-    
-    if (markNotificationAsRead($pdo, $notification_id, $_SESSION['user_id'])) {
+    if (markNotificationAsRead($pdo, sanitizeInput($_POST['notification_id']), $_SESSION['user_id'])) {
         echo json_encode(['success' => true]);
     } else {
         echo json_encode(['success' => false, 'message' => 'خطا در به‌روزرسانی اعلان']);
