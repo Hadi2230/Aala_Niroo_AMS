@@ -253,6 +253,129 @@ function createDatabaseTables($pdo) {
             INDEX idx_user_id (user_id),
             INDEX idx_action (action),
             INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تیکت‌های مشتری
+        "CREATE TABLE IF NOT EXISTS tickets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ticket_number VARCHAR(20) UNIQUE NOT NULL,
+            customer_id INT NOT NULL,
+            asset_id INT,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            status ENUM('جدید', 'در انتظار', 'در حال بررسی', 'در انتظار قطعه', 'تکمیل شده', 'لغو شده') DEFAULT 'جدید',
+            assigned_to INT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP NULL,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_customer_id (customer_id),
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_assigned_to (assigned_to),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول برنامه تعمیرات دوره‌ای
+        "CREATE TABLE IF NOT EXISTS maintenance_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            assignment_id INT,
+            maintenance_type ENUM('تعمیر دوره‌ای', 'سرویس', 'بازرسی', 'کالیبراسیون') DEFAULT 'تعمیر دوره‌ای',
+            schedule_date DATE NOT NULL,
+            interval_days INT DEFAULT 90,
+            status ENUM('برنامه‌ریزی شده', 'در انتظار', 'در حال انجام', 'تکمیل شده', 'لغو شده') DEFAULT 'برنامه‌ریزی شده',
+            assigned_to INT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP NULL,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE SET NULL,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_schedule_date (schedule_date),
+            INDEX idx_status (status),
+            INDEX idx_assigned_to (assigned_to)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول اعلان‌ها
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type ENUM('تیکت', 'تعمیرات', 'سیستم', 'پیام') DEFAULT 'سیستم',
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            is_read BOOLEAN DEFAULT false,
+            related_id INT,
+            related_type VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_user_id (user_id),
+            INDEX idx_is_read (is_read),
+            INDEX idx_type (type),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول پیام‌های داخلی
+        "CREATE TABLE IF NOT EXISTS messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            sender_id INT NOT NULL,
+            receiver_id INT NOT NULL,
+            subject VARCHAR(255),
+            message TEXT NOT NULL,
+            is_read BOOLEAN DEFAULT false,
+            related_ticket_id INT,
+            related_maintenance_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP NULL,
+            FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL,
+            INDEX idx_sender_id (sender_id),
+            INDEX idx_receiver_id (receiver_id),
+            INDEX idx_is_read (is_read),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تاریخچه وضعیت تیکت‌ها
+        "CREATE TABLE IF NOT EXISTS ticket_status_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ticket_id INT NOT NULL,
+            old_status VARCHAR(50),
+            new_status VARCHAR(50) NOT NULL,
+            changed_by INT,
+            change_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+            FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_ticket_id (ticket_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تنظیمات اعلان‌ها
+        "CREATE TABLE IF NOT EXISTS notification_settings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            email_notifications BOOLEAN DEFAULT true,
+            sms_notifications BOOLEAN DEFAULT false,
+            in_app_notifications BOOLEAN DEFAULT true,
+            ticket_notifications BOOLEAN DEFAULT true,
+            maintenance_notifications BOOLEAN DEFAULT true,
+            system_notifications BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_user_settings (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
@@ -438,5 +561,214 @@ function gregorian_to_jalali($gy, $gm, $gd) {
     $jm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
     $jd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
     return [$jy, $jm, $jd];
+}
+
+/**
+ * توابع مدیریت Workflow و اعلان‌ها
+ */
+
+// تولید شماره تیکت
+function generateTicketNumber($pdo) {
+    $year = date('Y');
+    $prefix = "TK" . $year;
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tickets WHERE ticket_number LIKE ?");
+    $stmt->execute([$prefix . "%"]);
+    $count = $stmt->fetch()['count'] + 1;
+    
+    return $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
+}
+
+// ایجاد تیکت جدید
+function createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority = 'متوسط', $created_by = null) {
+    $ticket_number = generateTicketNumber($pdo);
+    
+    $stmt = $pdo->prepare("INSERT INTO tickets (ticket_number, customer_id, asset_id, title, description, priority, created_by) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$ticket_number, $customer_id, $asset_id, $title, $description, $priority, $created_by]);
+    
+    $ticket_id = $pdo->lastInsertId();
+    
+    // ثبت در تاریخچه
+    logTicketStatusChange($pdo, $ticket_id, null, 'جدید', $created_by, 'تیکت جدید ایجاد شد');
+    
+    // ارسال اعلان
+    sendNotification($pdo, null, 'تیکت جدید', "تیکت جدید با شماره {$ticket_number} ایجاد شد", 'تیکت', 'متوسط', $ticket_id, 'ticket');
+    
+    return $ticket_id;
+}
+
+// تغییر وضعیت تیکت
+function updateTicketStatus($pdo, $ticket_id, $new_status, $changed_by, $reason = '') {
+    // دریافت وضعیت فعلی
+    $stmt = $pdo->prepare("SELECT status, assigned_to FROM tickets WHERE id = ?");
+    $stmt->execute([$ticket_id]);
+    $ticket = $stmt->fetch();
+    
+    if (!$ticket) return false;
+    
+    $old_status = $ticket['status'];
+    
+    // به‌روزرسانی وضعیت
+    $stmt = $pdo->prepare("UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$new_status, $ticket_id]);
+    
+    // ثبت در تاریخچه
+    logTicketStatusChange($pdo, $ticket_id, $old_status, $new_status, $changed_by, $reason);
+    
+    // ارسال اعلان به کارمند تخصیص یافته
+    if ($ticket['assigned_to']) {
+        sendNotification($pdo, $ticket['assigned_to'], 'تغییر وضعیت تیکت', 
+                        "وضعیت تیکت از '{$old_status}' به '{$new_status}' تغییر یافت", 
+                        'تیکت', 'متوسط', $ticket_id, 'ticket');
+    }
+    
+    return true;
+}
+
+// ثبت تغییر وضعیت تیکت
+function logTicketStatusChange($pdo, $ticket_id, $old_status, $new_status, $changed_by, $reason = '') {
+    $stmt = $pdo->prepare("INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by, change_reason) 
+                          VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([$ticket_id, $old_status, $new_status, $changed_by, $reason]);
+}
+
+// ارسال اعلان
+function sendNotification($pdo, $user_id, $title, $message, $type = 'سیستم', $priority = 'متوسط', $related_id = null, $related_type = null) {
+    $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, priority, related_id, related_type) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$user_id, $title, $message, $type, $priority, $related_id, $related_type]);
+    
+    // اگر user_id مشخص باشد، اعلان‌های اضافی ارسال کن
+    if ($user_id) {
+        $settings = getUserNotificationSettings($pdo, $user_id);
+        if ($settings) {
+            // ارسال ایمیل
+            if ($settings['email_notifications']) {
+                sendEmailNotification($user_id, $title, $message);
+            }
+            
+            // ارسال SMS
+            if ($settings['sms_notifications']) {
+                sendSMSNotification($user_id, $title, $message);
+            }
+        }
+    }
+}
+
+// دریافت تنظیمات اعلان کاربر
+function getUserNotificationSettings($pdo, $user_id) {
+    $stmt = $pdo->prepare("SELECT * FROM notification_settings WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    return $stmt->fetch();
+}
+
+// ایجاد تنظیمات اعلان برای کاربر جدید
+function createUserNotificationSettings($pdo, $user_id) {
+    $stmt = $pdo->prepare("INSERT INTO notification_settings (user_id) VALUES (?)");
+    $stmt->execute([$user_id]);
+}
+
+// ارسال ایمیل (پیاده‌سازی ساده)
+function sendEmailNotification($user_id, $title, $message) {
+    // اینجا می‌توانید از PHPMailer یا کتابخانه‌های دیگر استفاده کنید
+    error_log("Email notification to user {$user_id}: {$title} - {$message}");
+}
+
+// ارسال SMS (پیاده‌سازی ساده)
+function sendSMSNotification($user_id, $title, $message) {
+    // اینجا می‌توانید از API های SMS استفاده کنید
+    error_log("SMS notification to user {$user_id}: {$title} - {$message}");
+}
+
+// ایجاد برنامه تعمیرات دوره‌ای
+function createMaintenanceSchedule($pdo, $asset_id, $assignment_id, $schedule_date, $interval_days = 90, $maintenance_type = 'تعمیر دوره‌ای', $assigned_to = null) {
+    $stmt = $pdo->prepare("INSERT INTO maintenance_schedules (asset_id, assignment_id, maintenance_type, schedule_date, interval_days, assigned_to) 
+                          VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$asset_id, $assignment_id, $maintenance_type, $schedule_date, $interval_days, $assigned_to]);
+    
+    $maintenance_id = $pdo->lastInsertId();
+    
+    // ارسال اعلان
+    sendNotification($pdo, $assigned_to, 'برنامه تعمیرات جدید', 
+                    "برنامه تعمیرات دوره‌ای برای تاریخ " . jalaliDate($schedule_date) . " ایجاد شد", 
+                    'تعمیرات', 'متوسط', $maintenance_id, 'maintenance');
+    
+    return $maintenance_id;
+}
+
+// بررسی تعمیرات دوره‌ای نزدیک
+function checkUpcomingMaintenance($pdo, $days_ahead = 7) {
+    $future_date = date('Y-m-d', strtotime("+{$days_ahead} days"));
+    
+    $stmt = $pdo->prepare("
+        SELECT ms.*, a.name as asset_name, c.full_name as customer_name, u.full_name as assigned_user
+        FROM maintenance_schedules ms
+        LEFT JOIN assets a ON ms.asset_id = a.id
+        LEFT JOIN asset_assignments aa ON ms.assignment_id = aa.id
+        LEFT JOIN customers c ON aa.customer_id = c.id
+        LEFT JOIN users u ON ms.assigned_to = u.id
+        WHERE ms.schedule_date <= ? AND ms.status = 'برنامه‌ریزی شده'
+        ORDER BY ms.schedule_date ASC
+    ");
+    $stmt->execute([$future_date]);
+    return $stmt->fetchAll();
+}
+
+// ارسال پیام داخلی
+function sendInternalMessage($pdo, $sender_id, $receiver_id, $subject, $message, $related_ticket_id = null, $related_maintenance_id = null) {
+    $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, related_ticket_id, related_maintenance_id) 
+                          VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$sender_id, $receiver_id, $subject, $message, $related_ticket_id, $related_maintenance_id]);
+    
+    // ارسال اعلان
+    sendNotification($pdo, $receiver_id, 'پیام جدید', $subject, 'پیام', 'متوسط', $pdo->lastInsertId(), 'message');
+    
+    return $pdo->lastInsertId();
+}
+
+// دریافت اعلان‌های خوانده نشده
+function getUnreadNotifications($pdo, $user_id) {
+    $stmt = $pdo->prepare("
+        SELECT * FROM notifications 
+        WHERE user_id = ? AND is_read = false 
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$user_id]);
+    return $stmt->fetchAll();
+}
+
+// علامت‌گذاری اعلان به عنوان خوانده شده
+function markNotificationAsRead($pdo, $notification_id, $user_id) {
+    $stmt = $pdo->prepare("UPDATE notifications SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?");
+    $stmt->execute([$notification_id, $user_id]);
+}
+
+// دریافت پیام‌های خوانده نشده
+function getUnreadMessages($pdo, $user_id) {
+    $stmt = $pdo->prepare("
+        SELECT m.*, u.full_name as sender_name 
+        FROM messages m
+        LEFT JOIN users u ON m.sender_id = u.id
+        WHERE m.receiver_id = ? AND m.is_read = false 
+        ORDER BY m.created_at DESC
+    ");
+    $stmt->execute([$user_id]);
+    return $stmt->fetchAll();
+}
+
+// تخصیص تیکت به کارمند
+function assignTicket($pdo, $ticket_id, $assigned_to, $assigned_by) {
+    $stmt = $pdo->prepare("UPDATE tickets SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$assigned_to, $ticket_id]);
+    
+    // ثبت در تاریخچه
+    logTicketStatusChange($pdo, $ticket_id, null, 'تخصیص یافته', $assigned_by, 'تیکت به کارمند تخصیص یافت');
+    
+    // ارسال اعلان
+    sendNotification($pdo, $assigned_to, 'تیکت جدید تخصیص یافت', 
+                    "تیکت جدید به شما تخصیص یافت", 'تیکت', 'بالا', $ticket_id, 'ticket');
+    
+    return true;
 }
 ?>
