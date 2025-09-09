@@ -8,173 +8,162 @@ if (!isset($_SESSION['user_id'])) {
 include 'config.php';
 
 // بررسی دسترسی
-if (!hasPermission('tickets.view') && !hasPermission('tickets.create')) {
-    die('دسترسی غیرمجاز - شما مجوز دسترسی به تیکت‌ها را ندارید');
+if (!hasPermission('tickets.view')) {
+    header('Location: dashboard.php');
+    exit();
 }
 
-// پردازش فرم‌ها
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // بررسی CSRF Token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        $error_message = 'درخواست نامعتبر است - CSRF Token validation failed';
-    } else {
-        if (isset($_POST['action'])) {
-            switch ($_POST['action']) {
-                case 'create_ticket':
-                    $customer_id = sanitizeInput($_POST['customer_id']);
-                    $asset_id = sanitizeInput($_POST['asset_id']);
-                    $title = sanitizeInput($_POST['title']);
-                    $description = sanitizeInput($_POST['description']);
-                    $priority = sanitizeInput($_POST['priority']);
+// پردازش درخواست‌ها
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    verifyCsrfToken();
+    
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'create_ticket':
+                try {
+                    $ticket_id = createTicket($pdo, [
+                        'customer_id' => (int)$_POST['customer_id'],
+                        'asset_id' => !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null,
+                        'title' => sanitizeInput($_POST['title']),
+                        'description' => sanitizeInput($_POST['description']),
+                        'priority' => sanitizeInput($_POST['priority']),
+                        'created_by' => $_SESSION['user_id']
+                    ]);
                     
-                    if ($customer_id && $title && $description) {
-                        try {
-                            $ticket_id = createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority, $_SESSION['user_id']);
-                            if ($ticket_id) {
-                                logAction($pdo, 'create_ticket', "تیکت جدید با شماره {$ticket_id} ایجاد شد");
-                                $success_message = "تیکت با موفقیت ایجاد شد";
-                            } else {
-                                $error_message = "خطا در ایجاد تیکت";
-                            }
-                        } catch (Exception $e) {
-                            $error_message = "خطا در ایجاد تیکت: " . $e->getMessage();
-                        }
+                    if ($ticket_id) {
+                        $success_message = 'تیکت با موفقیت ایجاد شد. شماره تیکت: ' . generateTicketNumber($ticket_id);
                     } else {
-                        $error_message = "لطفاً تمام فیلدهای ضروری را پر کنید";
+                        $error_message = 'خطا در ایجاد تیکت';
                     }
-                    break;
-                    
-                case 'update_status':
-                    $ticket_id = sanitizeInput($_POST['ticket_id']);
-                    $new_status = sanitizeInput($_POST['new_status']);
-                    $reason = sanitizeInput($_POST['reason']);
-                    
-                    try {
-                        if (updateTicketStatus($pdo, $ticket_id, $new_status, $_SESSION['user_id'], $reason)) {
-                            logAction($pdo, 'update_ticket_status', "وضعیت تیکت {$ticket_id} به {$new_status} تغییر یافت");
-                            $success_message = "وضعیت تیکت با موفقیت به‌روزرسانی شد";
-                        } else {
-                            $error_message = "خطا در به‌روزرسانی وضعیت تیکت";
-                        }
-                    } catch (Exception $e) {
-                        $error_message = "خطا در به‌روزرسانی وضعیت: " . $e->getMessage();
+                } catch (Exception $e) {
+                    $error_message = 'خطا در ایجاد تیکت: ' . $e->getMessage();
+                }
+                break;
+                
+            case 'update_status':
+                try {
+                    $result = updateTicketStatus($pdo, (int)$_POST['ticket_id'], sanitizeInput($_POST['new_status']), sanitizeInput($_POST['reason'] ?? ''));
+                    if ($result) {
+                        $success_message = 'وضعیت تیکت با موفقیت به‌روزرسانی شد';
+                    } else {
+                        $error_message = 'خطا در به‌روزرسانی وضعیت';
                     }
-                    break;
-                    
-                case 'assign_ticket':
-                    $ticket_id = sanitizeInput($_POST['ticket_id']);
-                    $assigned_to = sanitizeInput($_POST['assigned_to']);
-                    
-                    try {
-                        if (assignTicket($pdo, $ticket_id, $assigned_to, $_SESSION['user_id'])) {
-                            logAction($pdo, 'assign_ticket', "تیکت {$ticket_id} به کاربر {$assigned_to} تخصیص یافت");
-                            $success_message = "تیکت با موفقیت تخصیص یافت";
-                        } else {
-                            $error_message = "خطا در تخصیص تیکت";
-                        }
-                    } catch (Exception $e) {
-                        $error_message = "خطا در تخصیص تیکت: " . $e->getMessage();
+                } catch (Exception $e) {
+                    $error_message = 'خطا در به‌روزرسانی وضعیت: ' . $e->getMessage();
+                }
+                break;
+                
+            case 'assign_ticket':
+                try {
+                    $result = assignTicket($pdo, (int)$_POST['ticket_id'], (int)$_POST['assigned_to']);
+                    if ($result) {
+                        $success_message = 'تیکت با موفقیت تخصیص یافت';
+                    } else {
+                        $error_message = 'خطا در تخصیص تیکت';
                     }
-                    break;
-            }
+                } catch (Exception $e) {
+                    $error_message = 'خطا در تخصیص تیکت: ' . $e->getMessage();
+                }
+                break;
         }
     }
 }
 
 // دریافت فیلترها
-$search = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
-$status_filter = isset($_GET['status']) ? sanitizeInput($_GET['status']) : '';
-$priority_filter = isset($_GET['priority']) ? sanitizeInput($_GET['priority']) : '';
-$filter = isset($_GET['filter']) ? sanitizeInput($_GET['filter']) : 'all';
+$filter = $_GET['filter'] ?? 'all';
+$search = $_GET['search'] ?? '';
+$status_filter = $_GET['status'] ?? '';
+$priority_filter = $_GET['priority'] ?? '';
 
+// ساخت کوئری
 $where_conditions = [];
 $params = [];
 
-if ($search) {
-    $where_conditions[] = "(t.title LIKE ? OR t.ticket_number LIKE ? OR c.full_name LIKE ?)";
-    $search_param = "%{$search}%";
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
+if ($filter !== 'all') {
+    switch ($filter) {
+        case 'open':
+            $where_conditions[] = "t.status IN ('جدید', 'در انتظار', 'در حال بررسی')";
+            break;
+        case 'urgent':
+            $where_conditions[] = "t.priority = 'فوری'";
+            break;
+        case 'assigned':
+            $where_conditions[] = "t.assigned_to IS NOT NULL";
+            break;
+        case 'unassigned':
+            $where_conditions[] = "t.assigned_to IS NULL";
+            break;
+        case 'completed':
+            $where_conditions[] = "t.status = 'تکمیل شده'";
+            break;
+    }
 }
 
-if ($status_filter) {
+if (!empty($search)) {
+    $where_conditions[] = "(t.title LIKE ? OR t.description LIKE ? OR c.full_name LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+if (!empty($status_filter)) {
     $where_conditions[] = "t.status = ?";
     $params[] = $status_filter;
 }
 
-if ($priority_filter) {
+if (!empty($priority_filter)) {
     $where_conditions[] = "t.priority = ?";
     $params[] = $priority_filter;
 }
 
-// فیلترهای اضافی
-switch ($filter) {
-    case 'open':
-        $where_conditions[] = "t.status NOT IN ('تکمیل شده', 'لغو شده')";
-        break;
-    case 'urgent':
-        $where_conditions[] = "t.priority IN ('فوری', 'بالا')";
-        break;
-    case 'assigned':
-        $where_conditions[] = "t.assigned_to IS NOT NULL";
-        break;
-    case 'unassigned':
-        $where_conditions[] = "t.assigned_to IS NULL";
-        break;
-    case 'completed':
-        $where_conditions[] = "t.status = 'تکمیل شده'";
-        break;
+$where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+
+// دریافت تیکت‌ها
+try {
+    $tickets_query = "
+        SELECT t.*, 
+               c.full_name as customer_name,
+               a.name as asset_name,
+               u.full_name as assigned_user,
+               creator.full_name as created_by_name
+        FROM tickets t
+        LEFT JOIN customers c ON t.customer_id = c.id
+        LEFT JOIN assets a ON t.asset_id = a.id
+        LEFT JOIN users u ON t.assigned_to = u.id
+        LEFT JOIN users creator ON t.created_by = creator.id
+        $where_clause
+        ORDER BY t.created_at DESC
+    ";
+    
+    $stmt = $pdo->prepare($tickets_query);
+    $stmt->execute($params);
+    $tickets = $stmt->fetchAll();
+} catch (Exception $e) {
+    $error_message = 'خطا در دریافت تیکت‌ها: ' . $e->getMessage();
+    $tickets = [];
 }
 
-$where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
-
-$tickets_query = "
-    SELECT t.*, c.full_name as customer_name, a.name as asset_name, u.full_name as assigned_user, u2.full_name as created_by_name
-    FROM tickets t
-    LEFT JOIN customers c ON t.customer_id = c.id
-    LEFT JOIN assets a ON t.asset_id = a.id
-    LEFT JOIN users u ON t.assigned_to = u.id
-    LEFT JOIN users u2 ON t.created_by = u2.id
-    {$where_clause}
-    ORDER BY t.created_at DESC
-";
-
-$stmt = $pdo->prepare($tickets_query);
-$stmt->execute($params);
-$tickets = $stmt->fetchAll();
-
-// دریافت مشتریان و دارایی‌ها برای فرم
-$customers = $pdo->query("SELECT id, full_name FROM customers ORDER BY full_name")->fetchAll();
-$assets = $pdo->query("SELECT id, name FROM assets ORDER BY name")->fetchAll();
-$users = $pdo->query("SELECT id, full_name FROM users WHERE is_active = 1 ORDER BY full_name")->fetchAll();
-
-// آمار تیکت‌ها
-$stats = [
-    'total' => 0,
-    'open' => 0,
-    'urgent' => 0,
-    'assigned' => 0,
-    'completed' => 0
-];
-
+// دریافت آمار
 try {
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM tickets");
-    $stats['total'] = $stmt->fetch()['total'];
-    
-    $stmt = $pdo->query("SELECT COUNT(*) as open FROM tickets WHERE status NOT IN ('تکمیل شده', 'لغو شده')");
-    $stats['open'] = $stmt->fetch()['open'];
-    
-    $stmt = $pdo->query("SELECT COUNT(*) as urgent FROM tickets WHERE priority IN ('فوری', 'بالا')");
-    $stats['urgent'] = $stmt->fetch()['urgent'];
-    
-    $stmt = $pdo->query("SELECT COUNT(*) as assigned FROM tickets WHERE assigned_to IS NOT NULL");
-    $stats['assigned'] = $stmt->fetch()['assigned'];
-    
-    $stmt = $pdo->query("SELECT COUNT(*) as completed FROM tickets WHERE status = 'تکمیل شده'");
-    $stats['completed'] = $stmt->fetch()['completed'];
+    $stats = [
+        'total' => $pdo->query("SELECT COUNT(*) FROM tickets")->fetchColumn(),
+        'open' => $pdo->query("SELECT COUNT(*) FROM tickets WHERE status IN ('جدید', 'در انتظار', 'در حال بررسی')")->fetchColumn(),
+        'urgent' => $pdo->query("SELECT COUNT(*) FROM tickets WHERE priority = 'فوری'")->fetchColumn(),
+        'assigned' => $pdo->query("SELECT COUNT(*) FROM tickets WHERE assigned_to IS NOT NULL")->fetchColumn(),
+        'unassigned' => $pdo->query("SELECT COUNT(*) FROM tickets WHERE assigned_to IS NULL")->fetchColumn(),
+        'completed' => $pdo->query("SELECT COUNT(*) FROM tickets WHERE status = 'تکمیل شده'")->fetchColumn()
+    ];
 } catch (Exception $e) {
-    // خطا در آمار
+    $stats = ['total' => 0, 'open' => 0, 'urgent' => 0, 'assigned' => 0, 'unassigned' => 0, 'completed' => 0];
+}
+
+// دریافت داده‌های مورد نیاز برای فرم‌ها
+try {
+    $customers = $pdo->query("SELECT id, full_name FROM customers ORDER BY full_name")->fetchAll();
+    $assets = $pdo->query("SELECT id, name FROM assets ORDER BY name")->fetchAll();
+    $users = $pdo->query("SELECT id, full_name FROM users ORDER BY full_name")->fetchAll();
+} catch (Exception $e) {
+    $customers = $assets = $users = [];
 }
 ?>
 
@@ -197,12 +186,11 @@ try {
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(52,152,219,0.3); }
         .priority-badge { font-size: 0.75rem; padding: 2px 6px; }
         .status-badge { font-size: 0.75rem; padding: 2px 6px; }
-        .ticket-item { border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 10px; padding: 15px; transition: all 0.3s; }
-        .ticket-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .ticket-item.urgent { border-left: 4px solid #e74c3c; }
-        .ticket-item.high { border-left: 4px solid #f39c12; }
-        .ticket-item.medium { border-left: 4px solid #3498db; }
-        .ticket-item.low { border-left: 4px solid #95a5a6; }
+        .ticket-item { border-left: 4px solid #3498db; }
+        .ticket-item.urgent { border-left-color: #e74c3c; }
+        .ticket-item.high { border-left-color: #f39c12; }
+        .ticket-item.medium { border-left-color: #3498db; }
+        .ticket-item.low { border-left-color: #95a5a6; }
         .stats-card { text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; }
         .stats-number { font-size: 2rem; font-weight: bold; margin-bottom: 5px; }
         .stats-label { font-size: 0.9rem; opacity: 0.9; }
@@ -210,11 +198,6 @@ try {
         .search-box { max-width: 300px; }
         .ticket-actions { margin-top: 10px; }
         .ticket-actions .btn { margin-left: 5px; }
-        .dark-mode .ticket-item { background-color: #374151; border-color: #4b5563; }
-        .dark-mode .list-group-item { background-color: #374151; border-color: #4b5563; color: #ffffff; }
-        .ticket-meta { font-size: 0.85rem; color: #6c757d; }
-        .dark-mode .ticket-meta { color: #9ca3af; }
-        .ticket-content { margin-top: 10px; line-height: 1.6; }
     </style>
 </head>
 <body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme']==='dark' ? 'dark-mode' : ''; ?>">
@@ -273,32 +256,38 @@ try {
                             </div>
                             <div class="col-md-2">
                                 <div class="stats-card">
+                                    <div class="stats-number"><?php echo $stats['unassigned']; ?></div>
+                                    <div class="stats-label">تخصیص نیافته</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="stats-card">
                                     <div class="stats-number"><?php echo $stats['completed']; ?></div>
                                     <div class="stats-label">تکمیل شده</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- فیلترها -->
+                        <!-- فیلترهای سریع -->
                         <div class="row mb-3">
                             <div class="col-md-8">
                                 <div class="filter-buttons">
                                     <a href="?filter=all" class="btn btn-outline-primary <?php echo $filter == 'all' ? 'active' : ''; ?>">
                                         <i class="fas fa-list"></i> همه
                                     </a>
-                                    <a href="?filter=open" class="btn btn-outline-success <?php echo $filter == 'open' ? 'active' : ''; ?>">
+                                    <a href="?filter=open" class="btn btn-outline-warning <?php echo $filter == 'open' ? 'active' : ''; ?>">
                                         <i class="fas fa-folder-open"></i> باز
                                     </a>
                                     <a href="?filter=urgent" class="btn btn-outline-danger <?php echo $filter == 'urgent' ? 'active' : ''; ?>">
-                                        <i class="fas fa-exclamation-triangle"></i> فوری
+                                        <i class="fas fa-exclamation-circle"></i> فوری
                                     </a>
                                     <a href="?filter=assigned" class="btn btn-outline-info <?php echo $filter == 'assigned' ? 'active' : ''; ?>">
                                         <i class="fas fa-user-check"></i> تخصیص یافته
                                     </a>
-                                    <a href="?filter=unassigned" class="btn btn-outline-warning <?php echo $filter == 'unassigned' ? 'active' : ''; ?>">
+                                    <a href="?filter=unassigned" class="btn btn-outline-secondary <?php echo $filter == 'unassigned' ? 'active' : ''; ?>">
                                         <i class="fas fa-user-times"></i> تخصیص نیافته
                                     </a>
-                                    <a href="?filter=completed" class="btn btn-outline-secondary <?php echo $filter == 'completed' ? 'active' : ''; ?>">
+                                    <a href="?filter=completed" class="btn btn-outline-success <?php echo $filter == 'completed' ? 'active' : ''; ?>">
                                         <i class="fas fa-check"></i> تکمیل شده
                                     </a>
                                 </div>
@@ -350,68 +339,58 @@ try {
                         </div>
 
                         <!-- لیست تیکت‌ها -->
-                        <div class="tickets-list">
+                        <div class="ticket-list">
                             <?php if ($tickets): ?>
-                                <?php foreach ($tickets as $ticket): ?>
-                                    <?php
-                                    $priority_class = '';
-                                    switch (strtolower($ticket['priority'])) {
-                                        case 'فوری': $priority_class = 'urgent'; break;
-                                        case 'بالا': $priority_class = 'high'; break;
-                                        case 'متوسط': $priority_class = 'medium'; break;
-                                        case 'کم': $priority_class = 'low'; break;
-                                        default: $priority_class = 'medium';
-                                    }
-                                    ?>
-                                    <div class="ticket-item <?php echo $priority_class; ?>">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <h6 class="mb-0"><?php echo htmlspecialchars($ticket['title']); ?></h6>
-                                                    <div>
-                                                        <span class="badge priority-badge bg-<?php echo $ticket['priority'] === 'فوری' ? 'danger' : ($ticket['priority'] === 'بالا' ? 'warning' : ($ticket['priority'] === 'متوسط' ? 'info' : 'secondary')); ?>">
-                                                            <?php echo $ticket['priority']; ?>
-                                                        </span>
-                                                        <span class="badge status-badge bg-<?php echo $ticket['status'] === 'جدید' ? 'primary' : ($ticket['status'] === 'تکمیل شده' ? 'success' : 'secondary'); ?>">
-                                                            <?php echo $ticket['status']; ?>
-                                                        </span>
+                                <div class="list-group">
+                                    <?php foreach ($tickets as $ticket): ?>
+                                        <div class="list-group-item ticket-item <?php echo strtolower($ticket['priority']); ?>">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="mb-0"><?php echo htmlspecialchars($ticket['title']); ?></h6>
+                                                        <div>
+                                                            <span class="badge priority-badge bg-<?php echo $ticket['priority'] === 'فوری' ? 'danger' : ($ticket['priority'] === 'بالا' ? 'warning' : ($ticket['priority'] === 'متوسط' ? 'info' : 'secondary')); ?>">
+                                                                <?php echo $ticket['priority']; ?>
+                                                            </span>
+                                                            <span class="badge status-badge bg-<?php echo $ticket['status'] === 'جدید' ? 'primary' : ($ticket['status'] === 'تکمیل شده' ? 'success' : 'secondary'); ?>">
+                                                                <?php echo $ticket['status']; ?>
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div class="ticket-content">
                                                     <p class="text-muted mb-2"><?php echo htmlspecialchars($ticket['description']); ?></p>
-                                                </div>
-                                                <div class="row">
-                                                    <div class="col-md-6">
-                                                        <div class="ticket-meta">
-                                                            <i class="fa fa-user"></i> مشتری: <?php echo htmlspecialchars($ticket['customer_name']); ?><br>
-                                                            <i class="fa fa-cube"></i> دارایی: <?php echo htmlspecialchars($ticket['asset_name'] ?? 'نامشخص'); ?><br>
-                                                            <i class="fa fa-user-tie"></i> تخصیص یافته به: <?php echo htmlspecialchars($ticket['assigned_user'] ?? 'تخصیص نیافته'); ?>
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <small class="text-muted">
+                                                                <i class="fa fa-user"></i> مشتری: <?php echo htmlspecialchars($ticket['customer_name']); ?><br>
+                                                                <i class="fa fa-cube"></i> دارایی: <?php echo htmlspecialchars($ticket['asset_name'] ?? 'نامشخص'); ?><br>
+                                                                <i class="fa fa-user-tie"></i> تخصیص یافته به: <?php echo htmlspecialchars($ticket['assigned_user'] ?? 'تخصیص نیافته'); ?>
+                                                            </small>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <small class="text-muted">
+                                                                <i class="fa fa-hashtag"></i> شماره تیکت: <?php echo htmlspecialchars($ticket['ticket_number']); ?><br>
+                                                                <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo jalaliDate($ticket['created_at']); ?><br>
+                                                                <i class="fa fa-user-plus"></i> ایجاد کننده: <?php echo htmlspecialchars($ticket['created_by_name']); ?>
+                                                            </small>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-6">
-                                                        <div class="ticket-meta">
-                                                            <i class="fa fa-hashtag"></i> شماره تیکت: <?php echo htmlspecialchars($ticket['ticket_number']); ?><br>
-                                                            <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo jalaliDate($ticket['created_at']); ?><br>
-                                                            <i class="fa fa-user-plus"></i> ایجاد کننده: <?php echo htmlspecialchars($ticket['created_by_name']); ?>
-                                                        </div>
-                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="ticket-actions">
-                                                <div class="btn-group-vertical" role="group">
-                                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#updateStatusModal" 
-                                                            data-ticket-id="<?php echo $ticket['id']; ?>" data-current-status="<?php echo $ticket['status']; ?>">
-                                                        <i class="fa fa-edit"></i> تغییر وضعیت
-                                                    </button>
-                                                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#assignTicketModal" 
-                                                            data-ticket-id="<?php echo $ticket['id']; ?>" data-current-assigned="<?php echo $ticket['assigned_to']; ?>">
-                                                        <i class="fa fa-user-plus"></i> تخصیص
-                                                    </button>
+                                                <div class="ticket-actions">
+                                                    <div class="btn-group-vertical" role="group">
+                                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#updateStatusModal" 
+                                                                data-ticket-id="<?php echo $ticket['id']; ?>" data-current-status="<?php echo $ticket['status']; ?>">
+                                                            <i class="fa fa-edit"></i> تغییر وضعیت
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#assignTicketModal" 
+                                                                data-ticket-id="<?php echo $ticket['id']; ?>" data-current-assigned="<?php echo $ticket['assigned_to']; ?>">
+                                                            <i class="fa fa-user-plus"></i> تخصیص
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                <?php endforeach; ?>
+                                    <?php endforeach; ?>
+                                </div>
                             <?php else: ?>
                                 <div class="text-center py-5">
                                     <i class="fa fa-ticket-alt fa-3x text-muted mb-3"></i>
@@ -423,170 +402,169 @@ try {
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal ایجاد تیکت جدید -->
-    <div class="modal fade" id="createTicketModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <form class="modal-content" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">ایجاد تیکت جدید</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="create_ticket">
-                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">مشتری *</label>
-                            <select class="form-select" name="customer_id" required>
-                                <option value="">انتخاب مشتری</option>
-                                <?php foreach ($customers as $customer): ?>
-                                    <option value="<?php echo $customer['id']; ?>"><?php echo htmlspecialchars($customer['full_name']); ?></option>
+        <!-- Modal ایجاد تیکت جدید -->
+        <div class="modal fade" id="createTicketModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <form class="modal-content" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ایجاد تیکت جدید</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="create_ticket">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">مشتری *</label>
+                                <select class="form-select" name="customer_id" required>
+                                    <option value="">انتخاب مشتری</option>
+                                    <?php foreach ($customers as $customer): ?>
+                                        <option value="<?php echo $customer['id']; ?>"><?php echo htmlspecialchars($customer['full_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">دارایی</label>
+                                <select class="form-select" name="asset_id">
+                                    <option value="">انتخاب دارایی (اختیاری)</option>
+                                    <?php foreach ($assets as $asset): ?>
+                                        <option value="<?php echo $asset['id']; ?>"><?php echo htmlspecialchars($asset['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">عنوان تیکت *</label>
+                            <input type="text" class="form-control" name="title" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">توضیحات *</label>
+                            <textarea class="form-control" name="description" rows="4" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">اولویت</label>
+                            <select class="form-select" name="priority">
+                                <option value="متوسط">متوسط</option>
+                                <option value="کم">کم</option>
+                                <option value="بالا">بالا</option>
+                                <option value="فوری">فوری</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">ایجاد تیکت</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal تغییر وضعیت -->
+        <div class="modal fade" id="updateStatusModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">تغییر وضعیت تیکت</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="update_status">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        <input type="hidden" name="ticket_id" id="updateTicketId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">وضعیت جدید</label>
+                            <select class="form-select" name="new_status" required>
+                                <option value="جدید">جدید</option>
+                                <option value="در انتظار">در انتظار</option>
+                                <option value="در حال بررسی">در حال بررسی</option>
+                                <option value="در انتظار قطعه">در انتظار قطعه</option>
+                                <option value="تکمیل شده">تکمیل شده</option>
+                                <option value="لغو شده">لغو شده</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">دلیل تغییر</label>
+                            <textarea class="form-control" name="reason" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">به‌روزرسانی</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal تخصیص تیکت -->
+        <div class="modal fade" id="assignTicketModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form class="modal-content" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">تخصیص تیکت</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="assign_ticket">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        <input type="hidden" name="ticket_id" id="assignTicketId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">تخصیص به کاربر</label>
+                            <select class="form-select" name="assigned_to" required>
+                                <option value="">انتخاب کاربر</option>
+                                <?php foreach ($users as $user): ?>
+                                    <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['full_name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">دارایی</label>
-                            <select class="form-select" name="asset_id">
-                                <option value="">انتخاب دارایی (اختیاری)</option>
-                                <?php foreach ($assets as $asset): ?>
-                                    <option value="<?php echo $asset['id']; ?>"><?php echo htmlspecialchars($asset['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">عنوان تیکت *</label>
-                        <input type="text" class="form-control" name="title" required placeholder="عنوان مشکل را وارد کنید">
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">تخصیص</button>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">توضیحات *</label>
-                        <textarea class="form-control" name="description" rows="4" required placeholder="توضیحات کامل مشکل را بنویسید"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">اولویت</label>
-                        <select class="form-select" name="priority">
-                            <option value="متوسط">متوسط</option>
-                            <option value="کم">کم</option>
-                            <option value="بالا">بالا</option>
-                            <option value="فوری">فوری</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ایجاد تیکت</button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
-    </div>
 
-    <!-- Modal تغییر وضعیت -->
-    <div class="modal fade" id="updateStatusModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form class="modal-content" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">تغییر وضعیت تیکت</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="update_status">
-                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    <input type="hidden" name="ticket_id" id="updateTicketId">
-                    
-                    <div class="mb-3">
-                        <label class="form-label">وضعیت جدید</label>
-                        <select class="form-select" name="new_status" required>
-                            <option value="جدید">جدید</option>
-                            <option value="در انتظار">در انتظار</option>
-                            <option value="در حال بررسی">در حال بررسی</option>
-                            <option value="در انتظار قطعه">در انتظار قطعه</option>
-                            <option value="تکمیل شده">تکمیل شده</option>
-                            <option value="لغو شده">لغو شده</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">دلیل تغییر</label>
-                        <textarea class="form-control" name="reason" rows="3" placeholder="دلیل تغییر وضعیت را وارد کنید"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">به‌روزرسانی</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal تخصیص تیکت -->
-    <div class="modal fade" id="assignTicketModal" tabindex="-1">
-        <div class="modal-dialog">
-            <form class="modal-content" method="post">
-                <div class="modal-header">
-                    <h5 class="modal-title">تخصیص تیکت</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="action" value="assign_ticket">
-                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    <input type="hidden" name="ticket_id" id="assignTicketId">
-                    
-                    <div class="mb-3">
-                        <label class="form-label">تخصیص به کاربر</label>
-                        <select class="form-select" name="assigned_to" required>
-                            <option value="">انتخاب کاربر</option>
-                            <?php foreach ($users as $user): ?>
-                                <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['full_name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">تخصیص</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // تنظیم مقادیر در modal تغییر وضعیت
-        document.getElementById('updateStatusModal').addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const ticketId = button.getAttribute('data-ticket-id');
-            const currentStatus = button.getAttribute('data-current-status');
-            
-            document.getElementById('updateTicketId').value = ticketId;
-            document.querySelector('select[name="new_status"]').value = currentStatus;
-        });
-
-        // تنظیم مقادیر در modal تخصیص
-        document.getElementById('assignTicketModal').addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const ticketId = button.getAttribute('data-ticket-id');
-            const currentAssigned = button.getAttribute('data-current-assigned');
-            
-            document.getElementById('assignTicketId').value = ticketId;
-            if (currentAssigned) {
-                document.querySelector('select[name="assigned_to"]').value = currentAssigned;
-            }
-        });
-
-        // Auto-hide alerts
-        setTimeout(function() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(function(alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            // تنظیم مقادیر در modal تغییر وضعیت
+            document.getElementById('updateStatusModal').addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const ticketId = button.getAttribute('data-ticket-id');
+                const currentStatus = button.getAttribute('data-current-status');
+                
+                document.getElementById('updateTicketId').value = ticketId;
+                document.querySelector('select[name="new_status"]').value = currentStatus;
             });
-        }, 5000);
-    </script>
-</body>
-</html>
+
+            // تنظیم مقادیر در modal تخصیص
+            document.getElementById('assignTicketModal').addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const ticketId = button.getAttribute('data-ticket-id');
+                const currentAssigned = button.getAttribute('data-current-assigned');
+                
+                document.getElementById('assignTicketId').value = ticketId;
+                if (currentAssigned) {
+                    document.querySelector('select[name="assigned_to"]').value = currentAssigned;
+                }
+            });
+
+            // Auto-hide alerts
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000);
+        </script>
+    </body>
+    </html>
