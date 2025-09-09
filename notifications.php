@@ -73,10 +73,8 @@ $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
 // دریافت اعلان‌ها
 try {
     $notifications_query = "
-        SELECT n.*, 
-               u.full_name as sender_name
+        SELECT n.*
         FROM notifications n
-        LEFT JOIN users u ON n.sender_id = u.id
         $where_clause
         ORDER BY n.created_at DESC
     ";
@@ -268,7 +266,7 @@ try {
                                                     <div class="row">
                                                         <div class="col-md-6">
                                                             <small class="text-muted">
-                                                                <i class="fa fa-user"></i> فرستنده: <?php echo htmlspecialchars($notification['sender_name'] ?? 'سیستم'); ?><br>
+                                                                <i class="fa fa-user"></i> فرستنده: سیستم<br>
                                                                 <i class="fa fa-calendar"></i> تاریخ: <?php echo jalaliDate($notification['created_at']); ?>
                                                             </small>
                                                         </div>
