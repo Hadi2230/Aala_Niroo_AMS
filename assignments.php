@@ -69,15 +69,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['assign_asset'])) {
         // درج اطلاعات کامل انتساب
         $stmt = $pdo->prepare("INSERT INTO assignment_details 
             (assignment_id, installation_date, delivery_person, installation_address, 
-            warranty_start_date, warranty_conditions, employer_name, employer_phone,
+            warranty_start_date, warranty_end_date, warranty_conditions, employer_name, employer_phone,
             recipient_name, recipient_phone, installer_name, installation_start_date,
             installation_end_date, temporary_delivery_date, permanent_delivery_date,
             first_service_date, post_installation_commitments, notes, installation_photo) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $stmt->execute([
             $assignment_id, $installation_date, $delivery_person, $installation_address,
-            $warranty_start_date, $warranty_conditions, $employer_name, $employer_phone,
+            $warranty_start_date, null, $warranty_conditions, $employer_name, $employer_phone,
             $recipient_name, $recipient_phone, $installer_name, $installation_start_date,
             $installation_end_date, $temporary_delivery_date, $permanent_delivery_date,
             $first_service_date, $post_installation_commitments, $additional_notes, $installation_photo
