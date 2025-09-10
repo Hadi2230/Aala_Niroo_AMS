@@ -169,13 +169,17 @@ function createDatabaseTables($pdo) {
             full_name VARCHAR(255) NOT NULL,
             phone VARCHAR(20) NOT NULL UNIQUE,
             company VARCHAR(255),
+            customer_type ENUM('حقیقی', 'حقوقی') DEFAULT 'حقیقی',
+            company_phone VARCHAR(20),
+            responsible_phone VARCHAR(20),
             address TEXT,
             city VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_phone (phone),
             INDEX idx_company (company),
-            INDEX idx_city (city)
+            INDEX idx_city (city),
+            INDEX idx_customer_type (customer_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
         
         // جدول کاربران
@@ -376,6 +380,96 @@ function createDatabaseTables($pdo) {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE KEY unique_user_settings (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول نظرسنجی‌ها
+        "CREATE TABLE IF NOT EXISTS surveys (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_is_active (is_active),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول سوالات نظرسنجی
+        "CREATE TABLE IF NOT EXISTS survey_questions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            survey_id INT NOT NULL,
+            question_text TEXT NOT NULL,
+            question_type ENUM('text', 'yes_no', 'rating', 'multiple_choice') DEFAULT 'text',
+            is_required BOOLEAN DEFAULT true,
+            options TEXT,
+            order_index INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
+            INDEX idx_survey_id (survey_id),
+            INDEX idx_order (order_index)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول ارسال‌های نظرسنجی
+        "CREATE TABLE IF NOT EXISTS survey_submissions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            survey_id INT NOT NULL,
+            customer_id INT NOT NULL,
+            asset_id INT,
+            started_by INT NOT NULL,
+            status ENUM('در حال تکمیل', 'تکمیل شده', 'لغو شده') DEFAULT 'در حال تکمیل',
+            sms_sent BOOLEAN DEFAULT false,
+            sms_sent_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+            FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_survey_id (survey_id),
+            INDEX idx_customer_id (customer_id),
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_started_by (started_by),
+            INDEX idx_status (status),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول پاسخ‌های نظرسنجی
+        "CREATE TABLE IF NOT EXISTS survey_responses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            survey_id INT NOT NULL,
+            question_id INT NOT NULL,
+            customer_id INT NOT NULL,
+            asset_id INT,
+            response_text TEXT,
+            responded_by INT NOT NULL,
+            submission_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
+            FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+            FOREIGN KEY (responded_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
+            INDEX idx_survey_id (survey_id),
+            INDEX idx_question_id (question_id),
+            INDEX idx_customer_id (customer_id),
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_submission_id (submission_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول لاگ پیامک‌ها
+        "CREATE TABLE IF NOT EXISTS sms_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            phone VARCHAR(20) NOT NULL,
+            message TEXT NOT NULL,
+            status ENUM('sent', 'delivered', 'failed') DEFAULT 'sent',
+            message_id VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_phone (phone),
+            INDEX idx_status (status),
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
@@ -482,6 +576,12 @@ function logAction($pdo, $action, $description = '') {
     $stmt->execute([$user_id, $action, $description, $ip_address, $user_agent]);
 }
 
+// نام مستعار برای logAction
+function log_action($action, $description = '') {
+    global $pdo;
+    logAction($pdo, $action, $description);
+}
+
 // آپلود فایل با اعتبارسنجی
 function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf']) {
     if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -516,6 +616,11 @@ function verifyCsrfToken() {
     }
 }
 
+// تولید فیلد CSRF
+function csrf_field() {
+    echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+}
+
 // بررسی دسترسی کاربر
 function checkPermission($required_role = 'کاربر عادی') {
     if (!isset($_SESSION['user_id'])) {
@@ -529,6 +634,11 @@ function checkPermission($required_role = 'کاربر عادی') {
             die('دسترسی غیرمجاز - شما مجوز دسترسی به این بخش را ندارید');
         }
     }
+}
+
+// بررسی احراز هویت (نام مستعار برای checkPermission)
+function require_auth($required_role = 'کاربر عادی') {
+    checkPermission($required_role);
 }
 
 // فرمت تاریخ شمسی
