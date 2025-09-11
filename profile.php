@@ -204,7 +204,10 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
-        html, body { font-family: Vazirmatn, Tahoma, Arial, sans-serif; }
+        html, body { 
+            font-family: Vazirmatn, Tahoma, Arial, sans-serif; 
+            background-color: #f8f9fa;
+        }
         .status-badge {
             font-size: 0.8em;
             padding: 0.25em 0.5em;
@@ -216,21 +219,49 @@ try {
         .file-link:hover {
             text-decoration: underline;
         }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
         .card-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
             color: white;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
         }
         .nav-tabs .nav-link.active {
-            background-color: #667eea;
+            background-color: #007bff;
             color: white;
-            border-color: #667eea;
+            border-color: #007bff;
         }
         .nav-tabs .nav-link {
-            color: #667eea;
+            color: #007bff;
+            border: 1px solid transparent;
         }
         .nav-tabs .nav-link:hover {
-            border-color: #667eea;
-            color: #667eea;
+            border-color: #e9ecef #e9ecef #007bff;
+            color: #007bff;
+        }
+        .nav-tabs {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .tab-content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+        }
+        .text-primary {
+            color: #007bff !important;
+        }
+        .border-bottom {
+            border-bottom: 2px solid #007bff !important;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
         }
     </style>
 </head>
@@ -272,28 +303,153 @@ try {
 
         <!-- اطلاعات کلی دارایی -->
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات کلی دستگاه</h5>
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات کامل دستگاه</h5>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>نام دستگاه:</strong> <?= e($assetData['name'] ?? $assetData['device_name'] ?? '-') ?></p>
-                        <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
-                        <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
-                        <p><strong>نوع:</strong> <?= e($assetData['type'] ?? $assetData['type_name'] ?? '-') ?></p>
+                <!-- اطلاعات اصلی -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>مکان:</strong> <?= e($assetData['location'] ?? '-') ?></p>
+                        <p><strong>نام دستگاه:</strong> <?= e($assetData['name'] ?? '-') ?></p>
+                        <p><strong>برند:</strong> <?= e($assetData['brand'] ?? '-') ?></p>
+                        <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
+                        <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
                         <p><strong>تاریخ خرید:</strong> <?= e($assetData['purchase_date'] ?? '-') ?></p>
                         <p><strong>وضعیت:</strong> 
                             <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
                                 <?= e($assetData['status'] ?? 'نامشخص') ?>
                             </span>
                         </p>
-                        <p><strong>تاریخ ثبت:</strong> <?= e($assetData['created_at'] ?? '-') ?></p>
+                        <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity'] ?? '-') ?></p>
+                        <p><strong>نوع موتور:</strong> <?= e($assetData['engine_type'] ?? '-') ?></p>
                     </div>
                 </div>
+
+                <!-- اطلاعات موتور -->
+                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات موتور</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model'] ?? '-') ?></p>
+                        <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity'] ?? '-') ?></p>
+                        <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات آلترناتور -->
+                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات آلترناتور</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل آلترناتور:</strong> <?= e($assetData['alternator_model'] ?? '-') ?></p>
+                        <p><strong>سریال آلترناتور:</strong> <?= e($assetData['alternator_serial'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل دستگاه:</strong> <?= e($assetData['device_model'] ?? '-') ?></p>
+                        <p><strong>سریال دستگاه:</strong> <?= e($assetData['device_serial'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات پنل کنترل -->
+                <?php if (!empty($assetData['control_panel_model']) || !empty($assetData['breaker_model'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات پنل کنترل</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل پنل کنترل:</strong> <?= e($assetData['control_panel_model'] ?? '-') ?></p>
+                        <p><strong>مدل بریکر:</strong> <?= e($assetData['breaker_model'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>باتری:</strong> <?= e($assetData['battery'] ?? '-') ?></p>
+                        <p><strong>شارژر باتری:</strong> <?= e($assetData['battery_charger'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات فیلترها -->
+                <?php if (!empty($assetData['oil_filter_part']) || !empty($assetData['fuel_filter_part']) || !empty($assetData['air_filter_part'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات فیلترها</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>پارت نامبر فیلتر روغن:</strong> <?= e($assetData['oil_filter_part'] ?? '-') ?></p>
+                        <p><strong>پارت نامبر فیلتر سوخت:</strong> <?= e($assetData['fuel_filter_part'] ?? '-') ?></p>
+                        <p><strong>پارت نامبر فیلتر هوا:</strong> <?= e($assetData['air_filter_part'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>پارت نامبر فیلتر آب-سوخت:</strong> <?= e($assetData['water_fuel_filter_part'] ?? '-') ?></p>
+                        <p><strong>پارت نامبر فیلتر آب:</strong> <?= e($assetData['water_filter_part'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات کارگاه -->
+                <?php if (!empty($assetData['workshop_entry_date']) || !empty($assetData['workshop_exit_date'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات کارگاه</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>تاریخ ورود به کارگاه:</strong> <?= e($assetData['workshop_entry_date'] ?? '-') ?></p>
+                        <p><strong>تاریخ خروج از کارگاه:</strong> <?= e($assetData['workshop_exit_date'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>تاریخ ثبت:</strong> <?= e($assetData['created_at'] ?? '-') ?></p>
+                        <p><strong>آخرین به‌روزرسانی:</strong> <?= e($assetData['updated_at'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- لینک‌های مفید -->
+                <?php if (!empty($assetData['datasheet_link']) || !empty($assetData['engine_manual_link']) || !empty($assetData['alternator_manual_link'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">لینک‌های مفید</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['datasheet_link'])): ?>
+                            <p><strong>دیتاشیت:</strong> <a href="<?= e($assetData['datasheet_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['engine_manual_link'])): ?>
+                            <p><strong>راهنمای موتور:</strong> <a href="<?= e($assetData['engine_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['alternator_manual_link'])): ?>
+                            <p><strong>راهنمای آلترناتور:</strong> <a href="<?= e($assetData['alternator_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['control_panel_manual_link'])): ?>
+                            <p><strong>راهنمای پنل کنترل:</strong> <a href="<?= e($assetData['control_panel_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- توضیحات -->
+                <?php if (!empty($assetData['description'])): ?>
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">توضیحات</h6>
+                        <p><?= nl2br(e($assetData['description'])) ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
 
