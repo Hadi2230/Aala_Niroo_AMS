@@ -684,6 +684,23 @@ try {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <?php
+                            // تشخیص نوع دارایی بر اساس نام یا برند
+                            $assetName = strtolower($assetData['name'] ?? '');
+                            $assetBrand = strtolower($assetData['brand'] ?? '');
+                            $isGenerator = strpos($assetName, 'ژنراتور') !== false || strpos($assetName, 'generator') !== false || 
+                                         strpos($assetBrand, 'ژنراتور') !== false || strpos($assetBrand, 'generator') !== false;
+                            $isMotor = strpos($assetName, 'موتور') !== false || strpos($assetName, 'motor') !== false || 
+                                      strpos($assetName, 'موتور برق') !== false || strpos($assetName, 'موتوربرق') !== false;
+                            $isAlternator = strpos($assetName, 'آلترناتور') !== false || strpos($assetName, 'alternator') !== false;
+                            $isControlPanel = strpos($assetName, 'پنل') !== false || strpos($assetName, 'کنترل') !== false || 
+                                            strpos($assetName, 'panel') !== false || strpos($assetName, 'control') !== false;
+                            $isFilter = strpos($assetName, 'فیلتر') !== false || strpos($assetName, 'filter') !== false;
+                            $isBattery = strpos($assetName, 'باتری') !== false || strpos($assetName, 'battery') !== false;
+                            $isPart = strpos($assetName, 'قطعه') !== false || strpos($assetName, 'part') !== false || 
+                                     strpos($assetName, 'مصرفی') !== false || strpos($assetName, 'لوازم') !== false;
+                            ?>
+
                             <!-- اطلاعات اصلی -->
                             <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
                             <div class="row">
@@ -733,23 +750,24 @@ try {
                                     </div>
                                 </div>
                             </div>
+
+                            <?php if ($isGenerator || $isMotor): ?>
+                            <!-- اطلاعات ژنراتور/موتور برق -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات <?= $isGenerator ? 'ژنراتور' : 'موتور برق' ?></h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">ظرفیت توان</label>
-                                        <input type="text" name="power_capacity" class="form-control" value="<?= e($assetData['power_capacity'] ?? '') ?>">
+                                        <input type="text" name="power_capacity" class="form-control" value="<?= e($assetData['power_capacity'] ?? '') ?>" placeholder="مثال: 50 کیلووات">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">نوع موتور</label>
-                                        <input type="text" name="engine_type" class="form-control" value="<?= e($assetData['engine_type'] ?? '') ?>">
+                                        <input type="text" name="engine_type" class="form-control" value="<?= e($assetData['engine_type'] ?? '') ?>" placeholder="مثال: دیزل، بنزینی">
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- اطلاعات موتور -->
-                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات موتور</h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -768,17 +786,19 @@ try {
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">ظرفیت روغن</label>
-                                        <input type="text" name="oil_capacity" class="form-control" value="<?= e($assetData['oil_capacity'] ?? '') ?>">
+                                        <input type="text" name="oil_capacity" class="form-control" value="<?= e($assetData['oil_capacity'] ?? '') ?>" placeholder="مثال: 5 لیتر">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">ظرفیت رادیاتور</label>
-                                        <input type="text" name="radiator_capacity" class="form-control" value="<?= e($assetData['radiator_capacity'] ?? '') ?>">
+                                        <input type="text" name="radiator_capacity" class="form-control" value="<?= e($assetData['radiator_capacity'] ?? '') ?>" placeholder="مثال: 10 لیتر">
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
+                            <?php if ($isGenerator || $isAlternator): ?>
                             <!-- اطلاعات آلترناتور -->
                             <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات آلترناتور</h6>
                             <div class="row">
@@ -809,7 +829,9 @@ try {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
+                            <?php if ($isControlPanel): ?>
                             <!-- اطلاعات پنل کنترل -->
                             <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات پنل کنترل</h6>
                             <div class="row">
@@ -826,11 +848,16 @@ try {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
+
+                            <?php if ($isBattery): ?>
+                            <!-- اطلاعات باتری -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات باتری</h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label class="form-label">باتری</label>
-                                        <input type="text" name="battery" class="form-control" value="<?= e($assetData['battery'] ?? '') ?>">
+                                        <label class="form-label">نوع باتری</label>
+                                        <input type="text" name="battery" class="form-control" value="<?= e($assetData['battery'] ?? '') ?>" placeholder="مثال: سرب اسید، لیتیوم">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -840,8 +867,29 @@ try {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
+                            <?php if ($isFilter): ?>
                             <!-- اطلاعات فیلترها -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات فیلتر</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">نوع فیلتر</label>
+                                        <input type="text" name="oil_filter_part" class="form-control" value="<?= e($assetData['oil_filter_part'] ?? '') ?>" placeholder="مثال: فیلتر روغن، هوا، سوخت">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر</label>
+                                        <input type="text" name="fuel_filter_part" class="form-control" value="<?= e($assetData['fuel_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if ($isGenerator || $isMotor): ?>
+                            <!-- فیلترهای ژنراتور/موتور -->
                             <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات فیلترها</h6>
                             <div class="row">
                                 <div class="col-md-6">
@@ -879,7 +927,9 @@ try {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
+                            <?php if ($isGenerator || $isMotor || $isControlPanel): ?>
                             <!-- اطلاعات کارگاه -->
                             <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات کارگاه</h6>
                             <div class="row">
@@ -896,42 +946,51 @@ try {
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
+                            <?php if ($isGenerator || $isMotor || $isAlternator || $isControlPanel): ?>
                             <!-- لینک‌های مفید -->
                             <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">لینک‌های مفید</h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">دیتاشیت</label>
-                                        <input type="url" name="datasheet_link" class="form-control" value="<?= e($assetData['datasheet_link'] ?? '') ?>">
+                                        <input type="url" name="datasheet_link" class="form-control" value="<?= e($assetData['datasheet_link'] ?? '') ?>" placeholder="https://example.com/datasheet.pdf">
                                     </div>
                                 </div>
+                                <?php if ($isGenerator || $isMotor): ?>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">راهنمای موتور</label>
-                                        <input type="url" name="engine_manual_link" class="form-control" value="<?= e($assetData['engine_manual_link'] ?? '') ?>">
+                                        <input type="url" name="engine_manual_link" class="form-control" value="<?= e($assetData['engine_manual_link'] ?? '') ?>" placeholder="https://example.com/engine-manual.pdf">
                                     </div>
                                 </div>
+                                <?php endif; ?>
                             </div>
+                            <?php if ($isGenerator || $isAlternator): ?>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">راهنمای آلترناتور</label>
-                                        <input type="url" name="alternator_manual_link" class="form-control" value="<?= e($assetData['alternator_manual_link'] ?? '') ?>">
+                                        <input type="url" name="alternator_manual_link" class="form-control" value="<?= e($assetData['alternator_manual_link'] ?? '') ?>" placeholder="https://example.com/alternator-manual.pdf">
                                     </div>
                                 </div>
+                                <?php if ($isControlPanel): ?>
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label class="form-label">راهنمای پنل کنترل</label>
-                                        <input type="url" name="control_panel_manual_link" class="form-control" value="<?= e($assetData['control_panel_manual_link'] ?? '') ?>">
+                                        <input type="url" name="control_panel_manual_link" class="form-control" value="<?= e($assetData['control_panel_manual_link'] ?? '') ?>" placeholder="https://example.com/control-panel-manual.pdf">
                                     </div>
                                 </div>
+                                <?php endif; ?>
                             </div>
+                            <?php endif; ?>
+                            <?php endif; ?>
 
                             <!-- توضیحات -->
                             <div class="mb-3">
                                 <label class="form-label">توضیحات</label>
-                                <textarea name="description" class="form-control" rows="4"><?= e($assetData['description'] ?? '') ?></textarea>
+                                <textarea name="description" class="form-control" rows="4" placeholder="توضیحات اضافی درباره دستگاه..."><?= e($assetData['description'] ?? '') ?></textarea>
                             </div>
                         </div>
                         <div class="modal-footer">
