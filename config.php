@@ -245,6 +245,54 @@ function createDatabaseTables($pdo) {
             INDEX idx_installation_date (installation_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
         
+        // جدول سرویس‌های دارایی
+        "CREATE TABLE IF NOT EXISTS asset_services (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            service_date DATE,
+            service_type VARCHAR(255),
+            performed_by VARCHAR(255),
+            summary TEXT,
+            cost DECIMAL(10,2),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_service_date (service_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تسک‌های نگهداری
+        "CREATE TABLE IF NOT EXISTS maintenance_tasks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            assigned_to VARCHAR(255),
+            planned_date DATE,
+            status ENUM('pending', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_status (status),
+            INDEX idx_planned_date (planned_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول مکاتبات دارایی
+        "CREATE TABLE IF NOT EXISTS asset_correspondence (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            letter_date DATE,
+            subject VARCHAR(500),
+            notes TEXT,
+            file_path VARCHAR(500),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_letter_date (letter_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
         // جدول گزارشات و لاگ‌ها
         "CREATE TABLE IF NOT EXISTS system_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
