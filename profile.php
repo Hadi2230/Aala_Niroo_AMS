@@ -98,6 +98,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // ---------- ویرایش دارایی ----------
+        if (isset($_POST['edit_asset'])) {
+            $name = trim($_POST['name'] ?? '');
+            $brand = trim($_POST['brand'] ?? '');
+            $model = trim($_POST['model'] ?? '');
+            $serial_number = trim($_POST['serial_number'] ?? '');
+            $purchase_date = trim($_POST['purchase_date'] ?? '');
+            $status = trim($_POST['status'] ?? '');
+            $power_capacity = trim($_POST['power_capacity'] ?? '');
+            $engine_type = trim($_POST['engine_type'] ?? '');
+            $engine_model = trim($_POST['engine_model'] ?? '');
+            $engine_serial = trim($_POST['engine_serial'] ?? '');
+            $alternator_model = trim($_POST['alternator_model'] ?? '');
+            $alternator_serial = trim($_POST['alternator_serial'] ?? '');
+            $device_model = trim($_POST['device_model'] ?? '');
+            $device_serial = trim($_POST['device_serial'] ?? '');
+            $control_panel_model = trim($_POST['control_panel_model'] ?? '');
+            $breaker_model = trim($_POST['breaker_model'] ?? '');
+            $battery = trim($_POST['battery'] ?? '');
+            $battery_charger = trim($_POST['battery_charger'] ?? '');
+            $oil_capacity = trim($_POST['oil_capacity'] ?? '');
+            $radiator_capacity = trim($_POST['radiator_capacity'] ?? '');
+            $oil_filter_part = trim($_POST['oil_filter_part'] ?? '');
+            $fuel_filter_part = trim($_POST['fuel_filter_part'] ?? '');
+            $water_fuel_filter_part = trim($_POST['water_fuel_filter_part'] ?? '');
+            $air_filter_part = trim($_POST['air_filter_part'] ?? '');
+            $water_filter_part = trim($_POST['water_filter_part'] ?? '');
+            $workshop_entry_date = trim($_POST['workshop_entry_date'] ?? '');
+            $workshop_exit_date = trim($_POST['workshop_exit_date'] ?? '');
+            $datasheet_link = trim($_POST['datasheet_link'] ?? '');
+            $engine_manual_link = trim($_POST['engine_manual_link'] ?? '');
+            $alternator_manual_link = trim($_POST['alternator_manual_link'] ?? '');
+            $control_panel_manual_link = trim($_POST['control_panel_manual_link'] ?? '');
+            $description = trim($_POST['description'] ?? '');
+
+            $stmt = $pdo->prepare("
+                UPDATE assets SET 
+                name = ?, brand = ?, model = ?, serial_number = ?, purchase_date = ?, 
+                status = ?, power_capacity = ?, engine_type = ?, engine_model = ?, 
+                engine_serial = ?, alternator_model = ?, alternator_serial = ?, 
+                device_model = ?, device_serial = ?, control_panel_model = ?, 
+                breaker_model = ?, battery = ?, battery_charger = ?, oil_capacity = ?, 
+                radiator_capacity = ?, oil_filter_part = ?, fuel_filter_part = ?, 
+                water_fuel_filter_part = ?, air_filter_part = ?, water_filter_part = ?, 
+                workshop_entry_date = ?, workshop_exit_date = ?, datasheet_link = ?, 
+                engine_manual_link = ?, alternator_manual_link = ?, 
+                control_panel_manual_link = ?, description = ?
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([
+                $name, $brand, $model, $serial_number, $purchase_date, $status, 
+                $power_capacity, $engine_type, $engine_model, $engine_serial, 
+                $alternator_model, $alternator_serial, $device_model, $device_serial, 
+                $control_panel_model, $breaker_model, $battery, $battery_charger, 
+                $oil_capacity, $radiator_capacity, $oil_filter_part, $fuel_filter_part, 
+                $water_fuel_filter_part, $air_filter_part, $water_filter_part, 
+                $workshop_entry_date, $workshop_exit_date, $datasheet_link, 
+                $engine_manual_link, $alternator_manual_link, $control_panel_manual_link, 
+                $description, $postAssetId
+            ]);
+
+            $_SESSION['success'] = 'اطلاعات دستگاه با موفقیت به‌روزرسانی شد.';
+            header('Location: profile.php?id=' . $postAssetId);
+            exit;
+        }
+
         // ---------- ثبت مکاتبه ----------
         if (isset($_POST['add_correspondence'])) {
             $corr_date = trim($_POST['corr_date'] ?? '') ?: date('Y-m-d');
@@ -265,7 +332,10 @@ try {
         }
     </style>
 </head>
-<body class="container py-4">
+<body>
+    <?php include 'navbar.php'; ?>
+
+    <div class="container-fluid mt-4">
 
 <?php if (!empty($_SESSION['success'])): ?>
     <div class="alert alert-success alert-dismissible fade show">
@@ -298,6 +368,9 @@ try {
                 <a href="assets.php" class="btn btn-outline-primary">
                     <i class="fas fa-cog"></i> مدیریت دارایی‌ها
                 </a>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editAssetModal">
+                    <i class="fas fa-edit"></i> ویرایش دستگاه
+                </button>
             </div>
         </div>
 
@@ -689,6 +762,161 @@ try {
         </div>
 
         <!-- مودال‌ها -->
+        <!-- Modal: editAsset -->
+        <div class="modal fade" id="editAssetModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <form method="post">
+                        <?php if (function_exists('csrf_field')) csrf_field(); ?>
+                        <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                        <div class="modal-header">
+                            <h5 class="modal-title">ویرایش اطلاعات دستگاه</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">نام دستگاه *</label>
+                                        <input type="text" name="name" class="form-control" value="<?= e($assetData['name'] ?? '') ?>" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">برند</label>
+                                        <input type="text" name="brand" class="form-control" value="<?= e($assetData['brand'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل</label>
+                                        <input type="text" name="model" class="form-control" value="<?= e($assetData['model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال</label>
+                                        <input type="text" name="serial_number" class="form-control" value="<?= e($assetData['serial_number'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">تاریخ خرید</label>
+                                        <input type="date" name="purchase_date" class="form-control" value="<?= e($assetData['purchase_date'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">وضعیت</label>
+                                        <select name="status" class="form-control">
+                                            <option value="فعال" <?= ($assetData['status'] ?? '') === 'فعال' ? 'selected' : '' ?>>فعال</option>
+                                            <option value="غیرفعال" <?= ($assetData['status'] ?? '') === 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
+                                            <option value="در حال تعمیر" <?= ($assetData['status'] ?? '') === 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
+                                            <option value="آماده بهره‌برداری" <?= ($assetData['status'] ?? '') === 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">ظرفیت توان</label>
+                                        <input type="text" name="power_capacity" class="form-control" value="<?= e($assetData['power_capacity'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">نوع موتور</label>
+                                        <input type="text" name="engine_type" class="form-control" value="<?= e($assetData['engine_type'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات موتور</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل موتور</label>
+                                        <input type="text" name="engine_model" class="form-control" value="<?= e($assetData['engine_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال موتور</label>
+                                        <input type="text" name="engine_serial" class="form-control" value="<?= e($assetData['engine_serial'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات آلترناتور</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل آلترناتور</label>
+                                        <input type="text" name="alternator_model" class="form-control" value="<?= e($assetData['alternator_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال آلترناتور</label>
+                                        <input type="text" name="alternator_serial" class="form-control" value="<?= e($assetData['alternator_serial'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات فیلترها</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر روغن</label>
+                                        <input type="text" name="oil_filter_part" class="form-control" value="<?= e($assetData['oil_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر سوخت</label>
+                                        <input type="text" name="fuel_filter_part" class="form-control" value="<?= e($assetData['fuel_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">لینک‌های مفید</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">دیتاشیت</label>
+                                        <input type="url" name="datasheet_link" class="form-control" value="<?= e($assetData['datasheet_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">راهنمای موتور</label>
+                                        <input type="url" name="engine_manual_link" class="form-control" value="<?= e($assetData['engine_manual_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">توضیحات</label>
+                                <textarea name="description" class="form-control" rows="4"><?= e($assetData['description'] ?? '') ?></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                            <button type="submit" name="edit_asset" class="btn btn-warning">ذخیره تغییرات</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal: addService -->
         <div class="modal fade" id="addServiceModal" tabindex="-1">
             <div class="modal-dialog">
@@ -866,7 +1094,8 @@ try {
         </div>
     <?php endif; ?>
 <?php endif; ?>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
