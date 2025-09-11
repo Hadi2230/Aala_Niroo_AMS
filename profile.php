@@ -684,6 +684,8 @@ try {
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <!-- اطلاعات اصلی -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -726,10 +728,207 @@ try {
                                             <option value="فعال" <?= ($assetData['status'] ?? '') === 'فعال' ? 'selected' : '' ?>>فعال</option>
                                             <option value="غیرفعال" <?= ($assetData['status'] ?? '') === 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
                                             <option value="در حال تعمیر" <?= ($assetData['status'] ?? '') === 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
+                                            <option value="آماده بهره‌برداری" <?= ($assetData['status'] ?? '') === 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">ظرفیت توان</label>
+                                        <input type="text" name="power_capacity" class="form-control" value="<?= e($assetData['power_capacity'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">نوع موتور</label>
+                                        <input type="text" name="engine_type" class="form-control" value="<?= e($assetData['engine_type'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- اطلاعات موتور -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات موتور</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل موتور</label>
+                                        <input type="text" name="engine_model" class="form-control" value="<?= e($assetData['engine_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال موتور</label>
+                                        <input type="text" name="engine_serial" class="form-control" value="<?= e($assetData['engine_serial'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">ظرفیت روغن</label>
+                                        <input type="text" name="oil_capacity" class="form-control" value="<?= e($assetData['oil_capacity'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">ظرفیت رادیاتور</label>
+                                        <input type="text" name="radiator_capacity" class="form-control" value="<?= e($assetData['radiator_capacity'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- اطلاعات آلترناتور -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات آلترناتور</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل آلترناتور</label>
+                                        <input type="text" name="alternator_model" class="form-control" value="<?= e($assetData['alternator_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال آلترناتور</label>
+                                        <input type="text" name="alternator_serial" class="form-control" value="<?= e($assetData['alternator_serial'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل دستگاه</label>
+                                        <input type="text" name="device_model" class="form-control" value="<?= e($assetData['device_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال دستگاه</label>
+                                        <input type="text" name="device_serial" class="form-control" value="<?= e($assetData['device_serial'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- اطلاعات پنل کنترل -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات پنل کنترل</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل پنل کنترل</label>
+                                        <input type="text" name="control_panel_model" class="form-control" value="<?= e($assetData['control_panel_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل بریکر</label>
+                                        <input type="text" name="breaker_model" class="form-control" value="<?= e($assetData['breaker_model'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">باتری</label>
+                                        <input type="text" name="battery" class="form-control" value="<?= e($assetData['battery'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">شارژر باتری</label>
+                                        <input type="text" name="battery_charger" class="form-control" value="<?= e($assetData['battery_charger'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- اطلاعات فیلترها -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات فیلترها</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر روغن</label>
+                                        <input type="text" name="oil_filter_part" class="form-control" value="<?= e($assetData['oil_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر سوخت</label>
+                                        <input type="text" name="fuel_filter_part" class="form-control" value="<?= e($assetData['fuel_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر آب-سوخت</label>
+                                        <input type="text" name="water_fuel_filter_part" class="form-control" value="<?= e($assetData['water_fuel_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر هوا</label>
+                                        <input type="text" name="air_filter_part" class="form-control" value="<?= e($assetData['air_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">پارت نامبر فیلتر آب</label>
+                                        <input type="text" name="water_filter_part" class="form-control" value="<?= e($assetData['water_filter_part'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- اطلاعات کارگاه -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">اطلاعات کارگاه</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">تاریخ ورود به کارگاه</label>
+                                        <input type="date" name="workshop_entry_date" class="form-control" value="<?= e($assetData['workshop_entry_date'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">تاریخ خروج از کارگاه</label>
+                                        <input type="date" name="workshop_exit_date" class="form-control" value="<?= e($assetData['workshop_exit_date'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- لینک‌های مفید -->
+                            <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">لینک‌های مفید</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">دیتاشیت</label>
+                                        <input type="url" name="datasheet_link" class="form-control" value="<?= e($assetData['datasheet_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">راهنمای موتور</label>
+                                        <input type="url" name="engine_manual_link" class="form-control" value="<?= e($assetData['engine_manual_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">راهنمای آلترناتور</label>
+                                        <input type="url" name="alternator_manual_link" class="form-control" value="<?= e($assetData['alternator_manual_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">راهنمای پنل کنترل</label>
+                                        <input type="url" name="control_panel_manual_link" class="form-control" value="<?= e($assetData['control_panel_manual_link'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- توضیحات -->
                             <div class="mb-3">
                                 <label class="form-label">توضیحات</label>
                                 <textarea name="description" class="form-control" rows="4"><?= e($assetData['description'] ?? '') ?></textarea>
