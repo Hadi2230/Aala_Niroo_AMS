@@ -8,6 +8,11 @@ function e($v) {
     return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+// تنظیم متغیرهای صفحه
+$pageTitle = $assetId > 0 ? 'پروفایل دارایی ' . e($assetData['device_identifier'] ?? '') : 'لیست دارایی‌ها';
+$pageIcon = 'fas fa-server';
+$showPageHeader = true;
+
 // مقداردهی اولیه متغیرها
 $assetId = (int)($_GET['id'] ?? $_POST['asset_id'] ?? 0);
 $assetData = null;
@@ -262,96 +267,8 @@ try {
     $allAssets = [];
 }
 ?>
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="utf-8">
-    <title><?= $assetId > 0 ? 'پروفایل دارایی ' . e($assetData['device_identifier'] ?? '') : 'لیست دارایی‌ها' ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
-    <style>
-        html, body { 
-            font-family: Vazirmatn, Tahoma, Arial, sans-serif; 
-            background-color: #f8f9fa;
-        }
-        .status-badge {
-            font-size: 0.8em;
-            padding: 0.25em 0.5em;
-        }
-        .file-link {
-            color: #0d6efd;
-            text-decoration: none;
-        }
-        .file-link:hover {
-            text-decoration: underline;
-        }
-        .card {
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            border: 1px solid rgba(0, 0, 0, 0.125);
-        }
-        .card-header {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-        }
-        .nav-tabs .nav-link.active {
-            background-color: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-        .nav-tabs .nav-link {
-            color: #007bff;
-            border: 1px solid transparent;
-        }
-        .nav-tabs .nav-link:hover {
-            border-color: #e9ecef #e9ecef #007bff;
-            color: #007bff;
-        }
-        .nav-tabs {
-            border-bottom: 1px solid #dee2e6;
-        }
-        .tab-content {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-top: none;
-        }
-        .text-primary {
-            color: #007bff !important;
-        }
-        .border-bottom {
-            border-bottom: 2px solid #007bff !important;
-        }
-        .btn-primary {
-            background-color: #007bff;
-            border-color: #007bff;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-            border-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-    <?php include 'navbar.php'; ?>
 
-    <div class="container-fluid mt-4">
-
-<?php if (!empty($_SESSION['success'])): ?>
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="fas fa-check-circle"></i> <?= e($_SESSION['success']); ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['success']); ?>
-<?php endif; ?>
-
-<?php if (!empty($_SESSION['error'])): ?>
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="fas fa-exclamation-triangle"></i> <?= e($_SESSION['error']); ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['error']); ?>
-<?php endif; ?>
+<?php include 'header.php'; ?>
 
 <?php if ($assetId > 0): ?>
     <?php if ($assetData): ?>
