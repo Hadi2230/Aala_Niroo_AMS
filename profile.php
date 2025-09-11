@@ -935,6 +935,186 @@ try {
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">نوع سرویس</label>
+                                <input type="text" name="service_type" class="form-control" placeholder="مثال: تعمیر دوره‌ای، تعویض فیلتر">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">مجری سرویس</label>
+                                <input type="text" name="service_provider" class="form-control" placeholder="نام تکنسین یا شرکت">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">خلاصه سرویس</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="توضیحات سرویس انجام شده"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">هزینه (تومان)</label>
+                                <input type="number" name="cost" class="form-control" placeholder="0">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                            <button type="submit" name="add_service" class="btn btn-primary">ثبت سرویس</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: addTask -->
+        <div class="modal fade" id="addTaskModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post">
+                        <?php if (function_exists('csrf_field')) csrf_field(); ?>
+                        <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                        <div class="modal-header">
+                            <h5 class="modal-title">ثبت تسک جدید</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">عنوان تسک *</label>
+                                <input type="text" name="task_name" class="form-control" required placeholder="عنوان تسک">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">مسئول</label>
+                                <input type="text" name="assigned_to" class="form-control" placeholder="نام مسئول">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">تاریخ برنامه</label>
+                                <input type="date" name="due_date" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">وضعیت</label>
+                                <select name="status" class="form-control">
+                                    <option value="pending">در انتظار</option>
+                                    <option value="in_progress">در حال انجام</option>
+                                    <option value="completed">انجام شده</option>
+                                    <option value="cancelled">لغو شده</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">توضیحات</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="توضیحات تسک"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                            <button type="submit" name="add_task" class="btn btn-success">ثبت تسک</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: addCorrespondence -->
+        <div class="modal fade" id="addCorrespondenceModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post" enctype="multipart/form-data">
+                        <?php if (function_exists('csrf_field')) csrf_field(); ?>
+                        <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                        <div class="modal-header">
+                            <h5 class="modal-title">ثبت مکاتبه جدید</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">تاریخ نامه</label>
+                                <input type="date" name="corr_date" class="form-control" value="<?= date('Y-m-d') ?>">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">موضوع</label>
+                                <input type="text" name="summary" class="form-control" placeholder="موضوع مکاتبه">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">یادداشت</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="یادداشت‌های مربوطه"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">فایل ضمیمه</label>
+                                <input type="file" name="corr_file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                            <button type="submit" name="add_correspondence" class="btn btn-info">ثبت مکاتبه</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    <?php else: ?>
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> دارایی مورد نظر یافت نشد.
+        </div>
+    <?php endif; ?>
+
+<?php else: ?>
+    <!-- لیست همه دارایی‌ها -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-server"></i> لیست دارایی‌ها</h2>
+        <a href="assets.php" class="btn btn-primary">
+            <i class="fas fa-plus"></i> افزودن دارایی جدید
+        </a>
+    </div>
+
+    <?php if (!empty($allAssets)): ?>
+        <div class="row">
+            <?php foreach ($allAssets as $asset): ?>
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><?= e($asset['device_identifier'] ?? $asset['name'] ?? 'بدون شناسه') ?></h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>برند:</strong> <?= e($asset['brand'] ?? '-') ?></p>
+                        <p><strong>مدل:</strong> <?= e($asset['model'] ?? '-') ?></p>
+                        <p><strong>وضعیت:</strong> 
+                            <span class="badge bg-<?= ($asset['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
+                                <?= e($asset['status'] ?? 'نامشخص') ?>
+                            </span>
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="profile.php?id=<?= e($asset['id']) ?>" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye"></i> مشاهده پروفایل
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> فعلاً هیچ دارایی‌ای ثبت نشده است.
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+        <!-- Modal: addService -->
+        <div class="modal fade" id="addServiceModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post">
+                        <?php if (function_exists('csrf_field')) csrf_field(); ?>
+                        <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                        <div class="modal-header">
+                            <h5 class="modal-title">ثبت سرویس جدید</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">تاریخ سرویس</label>
+                                <input type="date" name="service_date" class="form-control" value="<?= date('Y-m-d') ?>">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">نوع سرویس</label>
                                 <input type="text" name="service_type" class="form-control" placeholder="مثال: تعمیر، نگهداری، کالیبراسیون">
                             </div>
                             <div class="mb-3">
