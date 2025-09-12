@@ -1141,7 +1141,7 @@ $filtered_count = count($assets);
                                 <button type="button" class="btn btn-secondary" onclick="prevStepFrom4()"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return submitForm()"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="submit" name="add_asset" class="btn btn-success"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
@@ -1642,15 +1642,35 @@ function submitForm() {
     return false;
 }
 
+// اضافه کردن event listener برای فرم
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('assetForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // فقط validation انجام بده
+            if (!validateStep(4)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    }
+});
+
 // اضافه کردن event listener برای دکمه submit
 document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.querySelector('button[name="add_asset"]');
     if (submitBtn) {
         submitBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (submitForm()) {
-                // اگر validation موفق بود، فرم را submit کن
-                document.getElementById('assetForm').submit();
+            // فقط validation انجام بده، submit را به عهده خود فرم بگذار
+            if (!validateStep(4)) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // تایید کاربر
+            if (!confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')) {
+                e.preventDefault();
+                return false;
             }
         });
     }
