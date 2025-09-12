@@ -571,6 +571,10 @@ $filtered_count = count($assets);
                                             <label class="form-label">مدل دستگاه *</label>
                                             <input type="text" class="form-control gen-device-model" id="gen_device_model" name="device_model" required>
                                         </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control gen-device-identifier" id="gen_device_identifier" name="device_identifier" required>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -900,6 +904,10 @@ $filtered_count = count($assets);
                                                 <option value="P2600">P2600</option>
                                             </select>
                                         </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control motor-device-identifier" id="motor_device_identifier" name="device_identifier" required>
+                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
@@ -938,6 +946,10 @@ $filtered_count = count($assets);
                                         <div class="mb-3">
                                             <label class="form-label">نام کالا *</label>
                                             <input type="text" class="form-control" id="consumable_name" name="name" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control consumable-device-identifier" id="consumable_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -983,6 +995,10 @@ $filtered_count = count($assets);
                                         <div class="mb-3">
                                             <label class="form-label">نام قطعه *</label>
                                             <input type="text" class="form-control" id="parts_name" name="name" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control parts-device-identifier" id="parts_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1088,7 +1104,7 @@ $filtered_count = count($assets);
                                 <button type="button" class="btn btn-secondary" onclick="prevStepFrom4()"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="button" class="btn btn-success" onclick="submitForm()"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
@@ -1572,6 +1588,21 @@ function editForm() {
     document.getElementById('step2').classList.add('active');
     currentStep = 2;
     updateStepNav();
+}
+
+function submitForm() {
+    // Validate all required fields before submission
+    if (!validateStep(4)) {
+        return false;
+    }
+    
+    // Show confirmation dialog
+    if (confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')) {
+        // Submit the form
+        document.getElementById('assetForm').submit();
+        return true;
+    }
+    return false;
 }
 
 function previewImage(input, previewId) {
