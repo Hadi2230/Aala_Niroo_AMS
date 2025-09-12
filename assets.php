@@ -15,13 +15,17 @@ if (!headers_sent()) {
 logAction($pdo, 'VIEW_ASSETS', 'مشاهده صفحه مدیریت دارایی‌ها');
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
+    error_log("POST request received with add_asset");
     verifyCsrfToken();
     try {
         $pdo->beginTransaction();
+        error_log("Transaction started");
 
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
+        
+        error_log("Name: $name, Type ID: $type_id, Serial: $serial_number");
         $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
 
         if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $purchase_date_input)) {
@@ -165,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         // Debug: بررسی commit
         error_log("Transaction committed successfully");
+        error_log("Asset ID: " . $asset_id);
         
         // پیام موفقیت سفارشی بر اساس نوع دارایی
         $success_message = "";
@@ -190,10 +195,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         $_SESSION['success'] = $success_message;
         logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
+        error_log("Redirecting to assets.php");
         header('Location: assets.php');
         exit();
     } catch (Exception $e) {
         $pdo->rollBack();
+        error_log("Error in asset creation: " . $e->getMessage());
         $_SESSION['error'] = "خطا در افزودن دارایی: " . $e->getMessage();
         logAction($pdo, 'ADD_ASSET_ERROR', "خطا در افزودن دارایی: " . $e->getMessage());
     }
@@ -1683,7 +1690,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            console.log('Form will be submitted');
+            console.log('User confirmed, form will be submitted');
+            
+            // بررسی اینکه فرم واقعاً submit می‌شود
+            setTimeout(function() {
+                console.log('Form submission completed');
+            }, 1000);
         });
     }
 });
