@@ -1026,7 +1026,7 @@ $filtered_count = count($assets);
                                 <button type="button" class="btn btn-secondary" onclick="prevStep(3)"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="submit" name="add_asset" class="btn btn-success"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
