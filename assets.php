@@ -1655,35 +1655,12 @@ function submitForm() {
     return false;
 }
 
-// اضافه کردن event listener برای فرم
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('assetForm');
-    if (form) {
-        console.log('Form found:', form);
-        form.addEventListener('submit', function(e) {
-            console.log('Form submit event triggered');
-            // فقط validation انجام بده
-            if (!validateStep(4)) {
-                console.log('Form validation failed, preventing submit');
-                e.preventDefault();
-                return false;
-            }
-            console.log('Form validation passed, allowing submit');
-        });
-    } else {
-        console.log('Form not found!');
-    }
-});
-
 // اضافه کردن event listener برای دکمه submit
 document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.querySelector('button[name="add_asset"]');
     if (submitBtn) {
         submitBtn.addEventListener('click', function(e) {
             console.log('Submit button clicked');
-            console.log('Event type:', e.type);
-            console.log('Button type:', submitBtn.type);
-            console.log('Button name:', submitBtn.name);
             
             // حذف required از فیلدهای مخفی
             const hiddenFields = document.querySelectorAll('.dynamic-field input[required], .dynamic-field select[required]');
@@ -1699,22 +1676,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Removed required from supply field:', field.name);
             });
             
-            // حذف required از فیلد supply_method مستقیماً
-            const supplyMethodField = document.getElementById('supply_method');
-            if (supplyMethodField) {
-                supplyMethodField.removeAttribute('required');
-                console.log('Removed required from supply_method field');
-            }
-            
-            // فقط validation انجام بده، submit را به عهده خود فرم بگذار
-            if (!validateStep(4)) {
-                console.log('Validation failed');
-                e.preventDefault();
-                return false;
-            }
-            
-            console.log('Validation passed');
-            
             // تایید کاربر
             if (!confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')) {
                 console.log('User cancelled');
@@ -1723,13 +1684,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             console.log('User confirmed, form will be submitted');
-            console.log('Form action:', document.getElementById('assetForm').action);
-            console.log('Form method:', document.getElementById('assetForm').method);
             
-            // بررسی اینکه فرم واقعاً submit می‌شود
-            setTimeout(function() {
-                console.log('Form submission completed');
-            }, 1000);
+            // اجازه بده فرم submit شود
+            return true;
         });
     }
 });
