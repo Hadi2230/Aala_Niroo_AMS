@@ -1094,7 +1094,7 @@ $filtered_count = count($assets);
                                 <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="supply_method" class="form-label">نحوه تامین *</label>
-                                        <select class="form-select" id="supply_method" name="supply_method" required onchange="toggleSupplyFields()">
+                                        <select class="form-select" id="supply_method" name="supply_method" onchange="toggleSupplyFields()">
                                             <option value="">-- انتخاب کنید --</option>
                                             <option value="انبار">انبار</option>
                                             <option value="third_party">Third Party</option>
