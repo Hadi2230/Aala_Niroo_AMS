@@ -24,6 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
+        if (empty($serial_number)) {
+            $serial_number = null; // Set to NULL for empty values to avoid UNIQUE constraint violation
+        }
         
         error_log("Name: $name, Type ID: $type_id, Serial: $serial_number");
         $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
@@ -562,7 +565,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">شماره سریال دستگاه *</label>
-                                            <input type="text" class="form-control gen-dev-serial" id="gen_serial_number" name="serial_number" required>
+                                            <input type="text" class="form-control gen-dev-serial" id="gen_serial_number" name="serial_number">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -942,7 +945,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">سریال موتور *</label>
-                                            <input type="text" class="form-control" id="motor_serial_number" name="serial_number" required>
+                                            <input type="text" class="form-control" id="motor_serial_number" name="serial_number">
                                         </div>
                                     </div>
                                 </div>

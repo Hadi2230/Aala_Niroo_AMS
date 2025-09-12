@@ -98,7 +98,7 @@ function createDatabaseTables($pdo) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             type_id INT NOT NULL,
-            serial_number VARCHAR(255) UNIQUE,
+            serial_number VARCHAR(255) UNIQUE NULL,
             purchase_date DATE,
             status ENUM('فعال', 'غیرفعال', 'در حال تعمیر', 'آماده بهره‌برداری') DEFAULT 'فعال',
             
