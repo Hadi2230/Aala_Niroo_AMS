@@ -1692,6 +1692,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Removed required from:', field.name);
             });
             
+            // حذف required از فیلدهای supply که مخفی هستند
+            const supplyFields = document.querySelectorAll('#supply_fields input[required], #supply_fields select[required]');
+            supplyFields.forEach(field => {
+                field.removeAttribute('required');
+                console.log('Removed required from supply field:', field.name);
+            });
+            
             // فقط validation انجام بده، submit را به عهده خود فرم بگذار
             if (!validateStep(4)) {
                 console.log('Validation failed');
