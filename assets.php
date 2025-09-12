@@ -270,7 +270,7 @@ $search = $_GET['search'] ?? '';
 $type_filter = $_GET['type_filter'] ?? '';
 $status_filter = $_GET['status_filter'] ?? '';
 
-$query = "SELECT a.*, at.display_name as type_display_name 
+$query = "SELECT a.*, at.display_name as type_display_name, at.name as type_name
           FROM assets a 
           JOIN asset_types at ON a.type_id = at.id 
           WHERE 1=1";
@@ -1190,6 +1190,7 @@ $filtered_count = count($assets);
                                     <th>نوع</th>
                                     <th>سریال/شناسه</th>
                                     <th>برند/مدل</th>
+                                    <th>مشخصات</th>
                                     <th>وضعیت</th>
                                     <th>تاریخ خرید</th>
                                     <th>عملیات</th>
@@ -1217,6 +1218,24 @@ $filtered_count = count($assets);
                                     <td>
                                         <?php echo htmlspecialchars($asset['brand']) ?>
                                         <?php echo $asset['model'] ? ' / ' . htmlspecialchars($asset['model']) : '' ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        // نمایش مشخصات بر اساس نوع دارایی
+                                        $specs = [];
+                                        if ($asset['power_capacity']) $specs[] = 'قدرت: ' . $asset['power_capacity'];
+                                        if ($asset['engine_type']) $specs[] = 'نوع موتور: ' . $asset['engine_type'];
+                                        if ($asset['consumable_type']) $specs[] = 'نوع: ' . $asset['consumable_type'];
+                                        if ($asset['quantity'] > 0) $specs[] = 'تعداد: ' . $asset['quantity'];
+                                        if ($asset['location']) $specs[] = 'مکان: ' . $asset['location'];
+                                        if ($asset['supply_method']) $specs[] = 'تأمین: ' . $asset['supply_method'];
+                                        
+                                        if (!empty($specs)) {
+                                            echo '<small>' . implode('<br>', $specs) . '</small>';
+                                        } else {
+                                            echo '--';
+                                        }
+                                        ?>
                                     </td>
                                     <td>
                                         <?php
