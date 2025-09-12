@@ -25,16 +25,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
-        $purchase_date = sanitizeInput($_POST['purchase_date']);
+        $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
+        
+        // تبدیل تاریخ جلالی به میلادی
+        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $purchase_date_input)) {
+            list($jy, $jm, $jd) = explode('/', $purchase_date_input);
+            $g = jalali_to_gregorian((int)$jy, (int)$jm, (int)$jd);
+            $purchase_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        } else {
+            $purchase_date = $purchase_date_input;
+        }
         $status = sanitizeInput($_POST['status']);
-        $brand = sanitizeInput($_POST['brand'] ?? '');
-        $model = sanitizeInput($_POST['model'] ?? '');
         
         // دریافت نوع دارایی
         $stmt = $pdo->prepare("SELECT name FROM asset_types WHERE id = ?");
         $stmt->execute([$type_id]);
         $asset_type = $stmt->fetch();
         $asset_type_name = $asset_type['name'] ?? '';
+        
+        // تنظیم brand و model بر اساس نوع دارایی
+        $brand = sanitizeInput($_POST['brand'] ?? '');
+        $model = sanitizeInput($_POST['model'] ?? '');
+        
+        if (strpos($asset_type_name, 'ژنراتور') !== false) {
+            $brand = $name; // نام دستگاه به عنوان برند
+            $model = sanitizeInput($_POST['device_model'] ?? '');
+        } else if (strpos($asset_type_name, 'موتور برق') !== false) {
+            $brand = $name; // نام موتور به عنوان برند
+            $model = sanitizeInput($_POST['engine_type'] ?? '');
+        }
         
         // فیلدهای خاص بر اساس نوع دارایی
         $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
@@ -58,8 +77,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $radiator_capacity = sanitizeInput($_POST['radiator_capacity'] ?? '');
         $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
         $other_items = sanitizeInput($_POST['other_items'] ?? '');
-        $workshop_entry_date = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        $workshop_exit_date = sanitizeInput($_POST['workshop_exit_date'] ?? '');
+        $workshop_entry_date_input = sanitizeInput($_POST['workshop_entry_date'] ?? '');
+        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_entry_date_input)) {
+            list($jy,$jm,$jd) = explode('/', $workshop_entry_date_input);
+            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
+            $workshop_entry_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        } else {
+            $workshop_entry_date = $workshop_entry_date_input;
+        }
+
+        $workshop_exit_date_input = sanitizeInput($_POST['workshop_exit_date'] ?? '');
+        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_exit_date_input)) {
+            list($jy,$jm,$jd) = explode('/', $workshop_exit_date_input);
+            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
+            $workshop_exit_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        } else {
+            $workshop_exit_date = $workshop_exit_date_input;
+        }
         $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
         $engine_manual_link = sanitizeInput($_POST['engine_manual_link'] ?? '');
         $alternator_manual_link = sanitizeInput($_POST['alternator_manual_link'] ?? '');
@@ -73,6 +107,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $air_filter_part = sanitizeInput($_POST['air_filter_part'] ?? '');
         $water_filter_part = sanitizeInput($_POST['water_filter_part'] ?? '');
         
+        // دریافت فیلدهای جدید
+        $device_identifier = sanitizeInput($_POST['device_identifier'] ?? '');
+        $supply_method = sanitizeInput($_POST['supply_method'] ?? '');
+        $location = sanitizeInput($_POST['location'] ?? '');
+        $quantity = (int)($_POST['quantity'] ?? 0);
+        $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
+        $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
+
         // درج دارایی اصلی
         $stmt = $pdo->prepare("INSERT INTO assets (name, type_id, serial_number, purchase_date, status, brand, model, 
                               power_capacity, engine_type, consumable_type, engine_model, engine_serial, 
@@ -81,8 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
                               radiator_capacity, antifreeze, other_items, workshop_entry_date, workshop_exit_date, 
                               datasheet_link, engine_manual_link, alternator_manual_link, control_panel_manual_link, 
                               description, oil_filter_part, fuel_filter_part, water_fuel_filter_part, air_filter_part, 
-                              water_filter_part) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                              water_filter_part, device_identifier, supply_method, location, quantity, supplier_name, supplier_contact) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $stmt->execute([
             $name, $type_id, $serial_number, $purchase_date, $status, $brand, $model,
@@ -92,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
             $radiator_capacity, $antifreeze, $other_items, $workshop_entry_date, $workshop_exit_date,
             $datasheet_link, $engine_manual_link, $alternator_manual_link, $control_panel_manual_link,
             $description, $oil_filter_part, $fuel_filter_part, $water_fuel_filter_part, $air_filter_part,
-            $water_filter_part
+            $water_filter_part, $device_identifier, $supply_method, $location, $quantity, $supplier_name, $supplier_contact
         ]);
         
         $asset_id = $pdo->lastInsertId();
@@ -1143,9 +1185,18 @@ $filtered_count = count($assets);
     function nextStep(step) {
         if (!validateStep(currentStep)) return;
         
+        // Get asset type from select if not set
+        if (!assetType) {
+            const typeSelect = document.getElementById('type_id');
+            if (typeSelect && typeSelect.value) {
+                const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+                assetType = selectedOption.text.toLowerCase();
+            }
+        }
+        
         // Smart navigation based on asset type
         if (currentStep === 1 && step === 2) {
-            if (assetType.includes('ژنراتور') || assetType.includes('موتور برق')) {
+            if (assetType && (assetType.includes('ژنراتور') || assetType.includes('موتور برق'))) {
                 // Skip supply step for generators and power motors - go directly to preview
                 document.getElementById('step' + currentStep).classList.remove('active');
                 document.getElementById('step4').classList.add('active');
@@ -1195,7 +1246,15 @@ $filtered_count = count($assets);
                 assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase(); 
             }
         } else if (step === 2) {
-            if (assetType.includes('ژنراتور')) {
+            // Ensure assetType is set
+            if (!assetType) {
+                const typeSelect = document.getElementById('type_id');
+                if (typeSelect && typeSelect.value) {
+                    assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+                }
+            }
+            
+            if (assetType && assetType.includes('ژنراتور')) {
                 const name = document.getElementById('gen_name');
                 const serial = document.getElementById('gen_serial_number');
                 const status = document.getElementById('gen_status');
@@ -1206,7 +1265,7 @@ $filtered_count = count($assets);
                 else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
                 else if (!deviceModel || !deviceModel.value.trim()) { isValid=false; errorMessage='لطفاً مدل دستگاه را وارد کنید.'; }
                 else if (!alternatorSerial || !alternatorSerial.value.trim()) { isValid=false; errorMessage='لطفاً سریال آلترناتور را وارد کنید.'; }
-            } else if (assetType.includes('موتور برق')) {
+            } else if (assetType && assetType.includes('موتور برق')) {
                 const name = document.getElementById('motor_name');
                 const serial = document.getElementById('motor_serial_number');
                 const status = document.getElementById('motor_status');
@@ -1215,14 +1274,14 @@ $filtered_count = count($assets);
                 else if (!serial || !serial.value.trim()) { isValid=false; errorMessage='لطفاً شماره سریال موتور را وارد کنید.'; }
                 else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
                 else if (!engineType || !engineType.value) { isValid=false; errorMessage='لطفاً نوع موتور را انتخاب کنید.'; }
-            } else if (assetType.includes('مصرفی')) {
+            } else if (assetType && assetType.includes('مصرفی')) {
                 const name = document.getElementById('consumable_name');
                 const status = document.getElementById('consumable_status');
                 const type = document.getElementById('consumable_type');
                 if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام کالا را وارد کنید.'; }
                 else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
                 else if (!type || !type.value.trim()) { isValid=false; errorMessage='لطفاً نوع کالای مصرفی را وارد کنید.'; }
-            } else if (assetType.includes('قطعات')) {
+            } else if (assetType && assetType.includes('قطعات')) {
                 const name = document.getElementById('parts_name');
                 const status = document.getElementById('parts_status');
                 if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام قطعه را وارد کنید.'; }
@@ -1285,28 +1344,36 @@ $filtered_count = count($assets);
         const previewContainer = document.getElementById('previewContainer');
         let previewHTML = '';
         
+        // Ensure assetType is set
+        if (!assetType) {
+            const typeSelect = document.getElementById('type_id');
+            if (typeSelect && typeSelect.value) {
+                assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+            }
+        }
+        
         // اطلاعات عمومی
         let name = '', serial = '', purchaseDate = '', status = '', deviceIdentifier = '';
         
-        if (assetType.includes('ژنراتور')) {
+        if (assetType && assetType.includes('ژنراتور')) {
             name = document.getElementById('gen_name').value;
             serial = document.getElementById('gen_serial_number').value;
             purchaseDate = document.getElementById('gen_purchase_date').value;
             status = document.getElementById('gen_status').value;
             deviceIdentifier = document.getElementById('device_identifier').value;
-        } else if (assetType.includes('موتور برق')) {
+        } else if (assetType && assetType.includes('موتور برق')) {
             name = document.getElementById('motor_name').value;
             serial = document.getElementById('motor_serial_number').value;
             purchaseDate = document.getElementById('motor_purchase_date').value;
             status = document.getElementById('motor_status').value;
             deviceIdentifier = serial; // Use serial as identifier for power motors
-        } else if (assetType.includes('مصرفی')) {
+        } else if (assetType && assetType.includes('مصرفی')) {
             name = document.getElementById('consumable_name').value;
             serial = '--';
             purchaseDate = document.getElementById('consumable_purchase_date').value;
             status = document.getElementById('consumable_status').value;
             deviceIdentifier = name; // Use name as identifier for consumables
-        } else if (assetType.includes('قطعات')) {
+        } else if (assetType && assetType.includes('قطعات')) {
             name = document.getElementById('parts_name').value;
             serial = document.getElementById('parts_serial_number').value;
             purchaseDate = document.getElementById('parts_purchase_date').value;
@@ -1330,7 +1397,15 @@ $filtered_count = count($assets);
     }
 
     function editForm() {
-        if (assetType.includes('مصرفی') || assetType.includes('قطعات')) {
+        // Ensure assetType is set
+        if (!assetType) {
+            const typeSelect = document.getElementById('type_id');
+            if (typeSelect && typeSelect.value) {
+                assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+            }
+        }
+        
+        if (assetType && (assetType.includes('مصرفی') || assetType.includes('قطعات'))) {
             document.getElementById('step4').classList.remove('active');
             document.getElementById('step3').classList.add('active');
             currentStep = 3;
@@ -1584,9 +1659,15 @@ $filtered_count = count($assets);
         }
         
         // Asset type specific validation
-        const assetTypeName = assetType;
+        let assetTypeName = assetType;
+        if (!assetTypeName) {
+            const typeSelect = document.getElementById('type_id');
+            if (typeSelect && typeSelect.value) {
+                assetTypeName = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+            }
+        }
         
-        if (assetTypeName.includes('ژنراتور')) {
+        if (assetTypeName && assetTypeName.includes('ژنراتور')) {
             const name = document.getElementById('gen_name');
             const serial = document.getElementById('gen_serial_number');
             const status = document.getElementById('gen_status');
@@ -1609,7 +1690,7 @@ $filtered_count = count($assets);
                 isValid = false;
                 errorMessage = 'سریال آلترناتور ژنراتور وارد نشده است.';
             }
-        } else if (assetTypeName.includes('موتور برق')) {
+        } else if (assetTypeName && assetTypeName.includes('موتور برق')) {
             const name = document.getElementById('motor_name');
             const serial = document.getElementById('motor_serial_number');
             const status = document.getElementById('motor_status');
@@ -1628,7 +1709,7 @@ $filtered_count = count($assets);
                 isValid = false;
                 errorMessage = 'نوع موتور برق انتخاب نشده است.';
             }
-        } else if (assetTypeName.includes('مصرفی')) {
+        } else if (assetTypeName && assetTypeName.includes('مصرفی')) {
             const name = document.getElementById('consumable_name');
             const status = document.getElementById('consumable_status');
             const type = document.getElementById('consumable_type');
@@ -1670,7 +1751,7 @@ $filtered_count = count($assets);
                     errorMessage = 'شماره تماس تامین کننده وارد نشده است.';
                 }
             }
-        } else if (assetTypeName.includes('قطعات')) {
+        } else if (assetTypeName && assetTypeName.includes('قطعات')) {
             const name = document.getElementById('parts_name');
             const status = document.getElementById('parts_status');
             
