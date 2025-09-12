@@ -38,10 +38,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $brand = sanitizeInput($_POST['brand'] ?? '');
         $model = sanitizeInput($_POST['model'] ?? '');
 
-        $stmt = $pdo->prepare("SELECT name FROM asset_types WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT name, display_name FROM asset_types WHERE id = ?");
         $stmt->execute([$type_id]);
         $asset_type = $stmt->fetch();
-        $asset_type_name = $asset_type['name'] ?? '';
+        $asset_type_name = $asset_type['display_name'] ?? '';
+        
+        // Debug: بررسی نوع دارایی
+        error_log("Asset type ID: $type_id, Name: " . ($asset_type['name'] ?? 'NULL') . ", Display Name: " . ($asset_type['display_name'] ?? 'NULL'));
 
         $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
         $engine_type = sanitizeInput($_POST['engine_type'] ?? '');
@@ -102,12 +105,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
         
         // تنظیم brand و model بر اساس نوع دارایی
-        if (strpos($asset_type_name, 'ژنراتور') !== false) {
+        if ($asset_type_name && strpos($asset_type_name, 'ژنراتور') !== false) {
             $brand = $name; // نام دستگاه به عنوان برند
             $model = sanitizeInput($_POST['device_model'] ?? '');
-        } else if (strpos($asset_type_name, 'موتور برق') !== false) {
+        } else if ($asset_type_name && strpos($asset_type_name, 'موتور برق') !== false) {
             $brand = $name; // نام موتور به عنوان برند
             $model = sanitizeInput($_POST['engine_type'] ?? '');
+        } else {
+            // اگر نوع دارایی مشخص نیست، از مقادیر پیش‌فرض استفاده کن
+            $brand = $brand ?: $name;
+            $model = $model ?: '';
         }
 
         $stmt = $pdo->prepare("INSERT INTO assets (name, type_id, serial_number, purchase_date, status, brand, model, 
@@ -150,18 +157,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         // پیام موفقیت سفارشی بر اساس نوع دارایی
         $success_message = "";
-        if (strpos($asset_type_name, 'ژنراتور') !== false) {
+        if ($asset_type_name && strpos($asset_type_name, 'ژنراتور') !== false) {
             $identifier = $device_identifier ?: $serial_number;
             $success_message = "ژنراتور به شماره شناسه دستگاه $identifier با موفقیت ثبت شد!";
-        } else if (strpos($asset_type_name, 'موتور برق') !== false) {
+        } else if ($asset_type_name && strpos($asset_type_name, 'موتور برق') !== false) {
             $success_message = "موتور برق با شماره سریال $serial_number با موفقیت ثبت شد!";
-        } else if (strpos($asset_type_name, 'مصرفی') !== false) {
+        } else if ($asset_type_name && strpos($asset_type_name, 'مصرفی') !== false) {
             $success_message = "کالای مصرفی $name با موفقیت ثبت شد!";
-        } else if (strpos($asset_type_name, 'قطعات') !== false) {
+        } else if ($asset_type_name && strpos($asset_type_name, 'قطعات') !== false) {
             $success_message = "قطعه $name با موفقیت ثبت شد!";
         } else {
             $success_message = "دارایی $name با موفقیت ثبت شد!";
         }
+        
+        // Debug: بررسی پیام موفقیت
+        error_log("Success message: $success_message");
         
         $_SESSION['success'] = $success_message;
         logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");

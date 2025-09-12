@@ -141,6 +141,14 @@ function createDatabaseTables($pdo) {
             air_filter_part VARCHAR(100),
             water_filter_part VARCHAR(100),
             
+            -- فیلدهای جدید
+            device_identifier VARCHAR(255),
+            supply_method VARCHAR(255),
+            location VARCHAR(255),
+            quantity INT DEFAULT 0,
+            supplier_name VARCHAR(255),
+            supplier_contact VARCHAR(255),
+            
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
