@@ -100,6 +100,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $quantity = (int)($_POST['quantity'] ?? 0);
         $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
         $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
+        
+        // تنظیم brand و model بر اساس نوع دارایی
+        if (strpos($asset_type_name, 'ژنراتور') !== false) {
+            $brand = $name; // نام دستگاه به عنوان برند
+            $model = sanitizeInput($_POST['device_model'] ?? '');
+        } else if (strpos($asset_type_name, 'موتور برق') !== false) {
+            $brand = $name; // نام موتور به عنوان برند
+            $model = sanitizeInput($_POST['engine_type'] ?? '');
+        }
 
         $stmt = $pdo->prepare("INSERT INTO assets (name, type_id, serial_number, purchase_date, status, brand, model, 
                               power_capacity, engine_type, consumable_type, engine_model, engine_serial, 
@@ -138,7 +147,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         }
 
         $pdo->commit();
-        $_SESSION['success'] = "دارایی با موفقیت افزوده شد!";
+        
+        // پیام موفقیت سفارشی بر اساس نوع دارایی
+        $success_message = "";
+        if (strpos($asset_type_name, 'ژنراتور') !== false) {
+            $identifier = $device_identifier ?: $serial_number;
+            $success_message = "ژنراتور به شماره شناسه دستگاه $identifier با موفقیت ثبت شد!";
+        } else if (strpos($asset_type_name, 'موتور برق') !== false) {
+            $success_message = "موتور برق با شماره سریال $serial_number با موفقیت ثبت شد!";
+        } else if (strpos($asset_type_name, 'مصرفی') !== false) {
+            $success_message = "کالای مصرفی $name با موفقیت ثبت شد!";
+        } else if (strpos($asset_type_name, 'قطعات') !== false) {
+            $success_message = "قطعه $name با موفقیت ثبت شد!";
+        } else {
+            $success_message = "دارایی $name با موفقیت ثبت شد!";
+        }
+        
+        $_SESSION['success'] = $success_message;
         logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
         header('Location: assets.php');
         exit();
@@ -1072,25 +1097,49 @@ $filtered_count = count($assets);
                 </div>
             </div>
 
-            <?php if (!empty($search) || !empty($type_filter) || !empty($status_filter)): ?>
+            <!-- لیست دارایی‌های ثبت شده -->
             <div class="card mt-4">
-                <div class="card-header bg-info text-white"><h5 class="mb-0"><i class="fas fa-list"></i> نتایج جستجو</h5></div>
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> لیست دارایی‌های ثبت شده</h5>
+                </div>
                 <div class="card-body">
                     <?php if (count($assets) > 0): ?>
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
                                 <thead>
                                 <tr>
-                                    <th>نام دستگاه</th><th>نوع</th><th>سریال</th><th>برند/مدل</th><th>وضعیت</th><th>تاریخ خرید</th><th>عملیات</th>
+                                    <th>نام دستگاه</th>
+                                    <th>نوع</th>
+                                    <th>سریال/شناسه</th>
+                                    <th>برند/مدل</th>
+                                    <th>وضعیت</th>
+                                    <th>تاریخ خرید</th>
+                                    <th>عملیات</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <?php foreach ($assets as $asset): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($asset['name']) ?></td>
-                                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($asset['type_display_name']) ?></span></td>
-                                    <td><?php echo htmlspecialchars($asset['serial_number']) ?></td>
-                                    <td><?php echo htmlspecialchars($asset['brand']) ?><?php echo $asset['model'] ? ' / ' . htmlspecialchars($asset['model']) : '' ?></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($asset['name']) ?></strong>
+                                        <?php if ($asset['device_identifier']): ?>
+                                            <br><small class="text-muted">شناسه: <?php echo htmlspecialchars($asset['device_identifier']) ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary"><?php echo htmlspecialchars($asset['type_display_name']) ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if ($asset['device_identifier']): ?>
+                                            <span class="text-primary fw-bold"><?php echo htmlspecialchars($asset['device_identifier']) ?></span>
+                                        <?php else: ?>
+                                            <?php echo htmlspecialchars($asset['serial_number']) ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($asset['brand']) ?>
+                                        <?php echo $asset['model'] ? ' / ' . htmlspecialchars($asset['model']) : '' ?>
+                                    </td>
                                     <td>
                                         <?php
                                         $status_class = 'secondary';
@@ -1103,10 +1152,16 @@ $filtered_count = count($assets);
                                     </td>
                                     <td><?php echo $asset['purchase_date'] ? jalaliDate($asset['purchase_date']) : '--' ?></td>
                                     <td class="action-buttons">
-                                        <a href="profile.php?id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-info" title="پروفایل دستگاه"><i class="fas fa-id-card"></i></a>
-                                        <a href="edit_asset.php?id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-warning" title="ویرایش"><i class="fas fa-edit"></i></a>
+                                        <a href="profile.php?id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-info" title="پروفایل دستگاه">
+                                            <i class="fas fa-id-card"></i>
+                                        </a>
+                                        <a href="edit_asset.php?id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-warning" title="ویرایش">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
                                         <?php if ($_SESSION['role'] == 'ادمین'): ?>
-                                        <a href="assets.php?delete_id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-danger" title="حذف" onclick="return confirm('آیا از حذف این دارایی مطمئن هستید؟')"><i class="fas fa-trash"></i></a>
+                                        <a href="assets.php?delete_id=<?php echo $asset['id'] ?>" class="btn btn-sm btn-danger" title="حذف" onclick="return confirm('آیا از حذف این دارایی مطمئن هستید؟')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1115,11 +1170,12 @@ $filtered_count = count($assets);
                             </table>
                         </div>
                     <?php else: ?>
-                        <div class="alert alert-info text-center"><i class="fas fa-info-circle"></i> هیچ دارایی یافت نشد.</div>
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle"></i> هیچ دارایی ثبت نشده است.
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
-            <?php endif; ?>
 
         </div>
     </div>
