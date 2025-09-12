@@ -1685,6 +1685,13 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Button type:', submitBtn.type);
             console.log('Button name:', submitBtn.name);
             
+            // حذف required از فیلدهای مخفی
+            const hiddenFields = document.querySelectorAll('.dynamic-field input[required], .dynamic-field select[required]');
+            hiddenFields.forEach(field => {
+                field.removeAttribute('required');
+                console.log('Removed required from:', field.name);
+            });
+            
             // فقط validation انجام بده، submit را به عهده خود فرم بگذار
             if (!validateStep(4)) {
                 console.log('Validation failed');
