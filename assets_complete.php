@@ -1143,22 +1143,30 @@ $filtered_count = count($assets);
     function nextStep(step) {
         if (!validateStep(currentStep)) return;
         
-        document.getElementById('step' + currentStep).classList.remove('active');
-        document.getElementById('step' + step).classList.add('active');
-        currentStep = step;
-        
         // Smart navigation based on asset type
-        if (currentStep === 2) {
+        if (currentStep === 1 && step === 2) {
             if (assetType.includes('ژنراتور') || assetType.includes('موتور برق')) {
-                // Skip supply step for generators and power motors
-                nextStep(4);
+                // Skip supply step for generators and power motors - go directly to preview
+                document.getElementById('step' + currentStep).classList.remove('active');
+                document.getElementById('step4').classList.add('active');
+                currentStep = 4;
+                generatePreview();
+                updateStepNav();
                 return;
             } else {
                 // Go to supply step for consumables and parts
-                nextStep(3);
+                document.getElementById('step' + currentStep).classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+                currentStep = 3;
+                updateStepNav();
                 return;
             }
         }
+        
+        // Normal step navigation
+        document.getElementById('step' + currentStep).classList.remove('active');
+        document.getElementById('step' + step).classList.add('active');
+        currentStep = step;
         
         if (currentStep === 4) {
             generatePreview();
@@ -1193,32 +1201,32 @@ $filtered_count = count($assets);
                 const status = document.getElementById('gen_status');
                 const deviceModel = document.getElementById('gen_device_model');
                 const alternatorSerial = document.getElementById('gen_alternator_serial');
-                if (!name.value.trim()) { isValid=false; errorMessage='لطفاً نام دستگاه را انتخاب کنید.'; }
-                else if (!serial.value.trim()) { isValid=false; errorMessage='لطفاً شماره سریال دستگاه را وارد کنید.'; }
-                else if (!status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
-                else if (!deviceModel.value.trim()) { isValid=false; errorMessage='لطفاً مدل دستگاه را وارد کنید.'; }
-                else if (!alternatorSerial.value.trim()) { isValid=false; errorMessage='لطفاً سریال آلترناتور را وارد کنید.'; }
+                if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام دستگاه را انتخاب کنید.'; }
+                else if (!serial || !serial.value.trim()) { isValid=false; errorMessage='لطفاً شماره سریال دستگاه را وارد کنید.'; }
+                else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
+                else if (!deviceModel || !deviceModel.value.trim()) { isValid=false; errorMessage='لطفاً مدل دستگاه را وارد کنید.'; }
+                else if (!alternatorSerial || !alternatorSerial.value.trim()) { isValid=false; errorMessage='لطفاً سریال آلترناتور را وارد کنید.'; }
             } else if (assetType.includes('موتور برق')) {
                 const name = document.getElementById('motor_name');
                 const serial = document.getElementById('motor_serial_number');
                 const status = document.getElementById('motor_status');
                 const engineType = document.getElementById('motor_engine_type');
-                if (!name.value.trim()) { isValid=false; errorMessage='لطفاً نام موتور برق را انتخاب کنید.'; }
-                else if (!serial.value.trim()) { isValid=false; errorMessage='لطفاً شماره سریال موتور را وارد کنید.'; }
-                else if (!status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
-                else if (!engineType.value) { isValid=false; errorMessage='لطفاً نوع موتور را انتخاب کنید.'; }
+                if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام موتور برق را انتخاب کنید.'; }
+                else if (!serial || !serial.value.trim()) { isValid=false; errorMessage='لطفاً شماره سریال موتور را وارد کنید.'; }
+                else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
+                else if (!engineType || !engineType.value) { isValid=false; errorMessage='لطفاً نوع موتور را انتخاب کنید.'; }
             } else if (assetType.includes('مصرفی')) {
                 const name = document.getElementById('consumable_name');
                 const status = document.getElementById('consumable_status');
                 const type = document.getElementById('consumable_type');
-                if (!name.value.trim()) { isValid=false; errorMessage='لطفاً نام کالا را وارد کنید.'; }
-                else if (!status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
-                else if (!type.value.trim()) { isValid=false; errorMessage='لطفاً نوع کالای مصرفی را وارد کنید.'; }
+                if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام کالا را وارد کنید.'; }
+                else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
+                else if (!type || !type.value.trim()) { isValid=false; errorMessage='لطفاً نوع کالای مصرفی را وارد کنید.'; }
             } else if (assetType.includes('قطعات')) {
                 const name = document.getElementById('parts_name');
                 const status = document.getElementById('parts_status');
-                if (!name.value.trim()) { isValid=false; errorMessage='لطفاً نام قطعه را وارد کنید.'; }
-                else if (!status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
+                if (!name || !name.value.trim()) { isValid=false; errorMessage='لطفاً نام قطعه را وارد کنید.'; }
+                else if (!status || !status.value) { isValid=false; errorMessage='لطفاً وضعیت را انتخاب کنید.'; }
             }
         } else if (step === 3) {
             const supplyMethod = document.getElementById('supply_method').value;
