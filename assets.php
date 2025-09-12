@@ -45,6 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         // Debug: بررسی نوع دارایی
         error_log("Asset type ID: $type_id, Name: " . ($asset_type['name'] ?? 'NULL') . ", Display Name: " . ($asset_type['display_name'] ?? 'NULL'));
+        
+        // اگر display_name خالی است، از name استفاده کن
+        if (empty($asset_type_name) && !empty($asset_type['name'])) {
+            $asset_type_name = $asset_type['name'];
+        }
 
         $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
         $engine_type = sanitizeInput($_POST['engine_type'] ?? '');
@@ -105,10 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
         
         // تنظیم brand و model بر اساس نوع دارایی
-        if ($asset_type_name && strpos($asset_type_name, 'ژنراتور') !== false) {
+        if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
             $brand = $name; // نام دستگاه به عنوان برند
             $model = sanitizeInput($_POST['device_model'] ?? '');
-        } else if ($asset_type_name && strpos($asset_type_name, 'موتور برق') !== false) {
+        } else if ($asset_type_name && (strpos($asset_type_name, 'موتور برق') !== false || strpos($asset_type_name, 'power_motor') !== false)) {
             $brand = $name; // نام موتور به عنوان برند
             $model = sanitizeInput($_POST['engine_type'] ?? '');
         } else {
@@ -157,14 +162,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         // پیام موفقیت سفارشی بر اساس نوع دارایی
         $success_message = "";
-        if ($asset_type_name && strpos($asset_type_name, 'ژنراتور') !== false) {
+        if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
             $identifier = $device_identifier ?: $serial_number;
             $success_message = "ژنراتور به شماره شناسه دستگاه $identifier با موفقیت ثبت شد!";
-        } else if ($asset_type_name && strpos($asset_type_name, 'موتور برق') !== false) {
+        } else if ($asset_type_name && (strpos($asset_type_name, 'موتور برق') !== false || strpos($asset_type_name, 'power_motor') !== false)) {
             $success_message = "موتور برق با شماره سریال $serial_number با موفقیت ثبت شد!";
-        } else if ($asset_type_name && strpos($asset_type_name, 'مصرفی') !== false) {
+        } else if ($asset_type_name && (strpos($asset_type_name, 'مصرفی') !== false || strpos($asset_type_name, 'consumable') !== false)) {
             $success_message = "کالای مصرفی $name با موفقیت ثبت شد!";
-        } else if ($asset_type_name && strpos($asset_type_name, 'قطعات') !== false) {
+        } else if ($asset_type_name && (strpos($asset_type_name, 'قطعات') !== false || strpos($asset_type_name, 'parts') !== false)) {
             $success_message = "قطعه $name با موفقیت ثبت شد!";
         } else {
             $success_message = "دارایی $name با موفقیت ثبت شد!";
@@ -172,6 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         
         // Debug: بررسی پیام موفقیت
         error_log("Success message: $success_message");
+        error_log("Asset type name: $asset_type_name");
+        error_log("Device identifier: $device_identifier");
+        error_log("Serial number: $serial_number");
         
         $_SESSION['success'] = $success_message;
         logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
@@ -1126,7 +1134,7 @@ $filtered_count = count($assets);
                                 <button type="button" class="btn btn-secondary" onclick="prevStepFrom4()"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="button" class="btn btn-success" onclick="submitForm()"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return submitForm()"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
