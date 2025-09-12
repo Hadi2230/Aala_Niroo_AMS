@@ -50,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         if (empty($asset_type_name) && !empty($asset_type['name'])) {
             $asset_type_name = $asset_type['name'];
         }
+        
+        // Debug: بررسی مقادیر
+        error_log("Name: $name, Type ID: $type_id, Asset Type Name: $asset_type_name");
 
         $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
         $engine_type = sanitizeInput($_POST['engine_type'] ?? '');
@@ -160,6 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
 
         $pdo->commit();
         
+        // Debug: بررسی commit
+        error_log("Transaction committed successfully");
+        
         // پیام موفقیت سفارشی بر اساس نوع دارایی
         $success_message = "";
         if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
@@ -180,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         error_log("Asset type name: $asset_type_name");
         error_log("Device identifier: $device_identifier");
         error_log("Serial number: $serial_number");
+        error_log("Asset ID: $asset_id");
         
         $_SESSION['success'] = $success_message;
         logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
@@ -1634,6 +1641,20 @@ function submitForm() {
     }
     return false;
 }
+
+// اضافه کردن event listener برای دکمه submit
+document.addEventListener('DOMContentLoaded', function() {
+    const submitBtn = document.querySelector('button[name="add_asset"]');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (submitForm()) {
+                // اگر validation موفق بود، فرم را submit کن
+                document.getElementById('assetForm').submit();
+            }
+        });
+    }
+});
 
 function previewImage(input, previewId) {
     const preview = document.getElementById(previewId);
