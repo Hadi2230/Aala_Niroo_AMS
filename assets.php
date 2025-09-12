@@ -1458,6 +1458,10 @@ function validateStep(step) {
             if (!supplierName.value.trim()) { isValid=false; errorMessage='لطفاً نام تامین کننده را وارد کنید.'; }
             else if (!supplierContact.value.trim()) { isValid=false; errorMessage='لطفاً شماره تماس تامین کننده را وارد کنید.'; }
         }
+    } else if (step === 4) {
+        // برای مرحله 4 (پیش‌نمایش) فقط بررسی کن که همه چیز آماده است
+        console.log('Validating step 4');
+        isValid = true; // همیشه true برگردان
     }
     
     if (!isValid) alert(errorMessage);
@@ -1661,17 +1665,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.querySelector('button[name="add_asset"]');
     if (submitBtn) {
         submitBtn.addEventListener('click', function(e) {
+            console.log('Submit button clicked');
+            
             // فقط validation انجام بده، submit را به عهده خود فرم بگذار
             if (!validateStep(4)) {
+                console.log('Validation failed');
                 e.preventDefault();
                 return false;
             }
             
+            console.log('Validation passed');
+            
             // تایید کاربر
             if (!confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')) {
+                console.log('User cancelled');
                 e.preventDefault();
                 return false;
             }
+            
+            console.log('Form will be submitted');
         });
     }
 });
