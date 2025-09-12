@@ -1551,6 +1551,172 @@ $filtered_count = count($assets);
         updateStepNav();
     });
 
+    // Confirm submit function
+    function confirmSubmit() {
+        // Final validation
+        if (!validateFinalStep()) {
+            return false;
+        }
+        
+        // Show confirmation
+        if (confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')) {
+            // Show loading
+            const submitBtn = document.querySelector('button[name="add_asset"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> در حال ثبت...';
+                submitBtn.disabled = true;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // Final step validation
+    function validateFinalStep() {
+        let isValid = true;
+        let errorMessage = '';
+        
+        // Basic validation for all asset types
+        const typeSelect = document.getElementById('type_id');
+        if (!typeSelect.value) {
+            isValid = false;
+            errorMessage = 'نوع دارایی انتخاب نشده است.';
+        }
+        
+        // Asset type specific validation
+        const assetTypeName = assetType;
+        
+        if (assetTypeName.includes('ژنراتور')) {
+            const name = document.getElementById('gen_name');
+            const serial = document.getElementById('gen_serial_number');
+            const status = document.getElementById('gen_status');
+            const deviceModel = document.getElementById('gen_device_model');
+            const alternatorSerial = document.getElementById('gen_alternator_serial');
+            
+            if (!name || !name.value.trim()) {
+                isValid = false;
+                errorMessage = 'نام دستگاه ژنراتور وارد نشده است.';
+            } else if (!serial || !serial.value.trim()) {
+                isValid = false;
+                errorMessage = 'شماره سریال دستگاه ژنراتور وارد نشده است.';
+            } else if (!status || !status.value) {
+                isValid = false;
+                errorMessage = 'وضعیت ژنراتور انتخاب نشده است.';
+            } else if (!deviceModel || !deviceModel.value.trim()) {
+                isValid = false;
+                errorMessage = 'مدل دستگاه ژنراتور وارد نشده است.';
+            } else if (!alternatorSerial || !alternatorSerial.value.trim()) {
+                isValid = false;
+                errorMessage = 'سریال آلترناتور ژنراتور وارد نشده است.';
+            }
+        } else if (assetTypeName.includes('موتور برق')) {
+            const name = document.getElementById('motor_name');
+            const serial = document.getElementById('motor_serial_number');
+            const status = document.getElementById('motor_status');
+            const engineType = document.getElementById('motor_engine_type');
+            
+            if (!name || !name.value.trim()) {
+                isValid = false;
+                errorMessage = 'نام موتور برق انتخاب نشده است.';
+            } else if (!serial || !serial.value.trim()) {
+                isValid = false;
+                errorMessage = 'شماره سریال موتور برق وارد نشده است.';
+            } else if (!status || !status.value) {
+                isValid = false;
+                errorMessage = 'وضعیت موتور برق انتخاب نشده است.';
+            } else if (!engineType || !engineType.value) {
+                isValid = false;
+                errorMessage = 'نوع موتور برق انتخاب نشده است.';
+            }
+        } else if (assetTypeName.includes('مصرفی')) {
+            const name = document.getElementById('consumable_name');
+            const status = document.getElementById('consumable_status');
+            const type = document.getElementById('consumable_type');
+            
+            if (!name || !name.value.trim()) {
+                isValid = false;
+                errorMessage = 'نام کالای مصرفی وارد نشده است.';
+            } else if (!status || !status.value) {
+                isValid = false;
+                errorMessage = 'وضعیت کالای مصرفی انتخاب نشده است.';
+            } else if (!type || !type.value.trim()) {
+                isValid = false;
+                errorMessage = 'نوع کالای مصرفی وارد نشده است.';
+            }
+            
+            // Supply method validation for consumables
+            const supplyMethod = document.getElementById('supply_method');
+            if (!supplyMethod || !supplyMethod.value) {
+                isValid = false;
+                errorMessage = 'نحوه تامین کالای مصرفی انتخاب نشده است.';
+            } else if (supplyMethod.value === 'انبار') {
+                const location = document.getElementById('location');
+                const quantity = document.getElementById('quantity');
+                if (!location || !location.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'لوکیشن انبار وارد نشده است.';
+                } else if (!quantity || !quantity.value || quantity.value <= 0) {
+                    isValid = false;
+                    errorMessage = 'تعداد کالا وارد نشده است.';
+                }
+            } else if (supplyMethod.value === 'third_party') {
+                const supplierName = document.getElementById('supplier_name');
+                const supplierContact = document.getElementById('supplier_contact');
+                if (!supplierName || !supplierName.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'نام تامین کننده وارد نشده است.';
+                } else if (!supplierContact || !supplierContact.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'شماره تماس تامین کننده وارد نشده است.';
+                }
+            }
+        } else if (assetTypeName.includes('قطعات')) {
+            const name = document.getElementById('parts_name');
+            const status = document.getElementById('parts_status');
+            
+            if (!name || !name.value.trim()) {
+                isValid = false;
+                errorMessage = 'نام قطعه وارد نشده است.';
+            } else if (!status || !status.value) {
+                isValid = false;
+                errorMessage = 'وضعیت قطعه انتخاب نشده است.';
+            }
+            
+            // Supply method validation for parts
+            const supplyMethod = document.getElementById('supply_method');
+            if (!supplyMethod || !supplyMethod.value) {
+                isValid = false;
+                errorMessage = 'نحوه تامین قطعه انتخاب نشده است.';
+            } else if (supplyMethod.value === 'انبار') {
+                const location = document.getElementById('location');
+                const quantity = document.getElementById('quantity');
+                if (!location || !location.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'لوکیشن انبار وارد نشده است.';
+                } else if (!quantity || !quantity.value || quantity.value <= 0) {
+                    isValid = false;
+                    errorMessage = 'تعداد قطعه وارد نشده است.';
+                }
+            } else if (supplyMethod.value === 'third_party') {
+                const supplierName = document.getElementById('supplier_name');
+                const supplierContact = document.getElementById('supplier_contact');
+                if (!supplierName || !supplierName.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'نام تامین کننده وارد نشده است.';
+                } else if (!supplierContact || !supplierContact.value.trim()) {
+                    isValid = false;
+                    errorMessage = 'شماره تماس تامین کننده وارد نشده است.';
+                }
+            }
+        }
+        
+        if (!isValid) {
+            alert('خطا: ' + errorMessage);
+            return false;
+        }
+        
+        return true;
+    }
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
