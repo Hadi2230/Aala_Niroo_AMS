@@ -113,11 +113,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
 
         // دریافت فیلدهای جدید
         $device_identifier = sanitizeInput($_POST['device_identifier'] ?? '');
+        if (empty($device_identifier)) {
+            $device_identifier = null; // Set to NULL for empty values
+        }
         $supply_method = sanitizeInput($_POST['supply_method'] ?? '');
+        if (empty($supply_method)) {
+            $supply_method = null;
+        }
         $location = sanitizeInput($_POST['location'] ?? '');
+        if (empty($location)) {
+            $location = null;
+        }
         $quantity = (int)($_POST['quantity'] ?? 0);
         $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
+        if (empty($supplier_name)) {
+            $supplier_name = null;
+        }
         $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
+        if (empty($supplier_contact)) {
+            $supplier_contact = null;
+        }
         
         // تنظیم brand و model بر اساس نوع دارایی
         if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
