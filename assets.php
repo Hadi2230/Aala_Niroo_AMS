@@ -1699,6 +1699,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Removed required from supply field:', field.name);
             });
             
+            // حذف required از فیلد supply_method مستقیماً
+            const supplyMethodField = document.getElementById('supply_method');
+            if (supplyMethodField) {
+                supplyMethodField.removeAttribute('required');
+                console.log('Removed required from supply_method field');
+            }
+            
             // فقط validation انجام بده، submit را به عهده خود فرم بگذار
             if (!validateStep(4)) {
                 console.log('Validation failed');
