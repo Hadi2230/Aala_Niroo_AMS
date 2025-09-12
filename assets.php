@@ -524,7 +524,6 @@ $filtered_count = count($assets);
                                                 <span>وضعیت *</span>
                                                 <span class="d-flex align-items-center" style="gap:.35rem;">
                                                     <i class="fas fa-info-circle text-muted" title="انتخاب وضعیت دستگاه — برای مثال: فعال، در حال تعمیر، غیرفعال" style="cursor:help"></i>
-                                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="nextStep(4)" title="برو به پیش‌نمایش">مرحله بعد <i class="fas fa-arrow-left"></i></button>
                                                 </span>
                                             </label>
                                             <select class="form-select" id="gen_status" name="status" required>
@@ -1000,7 +999,7 @@ $filtered_count = count($assets);
 
                             <div class="d-flex justify-content-between">
                                 <button type="button" class="btn btn-secondary" onclick="prevStep(1)"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
-                                <button type="button" class="btn btn-primary" onclick="nextStep(3)">مرحله بعد <i class="fas fa-arrow-left"></i></button>
+                                <button type="button" class="btn btn-primary" onclick="nextStepFrom2()">مرحله بعد <i class="fas fa-arrow-left"></i></button>
                             </div>
                         </div>
 
@@ -1061,10 +1060,10 @@ $filtered_count = count($assets);
                             <div class="alert alert-info"><i class="fas fa-info-circle"></i> لطفاً اطلاعات زیر را بررسی کرده و در صورت صحیح بودن، ثبت نهایی را انجام دهید.</div>
                             <div class="preview-container" id="previewContainer"></div>
                             <div class="d-flex justify-content-between mt-4">
-                                <button type="button" class="btn btn-secondary" onclick="prevStep(3)"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
+                                <button type="button" class="btn btn-secondary" onclick="prevStepFrom4()"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="submit" name="add_asset" class="btn btn-success"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
@@ -1201,24 +1200,14 @@ function nextStep(step) {
         }
     }
     
-    // Smart navigation based on asset type
+    // Normal step navigation - no smart skipping
     if (currentStep === 1 && step === 2) {
-        if (assetType && (assetType.includes('ژنراتور') || assetType.includes('موتور برق'))) {
-            // Skip supply step for generators and power motors - go directly to preview
-            document.getElementById('step' + currentStep).classList.remove('active');
-            document.getElementById('step4').classList.add('active');
-            currentStep = 4;
-            generatePreview();
-            updateStepNav();
-            return;
-        } else {
-            // Go to supply step for consumables and parts
-            document.getElementById('step' + currentStep).classList.remove('active');
-            document.getElementById('step3').classList.add('active');
-            currentStep = 3;
-            updateStepNav();
-            return;
-        }
+        // Go to step 2 for all asset types
+        document.getElementById('step' + currentStep).classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        currentStep = 2;
+        updateStepNav();
+        return;
     }
     
     // Normal step navigation
@@ -1233,10 +1222,62 @@ function nextStep(step) {
     updateStepNav();
 }
 
+function nextStepFrom2() {
+    if (!validateStep(currentStep)) return;
+    
+    // Get asset type from select if not set
+    if (!assetType) {
+        const typeSelect = document.getElementById('type_id');
+        if (typeSelect && typeSelect.value) {
+            assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+        }
+    }
+    
+    // Smart navigation from step 2
+    if (assetType && (assetType.includes('ژنراتور') || assetType.includes('موتور برق'))) {
+        // Skip supply step for generators and power motors - go directly to preview
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step4').classList.add('active');
+        currentStep = 4;
+        generatePreview();
+        updateStepNav();
+    } else {
+        // Go to supply step for consumables and parts
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
+        currentStep = 3;
+        updateStepNav();
+    }
+}
+
 function prevStep(step) {
     document.getElementById('step' + currentStep).classList.remove('active');
     document.getElementById('step' + step).classList.add('active');
     currentStep = step;
+    updateStepNav();
+}
+
+function prevStepFrom4() {
+    // Ensure assetType is set
+    if (!assetType) {
+        const typeSelect = document.getElementById('type_id');
+        if (typeSelect && typeSelect.value) {
+            assetType = typeSelect.options[typeSelect.selectedIndex].text.toLowerCase();
+        }
+    }
+    
+    // Smart navigation from step 4
+    if (assetType && (assetType.includes('ژنراتور') || assetType.includes('موتور برق'))) {
+        // Go back to step 2 for generators and power motors
+        document.getElementById('step4').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        currentStep = 2;
+    } else {
+        // Go back to step 3 for consumables and parts
+        document.getElementById('step4').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
+        currentStep = 3;
+    }
     updateStepNav();
 }
 
@@ -1470,15 +1511,10 @@ function editForm() {
         }
     }
     
-    if (assetType && (assetType.includes('مصرفی') || assetType.includes('قطعات'))) {
-        document.getElementById('step4').classList.remove('active');
-        document.getElementById('step3').classList.add('active');
-        currentStep = 3;
-    } else {
-        document.getElementById('step4').classList.remove('active');
-        document.getElementById('step2').classList.add('active');
-        currentStep = 2;
-    }
+    // Always go back to step 2 for editing
+    document.getElementById('step4').classList.remove('active');
+    document.getElementById('step2').classList.add('active');
+    currentStep = 2;
     updateStepNav();
 }
 
