@@ -25,15 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
-        $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
-        
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $purchase_date_input)) {
-            list($jy, $jm, $jd) = explode('/', $purchase_date_input);
-            $g = jalali_to_gregorian((int)$jy, (int)$jm, (int)$jd);
-            $purchase_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
-        } else {
-            $purchase_date = $purchase_date_input;
-        }
+        $purchase_date = sanitizeInput($_POST['purchase_date']);
         $status = sanitizeInput($_POST['status']);
         $brand = sanitizeInput($_POST['brand'] ?? '');
         $model = sanitizeInput($_POST['model'] ?? '');
@@ -66,23 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $radiator_capacity = sanitizeInput($_POST['radiator_capacity'] ?? '');
         $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
         $other_items = sanitizeInput($_POST['other_items'] ?? '');
-        $workshop_entry_date_input = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_entry_date_input)) {
-            list($jy,$jm,$jd) = explode('/', $workshop_entry_date_input);
-            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
-            $workshop_entry_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
-        } else {
-            $workshop_entry_date = $workshop_entry_date_input;
-        }
-
-        $workshop_exit_date_input = sanitizeInput($_POST['workshop_exit_date'] ?? '');
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_exit_date_input)) {
-            list($jy,$jm,$jd) = explode('/', $workshop_exit_date_input);
-            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
-            $workshop_exit_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
-        } else {
-            $workshop_exit_date = $workshop_exit_date_input;
-        }
+        $workshop_entry_date = sanitizeInput($_POST['workshop_entry_date'] ?? '');
+        $workshop_exit_date = sanitizeInput($_POST['workshop_exit_date'] ?? '');
         $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
         $engine_manual_link = sanitizeInput($_POST['engine_manual_link'] ?? '');
         $alternator_manual_link = sanitizeInput($_POST['alternator_manual_link'] ?? '');
@@ -96,14 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $air_filter_part = sanitizeInput($_POST['air_filter_part'] ?? '');
         $water_filter_part = sanitizeInput($_POST['water_filter_part'] ?? '');
         
-        // فیلدهای اضافی
-        $device_identifier = sanitizeInput($_POST['device_identifier'] ?? '');
-        $supply_method = sanitizeInput($_POST['supply_method'] ?? '');
-        $location = sanitizeInput($_POST['location'] ?? '');
-        $quantity = (int)($_POST['quantity'] ?? 0);
-        $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
-        $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
-        
         // درج دارایی اصلی
         $stmt = $pdo->prepare("INSERT INTO assets (name, type_id, serial_number, purchase_date, status, brand, model, 
                               power_capacity, engine_type, consumable_type, engine_model, engine_serial, 
@@ -112,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
                               radiator_capacity, antifreeze, other_items, workshop_entry_date, workshop_exit_date, 
                               datasheet_link, engine_manual_link, alternator_manual_link, control_panel_manual_link, 
                               description, oil_filter_part, fuel_filter_part, water_fuel_filter_part, air_filter_part, 
-                              water_filter_part, device_identifier, supply_method, location, quantity, supplier_name, supplier_contact) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                              water_filter_part) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
         $stmt->execute([
             $name, $type_id, $serial_number, $purchase_date, $status, $brand, $model,
@@ -123,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
             $radiator_capacity, $antifreeze, $other_items, $workshop_entry_date, $workshop_exit_date,
             $datasheet_link, $engine_manual_link, $alternator_manual_link, $control_panel_manual_link,
             $description, $oil_filter_part, $fuel_filter_part, $water_fuel_filter_part, $air_filter_part,
-            $water_filter_part, $device_identifier, $supply_method, $location, $quantity, $supplier_name, $supplier_contact
+            $water_filter_part
         ]);
         
         $asset_id = $pdo->lastInsertId();
@@ -1057,7 +1026,7 @@ $filtered_count = count($assets);
                                 <button type="button" class="btn btn-secondary" onclick="prevStep(3)"><i class="fas fa-arrow-right"></i> مرحله قبل</button>
                                 <div>
                                     <button type="button" class="btn btn-warning" onclick="editForm()"><i class="fas fa-edit"></i> ویرایش اطلاعات</button>
-                                    <button type="submit" name="add_asset" class="btn btn-success" onclick="return confirm('آیا از ثبت نهایی اطلاعات مطمئن هستید؟')"><i class="fas fa-save"></i> ثبت نهایی</button>
+                                    <button type="submit" name="add_asset" class="btn btn-success"><i class="fas fa-save"></i> ثبت نهایی</button>
                                 </div>
                             </div>
                         </div>
