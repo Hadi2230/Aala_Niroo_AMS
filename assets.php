@@ -571,10 +571,6 @@ $filtered_count = count($assets);
                                             <label class="form-label">مدل دستگاه *</label>
                                             <input type="text" class="form-control gen-device-model" id="gen_device_model" name="device_model" required>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">شناسه دستگاه *</label>
-                                            <input type="text" class="form-control gen-device-identifier" id="gen_device_identifier" name="device_identifier" required>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -584,6 +580,12 @@ $filtered_count = count($assets);
                                         <div class="mb-3">
                                             <label class="form-label">ظرفیت توان (کیلووات)</label>
                                             <input type="text" class="form-control" id="gen_power_capacity" name="power_capacity">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control gen-device-identifier" id="gen_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -904,15 +906,21 @@ $filtered_count = count($assets);
                                                 <option value="P2600">P2600</option>
                                             </select>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">شناسه دستگاه *</label>
-                                            <input type="text" class="form-control motor-device-identifier" id="motor_device_identifier" name="device_identifier" required>
-                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">سریال موتور *</label>
                                             <input type="text" class="form-control" id="motor_serial_number" name="serial_number" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- ردیف 2 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control motor-device-identifier" id="motor_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                 </div>
@@ -947,15 +955,17 @@ $filtered_count = count($assets);
                                             <label class="form-label">نام کالا *</label>
                                             <input type="text" class="form-control" id="consumable_name" name="name" required>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">شناسه دستگاه *</label>
-                                            <input type="text" class="form-control consumable-device-identifier" id="consumable_device_identifier" name="device_identifier" required>
-                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
                                             <input type="date" class="form-control" id="consumable_purchase_date" name="purchase_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control consumable-device-identifier" id="consumable_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -996,15 +1006,17 @@ $filtered_count = count($assets);
                                             <label class="form-label">نام قطعه *</label>
                                             <input type="text" class="form-control" id="parts_name" name="name" required>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">شناسه دستگاه *</label>
-                                            <input type="text" class="form-control parts-device-identifier" id="parts_device_identifier" name="device_identifier" required>
-                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">شماره سریال</label>
                                             <input type="text" class="form-control" id="parts_serial_number" name="serial_number">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه *</label>
+                                            <input type="text" class="form-control parts-device-identifier" id="parts_device_identifier" name="device_identifier" required>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
