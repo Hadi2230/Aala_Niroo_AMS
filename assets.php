@@ -1468,7 +1468,9 @@ function validateStep(step) {
     } else if (step === 4) {
         // برای مرحله 4 (پیش‌نمایش) فقط بررسی کن که همه چیز آماده است
         console.log('Validating step 4');
+        console.log('Asset type:', assetType);
         isValid = true; // همیشه true برگردان
+        console.log('Step 4 validation result:', isValid);
     }
     
     if (!isValid) alert(errorMessage);
@@ -1657,13 +1659,19 @@ function submitForm() {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('assetForm');
     if (form) {
+        console.log('Form found:', form);
         form.addEventListener('submit', function(e) {
+            console.log('Form submit event triggered');
             // فقط validation انجام بده
             if (!validateStep(4)) {
+                console.log('Form validation failed, preventing submit');
                 e.preventDefault();
                 return false;
             }
+            console.log('Form validation passed, allowing submit');
         });
+    } else {
+        console.log('Form not found!');
     }
 });
 
@@ -1673,6 +1681,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (submitBtn) {
         submitBtn.addEventListener('click', function(e) {
             console.log('Submit button clicked');
+            console.log('Event type:', e.type);
+            console.log('Button type:', submitBtn.type);
+            console.log('Button name:', submitBtn.name);
             
             // فقط validation انجام بده، submit را به عهده خود فرم بگذار
             if (!validateStep(4)) {
@@ -1691,6 +1702,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             console.log('User confirmed, form will be submitted');
+            console.log('Form action:', document.getElementById('assetForm').action);
+            console.log('Form method:', document.getElementById('assetForm').method);
             
             // بررسی اینکه فرم واقعاً submit می‌شود
             setTimeout(function() {
