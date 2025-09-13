@@ -21,17 +21,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         switch ($_POST['action']) {
             case 'create_ticket':
                 try {
-                    $ticket_id = createTicket($pdo, [
-                        'customer_id' => (int)$_POST['customer_id'],
-                        'asset_id' => !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null,
-                        'title' => sanitizeInput($_POST['title']),
-                        'description' => sanitizeInput($_POST['description']),
-                        'priority' => sanitizeInput($_POST['priority']),
-                        'created_by' => $_SESSION['user_id']
-                    ]);
+                    $ticket_id = createTicket($pdo, 
+                        (int)$_POST['customer_id'],
+                        !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null,
+                        sanitizeInput($_POST['title']),
+                        sanitizeInput($_POST['description']),
+                        sanitizeInput($_POST['priority']),
+                        $_SESSION['user_id']
+                    );
                     
                     if ($ticket_id) {
-                        $success_message = 'تیکت با موفقیت ایجاد شد. شماره تیکت: ' . generateTicketNumber($ticket_id);
+                        $success_message = 'تیکت با موفقیت ایجاد شد. شماره تیکت: ' . $ticket_id;
                     } else {
                         $error_message = 'خطا در ایجاد تیکت';
                     }
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
             case 'update_status':
                 try {
-                    $result = updateTicketStatus($pdo, (int)$_POST['ticket_id'], sanitizeInput($_POST['new_status']), sanitizeInput($_POST['reason'] ?? ''));
+                    $result = updateTicketStatus($pdo, (int)$_POST['ticket_id'], sanitizeInput($_POST['new_status']), $_SESSION['user_id'], sanitizeInput($_POST['reason'] ?? ''));
                     if ($result) {
                         $success_message = 'وضعیت تیکت با موفقیت به‌روزرسانی شد';
                     } else {
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
             case 'assign_ticket':
                 try {
-                    $result = assignTicket($pdo, (int)$_POST['ticket_id'], (int)$_POST['assigned_to']);
+                    $result = assignTicket($pdo, (int)$_POST['ticket_id'], (int)$_POST['assigned_to'], $_SESSION['user_id']);
                     if ($result) {
                         $success_message = 'تیکت با موفقیت تخصیص یافت';
                     } else {
@@ -369,7 +369,7 @@ try {
                                                         <div class="col-md-6">
                                                             <small class="text-muted">
                                                                 <i class="fa fa-hashtag"></i> شماره تیکت: <?php echo htmlspecialchars($ticket['ticket_number']); ?><br>
-                                                                <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo jalaliDate($ticket['created_at']); ?><br>
+                                                                <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo jalali_format($ticket['created_at']); ?><br>
                                                                 <i class="fa fa-user-plus"></i> ایجاد کننده: <?php echo htmlspecialchars($ticket['created_by_name']); ?>
                                                             </small>
                                                         </div>
