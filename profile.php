@@ -1,907 +1,733 @@
 <?php
+// profile.php - نسخهٔ نهایی و مقاوم
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
+require_once 'config.php';
+
+// تابع کمکی برای خروجی امن HTML
+function e($v) {
+    return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-include 'config.php';
-
-// دریافت اطلاعات دستگاه
-$assetId = $_GET['id'] ?? null;
+// مقداردهی اولیه متغیرها
+$assetId = (int)($_GET['id'] ?? $_POST['asset_id'] ?? 0);
 $assetData = null;
 $allAssets = [];
+$services = [];
+$tasks = [];
+$correspondence = [];
+$assignments = [];
 
-if ($assetId) {
-    // دریافت اطلاعات دستگاه خاص
-    $stmt = $pdo->prepare("
-        SELECT a.*, at.display_name as type_display_name, at.name as type_name 
-        FROM assets a 
-        JOIN asset_types at ON a.type_id = at.id 
-        WHERE a.id = ?
-    ");
-    $stmt->execute([$assetId]);
-    $assetData = $stmt->fetch();
-    
-    if (!$assetData) {
-        header('Location: assets.php');
-        exit();
-    }
-} else {
-    // دریافت لیست همه دارایی‌ها
-    $stmt = $pdo->query("
-        SELECT a.*, at.display_name as type_display_name, at.name as type_name 
-        FROM assets a 
-        JOIN asset_types at ON a.type_id = at.id 
-        ORDER BY a.created_at DESC
-    ");
-    $allAssets = $stmt->fetchAll();
-}
-
-// دریافت انواع دستگاه‌ها
-$types = $pdo->query("SELECT * FROM asset_types")->fetchAll();
-
-// ویرایش دستگاه
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_asset'])) {
+// پردازش فرم‌ها (POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $pdo->beginTransaction();
-        
-        $name = sanitizeInput($_POST['name']);
-        $type_id = (int)$_POST['type_id'];
-        $serial_number = sanitizeInput($_POST['serial_number']);
-        if (empty($serial_number)) {
-            $serial_number = null;
+        $postAssetId = (int)($_POST['asset_id'] ?? 0);
+        if ($postAssetId <= 0) {
+            throw new Exception('شناسهٔ دارایی (asset_id) ارسال نشده است.');
         }
-        
-        $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
-        $purchase_date = null;
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $purchase_date_input)) {
-            $purchase_date = jalaliToGregorian($purchase_date_input);
+
+        // ---------- ثبت سرویس ----------
+        if (isset($_POST['add_service'])) {
+            $service_date = trim($_POST['service_date'] ?? '') ?: null;
+            $service_type = trim($_POST['service_type'] ?? '') ?: null;
+            $service_provider = trim($_POST['service_provider'] ?? '') ?: null;
+            $description = trim($_POST['description'] ?? '') ?: null;
+            $cost = $_POST['cost'] !== '' ? $_POST['cost'] : null;
+
+            $ins = $pdo->prepare(
+                "INSERT INTO asset_services
+                (asset_id, service_date, service_type, performed_by, summary, cost)
+                VALUES (?, ?, ?, ?, ?, ?)"
+            );
+            $ins->execute([
+                $postAssetId,
+                $service_date,
+                $service_type,
+                $service_provider,
+                $description,
+                $cost,
+            ]);
+
+            $_SESSION['success'] = 'سرویس با موفقیت ثبت شد.';
+            header('Location: profile.php?id=' . $postAssetId);
+            exit;
         }
-        
-        $status = sanitizeInput($_POST['status']);
-        
-        // دریافت فیلدهای جدید
-        $device_identifier = sanitizeInput($_POST['device_identifier'] ?? '');
-        if (empty($device_identifier)) {
-            $device_identifier = null;
+
+        // ---------- ثبت تسک ----------
+        if (isset($_POST['add_task'])) {
+            $task_name = trim($_POST['task_name'] ?? '');
+            if ($task_name === '') {
+                throw new Exception('عنوان تسک الزامی است.');
+            }
+            $assigned_to = trim($_POST['assigned_to'] ?? '') ?: null;
+            $due_date = trim($_POST['due_date'] ?? '') ?: null;
+            $status = trim($_POST['status'] ?? 'pending');
+            $allowed = ['pending', 'in_progress', 'completed', 'cancelled'];
+            if (!in_array($status, $allowed, true)) $status = 'pending';
+            $task_description = trim($_POST['description'] ?? '') ?: null;
+
+            $ins = $pdo->prepare(
+                "INSERT INTO maintenance_tasks
+                (asset_id, title, assigned_to, planned_date, status, description)
+                VALUES (?, ?, ?, ?, ?, ?)"
+            );
+            $ins->execute([
+                $postAssetId,
+                $task_name,
+                $assigned_to,
+                $due_date,
+                $status,
+                $task_description,
+            ]);
+
+            $_SESSION['success'] = 'تسک با موفقیت اضافه شد.';
+            header('Location: profile.php?id=' . $postAssetId);
+            exit;
         }
-        $supply_method = sanitizeInput($_POST['supply_method'] ?? '');
-        if (empty($supply_method)) {
-            $supply_method = null;
+
+        // ---------- ویرایش دارایی ----------
+        if (isset($_POST['edit_asset'])) {
+            $name = trim($_POST['name'] ?? '');
+            $brand = trim($_POST['brand'] ?? '');
+            $model = trim($_POST['model'] ?? '');
+            $serial_number = trim($_POST['serial_number'] ?? '');
+            $purchase_date = trim($_POST['purchase_date'] ?? '');
+            $status = trim($_POST['status'] ?? '');
+            $power_capacity = trim($_POST['power_capacity'] ?? '');
+            $engine_type = trim($_POST['engine_type'] ?? '');
+            $engine_model = trim($_POST['engine_model'] ?? '');
+            $engine_serial = trim($_POST['engine_serial'] ?? '');
+            $alternator_model = trim($_POST['alternator_model'] ?? '');
+            $alternator_serial = trim($_POST['alternator_serial'] ?? '');
+            $device_model = trim($_POST['device_model'] ?? '');
+            $device_serial = trim($_POST['device_serial'] ?? '');
+            $control_panel_model = trim($_POST['control_panel_model'] ?? '');
+            $breaker_model = trim($_POST['breaker_model'] ?? '');
+            $battery = trim($_POST['battery'] ?? '');
+            $battery_charger = trim($_POST['battery_charger'] ?? '');
+            $oil_capacity = trim($_POST['oil_capacity'] ?? '');
+            $radiator_capacity = trim($_POST['radiator_capacity'] ?? '');
+            $oil_filter_part = trim($_POST['oil_filter_part'] ?? '');
+            $fuel_filter_part = trim($_POST['fuel_filter_part'] ?? '');
+            $water_fuel_filter_part = trim($_POST['water_fuel_filter_part'] ?? '');
+            $air_filter_part = trim($_POST['air_filter_part'] ?? '');
+            $water_filter_part = trim($_POST['water_filter_part'] ?? '');
+            $workshop_entry_date = trim($_POST['workshop_entry_date'] ?? '');
+            $workshop_exit_date = trim($_POST['workshop_exit_date'] ?? '');
+            $datasheet_link = trim($_POST['datasheet_link'] ?? '');
+            $engine_manual_link = trim($_POST['engine_manual_link'] ?? '');
+            $alternator_manual_link = trim($_POST['alternator_manual_link'] ?? '');
+            $control_panel_manual_link = trim($_POST['control_panel_manual_link'] ?? '');
+            $description = trim($_POST['description'] ?? '');
+
+            $stmt = $pdo->prepare("
+                UPDATE assets SET 
+                name = ?, brand = ?, model = ?, serial_number = ?, purchase_date = ?, 
+                status = ?, power_capacity = ?, engine_type = ?, engine_model = ?, 
+                engine_serial = ?, alternator_model = ?, alternator_serial = ?, 
+                device_model = ?, device_serial = ?, control_panel_model = ?, 
+                breaker_model = ?, battery = ?, battery_charger = ?, oil_capacity = ?, 
+                radiator_capacity = ?, oil_filter_part = ?, fuel_filter_part = ?, 
+                water_fuel_filter_part = ?, air_filter_part = ?, water_filter_part = ?, 
+                workshop_entry_date = ?, workshop_exit_date = ?, datasheet_link = ?, 
+                engine_manual_link = ?, alternator_manual_link = ?, 
+                control_panel_manual_link = ?, description = ?
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([
+                $name, $brand, $model, $serial_number, $purchase_date, $status, 
+                $power_capacity, $engine_type, $engine_model, $engine_serial, 
+                $alternator_model, $alternator_serial, $device_model, $device_serial, 
+                $control_panel_model, $breaker_model, $battery, $battery_charger, 
+                $oil_capacity, $radiator_capacity, $oil_filter_part, $fuel_filter_part, 
+                $water_fuel_filter_part, $air_filter_part, $water_filter_part, 
+                $workshop_entry_date, $workshop_exit_date, $datasheet_link, 
+                $engine_manual_link, $alternator_manual_link, $control_panel_manual_link, 
+                $description, $postAssetId
+            ]);
+
+            $_SESSION['success'] = 'اطلاعات دستگاه با موفقیت به‌روزرسانی شد.';
+            header('Location: profile.php?id=' . $postAssetId);
+            exit;
         }
-        $location = sanitizeInput($_POST['location'] ?? '');
-        if (empty($location)) {
-            $location = null;
+
+        // ---------- ثبت مکاتبه ----------
+        if (isset($_POST['add_correspondence'])) {
+            $corr_date = trim($_POST['corr_date'] ?? '') ?: date('Y-m-d');
+            $summary = trim($_POST['summary'] ?? '') ?: null;
+            $notes = trim($_POST['notes'] ?? '') ?: null;
+            $filePath = null;
+
+            if (!empty($_FILES['corr_file']['name'])) {
+                $uploadDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'correspondence' . DIRECTORY_SEPARATOR . $postAssetId;
+                if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+                    throw new Exception('خطا در ایجاد پوشه آپلود.');
+                }
+                $orig = basename($_FILES['corr_file']['name']);
+                $ext = pathinfo($orig, PATHINFO_EXTENSION);
+                $filename = time() . '_' . bin2hex(random_bytes(6)) . ($ext ? '.' . $ext : '');
+                $targetFile = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                if (!move_uploaded_file($_FILES['corr_file']['tmp_name'], $targetFile)) {
+                    throw new Exception('آپلود فایل ناموفق بود.');
+                }
+                $filePath = 'uploads/correspondence/' . $postAssetId . '/' . $filename;
+            }
+
+            $ins = $pdo->prepare(
+                "INSERT INTO asset_correspondence
+                (asset_id, letter_date, subject, notes, file_path)
+                VALUES (?, ?, ?, ?, ?)"
+            );
+            $ins->execute([
+                $postAssetId,
+                $corr_date,
+                $summary,
+                $notes,
+                $filePath,
+            ]);
+
+            $_SESSION['success'] = 'مکاتبه با موفقیت ثبت شد.';
+            header('Location: profile.php?id=' . $postAssetId);
+            exit;
         }
-        $quantity = (int)($_POST['quantity'] ?? 0);
-        $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
-        if (empty($supplier_name)) {
-            $supplier_name = null;
-        }
-        $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
-        if (empty($supplier_contact)) {
-            $supplier_contact = null;
-        }
-        
-        // دریافت فیلدهای عمومی
-        $brand = sanitizeInput($_POST['brand'] ?? '');
-        $model = sanitizeInput($_POST['model'] ?? '');
-        $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
-        $engine_type = sanitizeInput($_POST['engine_type'] ?? '');
-        $consumable_type = sanitizeInput($_POST['consumable_type'] ?? '');
-        
-        // دریافت فیلدهای خاص ژنراتور
-        $engine_model = sanitizeInput($_POST['engine_model'] ?? '');
-        $engine_serial = sanitizeInput($_POST['engine_serial'] ?? '');
-        $alternator_model = sanitizeInput($_POST['alternator_model'] ?? '');
-        $alternator_serial = sanitizeInput($_POST['alternator_serial'] ?? '');
-        $device_model = sanitizeInput($_POST['device_model'] ?? '');
-        $device_serial = sanitizeInput($_POST['device_serial'] ?? '');
-        $control_panel_model = sanitizeInput($_POST['control_panel_model'] ?? '');
-        $breaker_model = sanitizeInput($_POST['breaker_model'] ?? '');
-        $fuel_tank_specs = sanitizeInput($_POST['fuel_tank_specs'] ?? '');
-        $battery = sanitizeInput($_POST['battery'] ?? '');
-        $battery_charger = sanitizeInput($_POST['battery_charger'] ?? '');
-        $heater = sanitizeInput($_POST['heater'] ?? '');
-        $oil_capacity = sanitizeInput($_POST['oil_capacity'] ?? '');
-        $radiator_capacity = sanitizeInput($_POST['radiator_capacity'] ?? '');
-        $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
-        $other_items = sanitizeInput($_POST['other_items'] ?? '');
-        
-        $workshop_entry_date_input = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        $workshop_entry_date = null;
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_entry_date_input)) {
-            $workshop_entry_date = jalaliToGregorian($workshop_entry_date_input);
-        }
-        
-        $workshop_exit_date_input = sanitizeInput($_POST['workshop_exit_date'] ?? '');
-        $workshop_exit_date = null;
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_exit_date_input)) {
-            $workshop_exit_date = jalaliToGregorian($workshop_exit_date_input);
-        }
-        
-        $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
-        $engine_manual_link = sanitizeInput($_POST['engine_manual_link'] ?? '');
-        $alternator_manual_link = sanitizeInput($_POST['alternator_manual_link'] ?? '');
-        $control_panel_manual_link = sanitizeInput($_POST['control_panel_manual_link'] ?? '');
-        $description = sanitizeInput($_POST['description'] ?? '');
-        
-        // دریافت فیلدهای پارت نامبر
-        $oil_filter_part = sanitizeInput($_POST['oil_filter_part'] ?? '');
-        $fuel_filter_part = sanitizeInput($_POST['fuel_filter_part'] ?? '');
-        $water_fuel_filter_part = sanitizeInput($_POST['water_fuel_filter_part'] ?? '');
-        $air_filter_part = sanitizeInput($_POST['air_filter_part'] ?? '');
-        $water_filter_part = sanitizeInput($_POST['water_filter_part'] ?? '');
-        
-        // آپدیت در دیتابیس
-        $stmt = $pdo->prepare("UPDATE assets SET 
-            name = ?, type_id = ?, serial_number = ?, purchase_date = ?, status = ?, 
-            brand = ?, model = ?, power_capacity = ?, engine_type = ?, consumable_type = ?,
-            engine_model = ?, engine_serial = ?, alternator_model = ?, alternator_serial = ?, 
-            device_model = ?, device_serial = ?, control_panel_model = ?, breaker_model = ?, 
-            fuel_tank_specs = ?, battery = ?, battery_charger = ?, heater = ?, oil_capacity = ?, 
-            radiator_capacity = ?, antifreeze = ?, other_items = ?, workshop_entry_date = ?, 
-            workshop_exit_date = ?, datasheet_link = ?, engine_manual_link = ?, 
-            alternator_manual_link = ?, control_panel_manual_link = ?, description = ?,
-            oil_filter_part = ?, fuel_filter_part = ?, water_fuel_filter_part = ?, 
-            air_filter_part = ?, water_filter_part = ?, device_identifier = ?, 
-            supply_method = ?, location = ?, quantity = ?, supplier_name = ?, supplier_contact = ?
-            WHERE id = ?");
-        
-        $stmt->execute([
-            $name, $type_id, $serial_number, $purchase_date, $status,
-            $brand, $model, $power_capacity, $engine_type, $consumable_type,
-            $engine_model, $engine_serial, $alternator_model, $alternator_serial,
-            $device_model, $device_serial, $control_panel_model, $breaker_model,
-            $fuel_tank_specs, $battery, $battery_charger, $heater, $oil_capacity,
-            $radiator_capacity, $antifreeze, $other_items, $workshop_entry_date,
-            $workshop_exit_date, $datasheet_link, $engine_manual_link,
-            $alternator_manual_link, $control_panel_manual_link, $description,
-            $oil_filter_part, $fuel_filter_part, $water_fuel_filter_part,
-            $air_filter_part, $water_filter_part, $device_identifier,
-            $supply_method, $location, $quantity, $supplier_name, $supplier_contact,
-            $assetId
-        ]);
-        
-        $pdo->commit();
-        $_SESSION['success'] = "اطلاعات دستگاه با موفقیت به‌روزرسانی شد!";
-        header('Location: profile.php?id=' . $assetId);
-        exit();
-        
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $_SESSION['error'] = "خطا در به‌روزرسانی دستگاه: " . $e->getMessage();
+
+    } catch (Throwable $ex) {
+        error_log('profile.php POST error: ' . $ex->getMessage());
+        $_SESSION['error'] = 'خطا در پردازش فرم: ' . $ex->getMessage();
+        header('Location: profile.php?id=' . ($postAssetId ?: $assetId));
+        exit;
     }
 }
 
-// تابع تبدیل تاریخ شمسی به میلادی
-function jalaliToGregorian($jalali_date) {
-    $parts = explode('/', $jalali_date);
-    if (count($parts) != 3) return null;
-    
-    $year = (int)$parts[0];
-    $month = (int)$parts[1];
-    $day = (int)$parts[2];
-    
-    // تبدیل ساده شمسی به میلادی
-    $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    $jy = $year;
-    $jm = $month;
-    $jd = $day;
-    
-    $jy2 = ($jm > 2) ? ($jy + 1) : $jy;
-    $days = 355666 + (365 * $jy) + ((int)(($jy2 + 3) / 4)) - ((int)(($jy2 + 99) / 100)) + ((int)(($jy2 + 399) / 400)) + $jd + $g_d_m[$jm - 1];
-    $gy = -1595 + (33 * ((int)($days / 12053)));
-    $days %= 12053;
-    $gy += 4 * ((int)($days / 1461));
-    $days %= 1461;
-    if ($days > 365) {
-        $gy += (int)(($days - 1) / 365);
-        $days = ($days - 1) % 365;
+// ---------- بارگذاری اطلاعات برای نمایش ----------
+try {
+    if ($assetId > 0) {
+        // اطلاعات دارایی
+        $stmt = $pdo->prepare("SELECT * FROM assets WHERE id = ?");
+        $stmt->execute([$assetId]);
+        $assetData = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        
+        if ($assetData) {
+            // سرویس‌های دارایی
+            $stmt = $pdo->prepare("SELECT * FROM asset_services WHERE asset_id = ? ORDER BY service_date DESC, created_at DESC");
+            $stmt->execute([$assetId]);
+            $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // تسک‌های نگهداری
+            $stmt = $pdo->prepare("SELECT * FROM maintenance_tasks WHERE asset_id = ? ORDER BY planned_date DESC, created_at DESC");
+            $stmt->execute([$assetId]);
+            $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // مکاتبات
+            $stmt = $pdo->prepare("SELECT * FROM asset_correspondence WHERE asset_id = ? ORDER BY letter_date DESC, created_at DESC");
+            $stmt->execute([$assetId]);
+            $correspondence = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // انتساب‌های دارایی
+            $stmt = $pdo->prepare("
+                SELECT aa.*, c.full_name AS customer_name, c.phone AS customer_phone,
+                       ad.installation_date, ad.warranty_start_date, ad.warranty_end_date
+                FROM asset_assignments aa
+                JOIN customers c ON aa.customer_id = c.id
+                LEFT JOIN assignment_details ad ON aa.id = ad.assignment_id
+                WHERE aa.asset_id = ?
+                ORDER BY aa.assignment_date DESC
+            ");
+            $stmt->execute([$assetId]);
+            $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } else {
+        // لیست همه دارایی‌ها
+        $stmt = $pdo->query("SELECT * FROM assets ORDER BY id DESC");
+        $allAssets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    $gm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
-    $gd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
-    
-    return sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
-}
-
-// تابع تبدیل تاریخ میلادی به شمسی
-function gregorianToJalali($gregorian_date) {
-    if (!$gregorian_date) return '';
-    
-    $parts = explode('-', $gregorian_date);
-    if (count($parts) != 3) return '';
-    
-    $gy = (int)$parts[0];
-    $gm = (int)$parts[1];
-    $gd = (int)$parts[2];
-    
-    $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    $gy2 = ($gm > 2) ? ($gy + 1) : $gy;
-    $days = 355666 + (365 * $gy) + ((int)(($gy2 + 3) / 4)) - ((int)(($gy2 + 99) / 100)) + ((int)(($gy2 + 399) / 400)) + $gd + $g_d_m[$gm - 1];
-    $jy = -1595 + (33 * ((int)($days / 12053)));
-    $days %= 12053;
-    $jy += 4 * ((int)($days / 1461));
-    $days %= 1461;
-    if ($days > 365) {
-        $jy += (int)(($days - 1) / 365);
-        $days = ($days - 1) % 365;
-    }
-    $jm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
-    $jd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
-    
-    return sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+} catch (Throwable $ex) {
+    error_log('profile.php SELECT error: ' . $ex->getMessage());
+    $_SESSION['error'] = 'خطا در بارگذاری اطلاعات: ' . $ex->getMessage();
+    $assetData = null;
+    $allAssets = [];
 }
 ?>
-<!DOCTYPE html>
-<html dir="rtl" lang="fa">
+<!doctype html>
+<html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $assetId > 0 ? 'پروفایل دارایی ' . htmlspecialchars($assetData['name'] ?? '') : 'لیست دارایی‌ها' ?> - اعلا نیرو</title>
+    <title><?= $assetId > 0 ? 'پروفایل دارایی ' . e($assetData['name'] ?? '') : 'لیست دارایی‌ها' ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Vazirmatn', sans-serif; }
-        .form-step { display: none; }
-        .form-step.active { display: block; }
-        .step-indicator { display: flex; justify-content: center; margin-bottom: 2rem; }
-        .step-item { 
-            padding: 10px 20px; margin: 0 5px; 
-            background: #e9ecef; border-radius: 25px; 
-            cursor: pointer; transition: all 0.3s;
+        html, body { 
+            font-family: Vazirmatn, Tahoma, Arial, sans-serif; 
+            background-color: #f8f9fa;
         }
-        .step-item.active { background: #007bff; color: white; }
-        .step-item.completed { background: #28a745; color: white; }
+        .status-badge {
+            font-size: 0.8em;
+            padding: 0.25em 0.5em;
+        }
+        .file-link {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+        .file-link:hover {
+            text-decoration: underline;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .nav-tabs .nav-link {
+            color: #007bff;
+            border: 1px solid transparent;
+        }
+        .nav-tabs .nav-link:hover {
+            border-color: #e9ecef #e9ecef #007bff;
+            color: #007bff;
+        }
+        .nav-tabs {
+            border-bottom: 1px solid #dee2e6;
+        }
+        .tab-content {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            padding: 20px;
+        }
+        .text-primary {
+            color: #007bff !important;
+        }
+        .border-bottom {
+            border-bottom: 2px solid #007bff !important;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        /* تنظیم فونت و فاصله */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* ظاهر کلی تب‌ها */
+        .nav-tabs {
+            border-bottom: none;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+
+        /* تب‌ها */
+        .nav-tabs .nav-link {
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 16px 16px 0 0;
+            transition: all 0.3s ease;
+            border: none;
+            color: #fff;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        /* هاور روی تب‌ها */
+        .nav-tabs .nav-link:hover {
+            background: linear-gradient(135deg, #a29bfe, #ffeaa7);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+        }
+
+        /* تب فعال */
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+
+        /* محتوای تب‌ها */
+        .tab-content {
+            border-radius: 0 0 16px 16px;
+            background: #f7f9fc;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            padding: 24px;
+            min-height: 400px;
+            transition: all 0.3s ease;
+        }
+
+        /* دکمه‌ها */
+        .tab-content .btn-primary {
+            border-radius: 12px;
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .tab-content .btn-primary:hover {
+            background: linear-gradient(135deg, #019875, #00b3b0);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        }
+
+        /* آیکن‌ها */
+        .nav-tabs .nav-link i {
+            margin-right: 8px;
+        }
     </style>
 </head>
-<body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
-                <div class="position-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="dashboard.php">
-                                <i class="fas fa-tachometer-alt"></i> داشبورد
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="assets.php">
-                                <i class="fas fa-cogs"></i> مدیریت دارایی‌ها
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="customers.php">
-                                <i class="fas fa-users"></i> مشتریان
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="assignments.php">
-                                <i class="fas fa-handshake"></i> انتساب‌ها
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+<body style="padding-top: 80px;">
+    <?php include 'navbar.php'; ?>
+
+    <div class="container-fluid mt-4">
+
+<?php if (!empty($_SESSION['success'])): ?>
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="fas fa-check-circle"></i> <?= e($_SESSION['success']); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['success']); ?>
+<?php endif; ?>
+
+<?php if (!empty($_SESSION['error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="fas fa-exclamation-triangle"></i> <?= e($_SESSION['error']); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['error']); ?>
+<?php endif; ?>
+
+<?php if ($assetId > 0): ?>
+    <?php if ($assetData): ?>
+        <!-- هدر پروفایل -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1">پروفایل دستگاه</h2>
+                <h4 class="text-primary mb-0"><?= e($assetData['name'] ?? 'بدون نام') ?></h4>
             </div>
-
-            <!-- Main content -->
-            <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <?php if ($assetId && $assetData): ?>
-                        <!-- هدر پروفایل -->
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h2 class="mb-1">پروفایل دستگاه</h2>
-                                <h4 class="text-primary mb-0"><?= htmlspecialchars($assetData['name'] ?? 'بدون نام') ?></h4>
-                            </div>
-                            <div>
-                                <a href="profile.php" class="btn btn-outline-secondary">
-                                    <i class="fas fa-list"></i> لیست همه دارایی‌ها
-                                </a>
-                                <a href="assets.php" class="btn btn-outline-primary">
-                                    <i class="fas fa-cog"></i> مدیریت دارایی‌ها
-                                </a>
-                                <button class="btn btn-warning" onclick="showEditForm()">
-                                    <i class="fas fa-edit"></i> ویرایش دستگاه
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- اطلاعات کلی دارایی -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات کامل دستگاه</h5>
-                            </div>
-                            <div class="card-body">
-                                <!-- اطلاعات اصلی -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>نام دستگاه:</strong> <?= htmlspecialchars($assetData['name'] ?? '-') ?></p>
-                                        <p><strong>برند:</strong> <?= htmlspecialchars($assetData['brand'] ?? '-') ?></p>
-                                        <p><strong>مدل:</strong> <?= htmlspecialchars($assetData['model'] ?? '-') ?></p>
-                                        <p><strong>سریال:</strong> <?= htmlspecialchars($assetData['serial_number'] ?? '-') ?></p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>تاریخ خرید:</strong> <?= gregorianToJalali($assetData['purchase_date']) ?></p>
-                                        <p><strong>وضعیت:</strong> 
-                                            <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
-                                                <?= htmlspecialchars($assetData['status'] ?? 'نامشخص') ?>
-                                            </span>
-                                        </p>
-                                        <p><strong>ظرفیت توان:</strong> <?= htmlspecialchars($assetData['power_capacity'] ?? '-') ?></p>
-                                        <p><strong>نوع موتور:</strong> <?= htmlspecialchars($assetData['engine_type'] ?? '-') ?></p>
-                                    </div>
-                                </div>
-
-                                <!-- اطلاعات موتور -->
-                                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial'])): ?>
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات موتور</h6>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>مدل موتور:</strong> <?= htmlspecialchars($assetData['engine_model'] ?? '-') ?></p>
-                                        <p><strong>سریال موتور:</strong> <?= htmlspecialchars($assetData['engine_serial'] ?? '-') ?></p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>ظرفیت روغن:</strong> <?= htmlspecialchars($assetData['oil_capacity'] ?? '-') ?></p>
-                                        <p><strong>ظرفیت رادیاتور:</strong> <?= htmlspecialchars($assetData['radiator_capacity'] ?? '-') ?></p>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
-                                <!-- اطلاعات آلترناتور -->
-                                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial'])): ?>
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات آلترناتور</h6>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>مدل آلترناتور:</strong> <?= htmlspecialchars($assetData['alternator_model'] ?? '-') ?></p>
-                                        <p><strong>سریال آلترناتور:</strong> <?= htmlspecialchars($assetData['alternator_serial'] ?? '-') ?></p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>مدل دستگاه:</strong> <?= htmlspecialchars($assetData['device_model'] ?? '-') ?></p>
-                                        <p><strong>سریال دستگاه:</strong> <?= htmlspecialchars($assetData['device_serial'] ?? '-') ?></p>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-
-                                <!-- توضیحات -->
-                                <?php if (!empty($assetData['description'])): ?>
-                                <div class="row">
-                                    <div class="col-12">
-                                        <h6 class="text-primary border-bottom pb-2 mb-3">توضیحات</h6>
-                                        <p><?= nl2br(htmlspecialchars($assetData['description'])) ?></p>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    <?php else: ?>
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-triangle"></i> دارایی مورد نظر یافت نشد.
-                        </div>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <!-- لیست همه دارایی‌ها -->
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-server"></i> لیست دارایی‌ها</h2>
-                        <a href="assets.php" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> افزودن دارایی جدید
-                        </a>
-                    </div>
-
-                    <?php if (!empty($allAssets)): ?>
-                        <div class="row">
-                            <?php foreach ($allAssets as $asset): ?>
-                            <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card h-100">
-                                    <div class="card-header">
-                                        <h5 class="mb-0"><?= htmlspecialchars($assetData['name'] ?? 'بدون نام') ?></h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <p><strong>برند:</strong> <?= htmlspecialchars($assetData['brand'] ?? '-') ?></p>
-                                        <p><strong>مدل:</strong> <?= htmlspecialchars($assetData['model'] ?? '-') ?></p>
-                                        <p><strong>وضعیت:</strong> 
-                                            <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
-                                                <?= htmlspecialchars($assetData['status'] ?? 'نامشخص') ?>
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <a href="profile.php?id=<?= $asset['id'] ?>" class="btn btn-outline-primary btn-sm">
-                                            <i class="fas fa-eye"></i> مشاهده پروفایل
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> فعلاً هیچ دارایی‌ای ثبت نشده است.
-                        </div>
-                    <?php endif; ?>
-                <?php endif; ?>
-
-                <?php if (isset($_SESSION['success'])): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (isset($_SESSION['error'])): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <!-- فرم ویرایش (مخفی شده) -->
-                <div id="editFormContainer" style="display: none;">
-                    <form method="POST" id="editAssetForm" enctype="multipart/form-data">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                        
-                        <!-- Step 1: نوع دارایی -->
-                        <div class="form-step active" id="step1">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5>انتخاب نوع دارایی</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">نوع دارایی *</label>
-                                        <select class="form-select" id="type_id" name="type_id" required onchange="showFields()">
-                                            <option value="">-- انتخاب کنید --</option>
-                                            <?php foreach ($types as $type): ?>
-                                                <option value="<?php echo $type['id']; ?>" 
-                                                        <?php echo ($assetData && $assetData['type_id'] == $type['id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($type['display_name']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                    <!-- Step 2: اطلاعات -->
-                    <div class="form-step" id="step2">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>اطلاعات دستگاه</h5>
-                            </div>
-                            <div class="card-body">
-                                <!-- فیلدهای ژنراتور -->
-                                <div id="generator_fields" class="dynamic-field" style="display: none;">
-                                    <h5 class="mb-3 text-secondary">مشخصات ژنراتور</h5>
-                                    
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نام دستگاه *</label>
-                                                <select class="form-select gen-name" id="gen_name" name="name" required>
-                                                    <option value="">-- انتخاب کنید --</option>
-                                                    <option value="Cummins" <?php echo ($assetData && $assetData['name'] == 'Cummins') ? 'selected' : ''; ?>>Cummins</option>
-                                                    <option value="Volvo" <?php echo ($assetData && $assetData['name'] == 'Volvo') ? 'selected' : ''; ?>>Volvo</option>
-                                                    <option value="Perkins" <?php echo ($assetData && $assetData['name'] == 'Perkins') ? 'selected' : ''; ?>>Perkins</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">شماره سریال دستگاه</label>
-                                                <input type="text" class="form-control gen-dev-serial" id="gen_serial_number" name="serial_number" value="<?php echo htmlspecialchars($assetData['serial_number'] ?? ''); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تاریخ خرید</label>
-                                                <input type="text" class="form-control persian-date" id="gen_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($assetData['purchase_date'] ?? ''); ?>" autocomplete="off">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">وضعیت *</label>
-                                                <select class="form-select" id="gen_status" name="status" required>
-                                                    <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">برند</label>
-                                                <input type="text" class="form-control" id="gen_brand" name="brand" value="<?php echo htmlspecialchars($assetData['brand']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">مدل دستگاه *</label>
-                                                <input type="text" class="form-control gen-device-model" id="gen_device_model" name="device_model" value="<?php echo htmlspecialchars($assetData['device_model']); ?>" required>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">ظرفیت توان (کیلووات)</label>
-                                                <input type="text" class="form-control" id="gen_power_capacity" name="power_capacity" value="<?php echo htmlspecialchars($assetData['power_capacity']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">مدل موتور</label>
-                                                <input type="text" class="form-control" id="gen_engine_model" name="engine_model" value="<?php echo htmlspecialchars($assetData['engine_model']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">سریال موتور</label>
-                                                <input type="text" class="form-control" id="gen_engine_serial" name="engine_serial" value="<?php echo htmlspecialchars($assetData['engine_serial']); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">مدل آلترناتور</label>
-                                                <input type="text" class="form-control" id="gen_alternator_model" name="alternator_model" value="<?php echo htmlspecialchars($assetData['alternator_model']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">سریال آلترناتور *</label>
-                                                <input type="text" class="form-control gen-alt-serial" id="gen_alternator_serial" name="alternator_serial" value="<?php echo htmlspecialchars($assetData['alternator_serial']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">سریال دستگاه</label>
-                                                <input type="text" class="form-control" id="gen_device_serial" name="device_serial" value="<?php echo htmlspecialchars($assetData['device_serial']); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- شماره شناسه دستگاه -->
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <div class="mb-3 identifier-wrapper">
-                                                <label class="form-label d-flex align-items-center gap-2">
-                                                    شماره شناسه دستگاه
-                                                    <span class="badge bg-success gen-identifier-status" id="identifier_status">تولید شده</span>
-                                                </label>
-                                                <div class="input-group">
-                                                    <input type="text" class="form-control identifier-complete gen-device-identifier"
-                                                           id="device_identifier" name="device_identifier"
-                                                           value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>"
-                                                           readonly>
-                                                    <button class="btn btn-outline-secondary gen-copy-btn" type="button" id="copy_identifier" title="کپی">
-                                                        کپی
-                                                    </button>
-                                                </div>
-                                                <div class="form-text gen-identifier-hint" id="identifier_hint">
-                                                    شناسه تولید شده: <?php echo htmlspecialchars($assetData['device_identifier']); ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- فیلدهای موتور برق -->
-                                <div id="motor_fields" class="dynamic-field" style="display: none;">
-                                    <h5 class="mb-3 text-secondary">مشخصات موتور برق</h5>
-                                    
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نام دستگاه *</label>
-                                                <input type="text" class="form-control" id="motor_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">سریال موتور *</label>
-                                                <input type="text" class="form-control" id="motor_serial_number" name="serial_number" value="<?php echo htmlspecialchars($asset['serial_number']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تاریخ خرید</label>
-                                                <input type="text" class="form-control persian-date" id="motor_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($asset['purchase_date']); ?>" autocomplete="off">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">وضعیت *</label>
-                                                <select class="form-select" id="motor_status" name="status" required>
-                                                    <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">برند</label>
-                                                <input type="text" class="form-control" id="motor_brand" name="brand" value="<?php echo htmlspecialchars($assetData['brand']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">مدل</label>
-                                                <input type="text" class="form-control" id="motor_model" name="model" value="<?php echo htmlspecialchars($assetData['model']); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- فیلدهای اقلام مصرفی -->
-                                <div id="consumable_fields" class="dynamic-field" style="display: none;">
-                                    <h5 class="mb-3 text-secondary">مشخصات اقلام مصرفی</h5>
-                                    
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نام کالا *</label>
-                                                <input type="text" class="form-control" id="consumable_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">شماره شناسه *</label>
-                                                <input type="text" class="form-control" id="consumable_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تاریخ خرید</label>
-                                                <input type="text" class="form-control persian-date" id="consumable_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($asset['purchase_date']); ?>" autocomplete="off">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">وضعیت *</label>
-                                                <select class="form-select" id="consumable_status" name="status" required>
-                                                    <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نوع کالا</label>
-                                                <input type="text" class="form-control" id="consumable_type" name="consumable_type" value="<?php echo htmlspecialchars($assetData['consumable_type']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تعداد</label>
-                                                <input type="number" class="form-control" id="consumable_quantity" name="quantity" value="<?php echo $assetData['quantity']; ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- فیلدهای قطعات -->
-                                <div id="parts_fields" class="dynamic-field" style="display: none;">
-                                    <h5 class="mb-3 text-secondary">مشخصات قطعات</h5>
-                                    
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نام قطعه *</label>
-                                                <input type="text" class="form-control" id="parts_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">شماره شناسه *</label>
-                                                <input type="text" class="form-control" id="parts_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>" required>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تاریخ خرید</label>
-                                                <input type="text" class="form-control persian-date" id="parts_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($asset['purchase_date']); ?>" autocomplete="off">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">وضعیت *</label>
-                                                <select class="form-select" id="parts_status" name="status" required>
-                                                    <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">نوع قطعه</label>
-                                                <input type="text" class="form-control" id="parts_type" name="consumable_type" value="<?php echo htmlspecialchars($assetData['consumable_type']); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">تعداد</label>
-                                                <input type="number" class="form-control" id="parts_quantity" name="quantity" value="<?php echo $assetData['quantity']; ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                        <!-- دکمه‌های کنترل -->
-                        <div class="d-flex justify-content-between mt-4">
-                            <button type="button" class="btn btn-secondary" onclick="prevStep()" id="prevBtn" style="display: none;">قبلی</button>
-                            <div>
-                                <button type="button" class="btn btn-primary" onclick="nextStep()" id="nextBtn">بعدی</button>
-                                <button type="submit" class="btn btn-success" name="edit_asset" id="submitBtn" style="display: none;">ذخیره تغییرات</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+            <div>
+                <a href="profile.php" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> لیست همه دارایی‌ها
+                </a>
+                <a href="assets.php" class="btn btn-outline-primary">
+                    <i class="fas fa-cog"></i> مدیریت دارایی‌ها
+                </a>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editAssetModal">
+                    <i class="fas fa-edit"></i> ویرایش دستگاه
+                </button>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let currentStep = 1;
-        const totalSteps = 2;
+        <!-- اطلاعات کلی دارایی -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات کامل دستگاه</h5>
+            </div>
+            <div class="card-body">
+                <!-- اطلاعات اصلی -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>نام دستگاه:</strong> <?= e($assetData['name'] ?? '-') ?></p>
+                        <p><strong>برند:</strong> <?= e($assetData['brand'] ?? '-') ?></p>
+                        <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
+                        <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>تاریخ خرید:</strong> <?= e($assetData['purchase_date'] ?? '-') ?></p>
+                        <p><strong>وضعیت:</strong> 
+                            <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
+                                <?= e($assetData['status'] ?? 'نامشخص') ?>
+                            </span>
+                        </p>
+                        <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity'] ?? '-') ?></p>
+                        <p><strong>نوع موتور:</strong> <?= e($assetData['engine_type'] ?? '-') ?></p>
+                    </div>
+                </div>
 
-        function showStep(step) {
-            // مخفی کردن تمام مراحل
-            for (let i = 1; i <= totalSteps; i++) {
-                document.getElementById(`step${i}`).classList.remove('active');
-            }
-            
-            // نمایش مرحله فعلی
-            document.getElementById(`step${step}`).classList.add('active');
-            
-            // کنترل دکمه‌ها
-            document.getElementById('prevBtn').style.display = step > 1 ? 'block' : 'none';
-            document.getElementById('nextBtn').style.display = step < totalSteps ? 'block' : 'none';
-            document.getElementById('submitBtn').style.display = step === totalSteps ? 'block' : 'none';
-        }
+                <!-- اطلاعات موتور -->
+                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات موتور</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model'] ?? '-') ?></p>
+                        <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity'] ?? '-') ?></p>
+                        <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
 
-        function nextStep() {
-            if (currentStep < totalSteps) {
-                currentStep++;
-                showStep(currentStep);
-            }
-        }
+                <!-- اطلاعات آلترناتور -->
+                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات آلترناتور</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل آلترناتور:</strong> <?= e($assetData['alternator_model'] ?? '-') ?></p>
+                        <p><strong>سریال آلترناتور:</strong> <?= e($assetData['alternator_serial'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>مدل دستگاه:</strong> <?= e($assetData['device_model'] ?? '-') ?></p>
+                        <p><strong>سریال دستگاه:</strong> <?= e($assetData['device_serial'] ?? '-') ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
 
-        function prevStep() {
-            if (currentStep > 1) {
-                currentStep--;
-                showStep(currentStep);
-            }
-        }
+                <!-- توضیحات -->
+                <?php if (!empty($assetData['description'])): ?>
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">توضیحات</h6>
+                        <p><?= nl2br(e($assetData['description'])) ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
 
-        function showFields() {
-            const typeId = document.getElementById('type_id').value;
-            const typeName = document.getElementById('type_id').selectedOptions[0].text;
-            
-            // مخفی کردن تمام فیلدها
-            document.querySelectorAll('.dynamic-field').forEach(field => {
-                field.style.display = 'none';
-            });
-            
-            // نمایش فیلدهای مربوط به نوع انتخاب شده
-            if (typeName.includes('ژنراتور')) {
-                document.getElementById('generator_fields').style.display = 'block';
-                initGeneratorIdentifier();
-            } else if (typeName.includes('موتور برق')) {
-                document.getElementById('motor_fields').style.display = 'block';
-            } else if (typeName.includes('مصرفی')) {
-                document.getElementById('consumable_fields').style.display = 'block';
-            } else if (typeName.includes('قطعات')) {
-                document.getElementById('parts_fields').style.display = 'block';
-            }
-        }
+        <!-- تب‌ها برای نمایش اطلاعات -->
+        <ul class="nav nav-tabs" id="assetTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#services" role="tab">
+                    <i class="fas fa-wrench"></i> سرویس‌ها (<?= count($services) ?>)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tasks" role="tab">
+                    <i class="fas fa-tasks"></i> تسک‌ها (<?= count($tasks) ?>)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#correspondence" role="tab">
+                    <i class="fas fa-envelope"></i> مکاتبات (<?= count($correspondence) ?>)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#assignments" role="tab">
+                    <i class="fas fa-handshake"></i> انتساب‌ها (<?= count($assignments) ?>)
+                </a>
+            </li>
+        </ul>
 
-        function initGeneratorIdentifier() {
-            const nameField = document.getElementById('gen_name');
-            const altSerialField = document.getElementById('gen_alternator_serial');
-            const devSerialField = document.getElementById('gen_device_serial');
-            const identifierField = document.getElementById('device_identifier');
-            const statusBadge = document.getElementById('identifier_status');
-            const copyBtn = document.getElementById('copy_identifier');
-            
-            function updateIdentifier() {
-                const name = nameField.value;
-                const altSerial = altSerialField.value;
-                const devSerial = devSerialField.value;
+        <div class="tab-content">
+            <!-- تب سرویس‌ها -->
+            <div class="tab-pane fade show active" id="services" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5>سرویس‌های انجام شده</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+                        <i class="fas fa-plus"></i> ثبت سرویس جدید
+                    </button>
+                </div>
                 
-                if (name && altSerial && devSerial && altSerial.length >= 4 && devSerial.length >= 4) {
-                    const identifier = name.charAt(0) + altSerial.substring(0, 4) + devSerial.substring(devSerial.length - 4);
-                    identifierField.value = identifier;
-                    statusBadge.textContent = 'تولید شده';
-                    statusBadge.className = 'badge bg-success gen-identifier-status';
-                    copyBtn.disabled = false;
-                } else {
-                    identifierField.value = '';
-                    statusBadge.textContent = 'در انتظار';
-                    statusBadge.className = 'badge bg-secondary gen-identifier-status';
-                    copyBtn.disabled = true;
-                }
-            }
-            
-            // اضافه کردن event listener ها
-            nameField.addEventListener('input', updateIdentifier);
-            altSerialField.addEventListener('input', updateIdentifier);
-            devSerialField.addEventListener('input', updateIdentifier);
-            
-            // کپی کردن شناسه
-            copyBtn.addEventListener('click', function() {
-                if (identifierField.value) {
-                    navigator.clipboard.writeText(identifierField.value).then(function() {
-                        alert('شناسه کپی شد!');
-                    });
-                }
-            });
-            
-            // مقداردهی اولیه
-            updateIdentifier();
-        }
+                <?php if (!empty($services)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>تاریخ سرویس</th>
+                                    <th>نوع سرویس</th>
+                                    <th>مجری</th>
+                                    <th>خلاصه</th>
+                                    <th>هزینه</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($services as $service): ?>
+                                <tr>
+                                    <td><?= e($service['service_date'] ?? '-') ?></td>
+                                    <td><?= e($service['service_type'] ?? '-') ?></td>
+                                    <td><?= e($service['performed_by'] ?? '-') ?></td>
+                                    <td><?= e($service['summary'] ?? '-') ?></td>
+                                    <td>
+                                        <?php if ($service['cost']): ?>
+                                            <?= number_format($service['cost'], 0) ?> تومان
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> هیچ سرویسی برای این دستگاه ثبت نشده است.
+                    </div>
+                <?php endif; ?>
+            </div>
 
-        // اضافه کردن event listener برای پر کردن خودکار برند
-        document.addEventListener('DOMContentLoaded', function() {
-            const genNameSelect = document.getElementById('gen_name');
-            if (genNameSelect) {
-                genNameSelect.addEventListener('change', function() {
-                    const brandField = document.getElementById('gen_brand');
-                    if (brandField && this.value) {
-                        brandField.value = this.value;
-                    }
-                });
-            }
-            
-            // نمایش فیلدهای مربوط به نوع فعلی
-            showFields();
-        });
+            <!-- تب تسک‌ها -->
+            <div class="tab-pane fade" id="tasks" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5>تسک‌های نگهداری</h5>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                        <i class="fas fa-plus"></i> ثبت تسک جدید
+                    </button>
+                </div>
+                
+                <?php if (!empty($tasks)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>عنوان</th>
+                                    <th>مسئول</th>
+                                    <th>تاریخ برنامه</th>
+                                    <th>وضعیت</th>
+                                    <th>توضیحات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($tasks as $task): ?>
+                                <tr>
+                                    <td><?= e($task['title'] ?? '-') ?></td>
+                                    <td><?= e($task['assigned_to'] ?? '-') ?></td>
+                                    <td><?= e($task['planned_date'] ?? '-') ?></td>
+                                    <td>
+                                        <?php
+                                        $statusClass = match($task['status']) {
+                                            'completed' => 'success',
+                                            'in_progress' => 'warning',
+                                            'cancelled' => 'danger',
+                                            default => 'secondary'
+                                        };
+                                        $statusText = match($task['status']) {
+                                            'pending' => 'در انتظار',
+                                            'in_progress' => 'در حال انجام',
+                                            'completed' => 'انجام شده',
+                                            'cancelled' => 'لغو شده',
+                                            default => 'نامشخص'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?= $statusClass ?> status-badge">
+                                            <?= $statusText ?>
+                                        </span>
+                                    </td>
+                                    <td><?= e($task['description'] ?? '-') ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> هیچ تسکی برای این دستگاه ثبت نشده است.
+                    </div>
+                <?php endif; ?>
+            </div>
 
-        // تابع نمایش فرم ویرایش
-        function showEditForm() {
-            document.getElementById('editFormContainer').style.display = 'block';
-            document.getElementById('editFormContainer').scrollIntoView({ behavior: 'smooth' });
-        }
-    </script>
-</body>
-</html>
+            <!-- تب مکاتبات -->
+            <div class="tab-pane fade" id="correspondence" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5>مکاتبات</h5>
+                    <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#addCorrespondenceModal">
+                        <i class="fas fa-plus"></i> ثبت مکاتبه جدید
+                    </button>
+                </div>
+                
+                <?php if (!empty($correspondence)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>تاریخ</th>
+                                    <th>موضوع</th>
+                                    <th>یادداشت</th>
+                                    <th>فایل</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($correspondence as $corr): ?>
+                                <tr>
+                                    <td><?= e($corr['letter_date'] ?? '-') ?></td>
+                                    <td><?= e($corr['subject'] ?? '-') ?></td>
+                                    <td><?= e($corr['notes'] ?? '-') ?></td>
+                                    <td>
+                                        <?php if ($corr['file_path']): ?>
+                                            <a href="<?= e($corr['file_path']) ?>" class="file-link" target="_blank">
+                                                <i class="fas fa-download"></i> دانلود
+                                            </a>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> هیچ مکاتبه‌ای برای این دستگاه ثبت نشده است.
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- تب انتساب‌ها -->
+            <div class="tab-pane fade" id="assignments" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5>انتساب‌های دستگاه</h5>
+                    <a href="assignments.php" class="btn btn-warning">
+                        <i class="fas fa-plus"></i> انتساب جدید
+                    </a>
+                </div>
+                
+                <?php if (!empty($assignments)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>مشتری</th>
+                                    <th>تلفن</th>
+                                    <th>تاریخ انتساب</th>
+                                    <th>تاریخ نصب</th>
+                                    <th>گارانتی از</th>
+                                    <th>گارانتی تا</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($assignments as $assignment): ?>
+                                <tr>
+                                    <td><?= e($assignment['customer_name'] ?? '-') ?></td>
+                                    <td><?= e($assignment['customer_phone'] ?? '-') ?></td>
+                                    <td><?= e($assignment['assignment_date'] ?? '-') ?></td>
+                                    <td><?= e($assignment['installation_date'] ?? '-') ?></td>
+                                    <td><?= e($assignment['warranty_start_date'] ?? '-') ?></td>
+                                    <td><?= e($assignment['warranty_end_date'] ?? '-') ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> این دستگاه به هیچ مشتری انتساب داده نشده است.
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
