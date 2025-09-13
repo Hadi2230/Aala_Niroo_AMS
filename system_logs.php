@@ -1,7 +1,7 @@
 <?php
 /**
- * system_logs.php - سیستم لاگ‌گیری پیشرفته و مدرن
- * Advanced System Logging with Modern UI
+ * system_logs.php - سیستم لاگ‌گیری پیشرفته و مدرن (نسخه ساده)
+ * Advanced System Logging with Modern UI (Simple Version)
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -93,14 +93,25 @@ if ($search !== '') {
 
 $query .= " ORDER BY sl.created_at DESC LIMIT 1000";
 
-$stmt = $pdo->prepare($query);
-$stmt->execute($params);
-$logs = $stmt->fetchAll();
+try {
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $logs = $stmt->fetchAll();
+} catch (Exception $e) {
+    $logs = [];
+    $error_message = 'خطا در دریافت لاگ‌ها: ' . $e->getMessage();
+}
 
 // داده‌های کمکی برای فیلترها
-$users = $pdo->query("SELECT id, username, full_name FROM users ORDER BY username")->fetchAll();
-$actions = $pdo->query("SELECT DISTINCT action FROM system_logs ORDER BY action")->fetchAll();
-$modules = $pdo->query("SELECT DISTINCT module FROM system_logs WHERE module IS NOT NULL ORDER BY module")->fetchAll();
+try {
+    $users = $pdo->query("SELECT id, username, full_name FROM users ORDER BY username")->fetchAll();
+    $actions = $pdo->query("SELECT DISTINCT action FROM system_logs ORDER BY action")->fetchAll();
+    $modules = $pdo->query("SELECT DISTINCT module FROM system_logs WHERE module IS NOT NULL ORDER BY module")->fetchAll();
+} catch (Exception $e) {
+    $users = [];
+    $actions = [];
+    $modules = [];
+}
 
 // آمار لاگ‌ها
 $stats = [
@@ -441,6 +452,13 @@ if (isset($_POST['cleanup_logs'])) {
                                     </div>
                                 <?php endif; ?>
 
+                                <?php if (isset($error_message)): ?>
+                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                        <i class="fas fa-exclamation-triangle me-2"></i><?php echo $error_message; ?>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                <?php endif; ?>
+
                                 <!-- آمار لاگ‌ها -->
                                 <div class="row mb-4">
                                     <div class="col-md-2">
@@ -551,7 +569,7 @@ if (isset($_POST['cleanup_logs'])) {
                                                     <button class="btn btn-primary" type="submit">
                                                         <i class="fas fa-filter me-1"></i>اعمال فیلتر
                                                     </button>
-                                                    <a class="btn btn-secondary" href="system_logs.php">
+                                                    <a class="btn btn-secondary" href="system_logs_simple.php">
                                                         <i class="fas fa-times me-1"></i>حذف فیلتر
                                                     </a>
                                                 </div>

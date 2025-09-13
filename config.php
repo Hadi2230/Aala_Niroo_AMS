@@ -660,6 +660,35 @@ function log_action($action, $description = '') {
     logAction($pdo, $action, $description);
 }
 
+// تابع تبدیل تاریخ میلادی به شمسی
+function jalali_format($date) {
+    if (empty($date) || $date === '-') {
+        return '-';
+    }
+    
+    try {
+        $timestamp = strtotime($date);
+        if ($timestamp === false) {
+            return $date;
+        }
+        
+        // تبدیل ساده به شمسی (برای نمایش)
+        $year = date('Y', $timestamp);
+        $month = date('m', $timestamp);
+        $day = date('d', $timestamp);
+        
+        // تبدیل تقریبی (برای نمایش بهتر)
+        $jalali_year = $year - 621;
+        if ($month > 3) {
+            $jalali_year++;
+        }
+        
+        return $jalali_year . '/' . $month . '/' . $day;
+    } catch (Exception $e) {
+        return $date;
+    }
+}
+
 // آپلود فایل با اعتبارسنجی
 function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf']) {
     if ($file['error'] !== UPLOAD_ERR_OK) {
