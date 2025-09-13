@@ -82,11 +82,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$username, $hashed_password, $full_name, $email, $role]);
                         $user_id = $pdo->lastInsertId();
                         
+                        // لاگ‌گیری ایجاد کاربر
+                        logAction($pdo, 'CREATE_USER', "ایجاد کاربر جدید: $username ($full_name) با نقش $role", 'info', 'users', [
+                            'username' => $username,
+                            'full_name' => $full_name,
+                            'email' => $email,
+                            'role' => $role,
+                            'has_custom_permissions' => $role === 'سفارشی' && !empty($selected_permissions)
+                        ]);
+                        
                         // ذخیره دسترسی‌های سفارشی
                         if ($role === 'سفارشی' && !empty($selected_permissions)) {
                             $custom_role_name = 'custom_' . $user_id;
                             $stmt = $pdo->prepare("INSERT INTO custom_roles (user_id, role_name, permissions) VALUES (?, ?, ?)");
                             $stmt->execute([$user_id, $custom_role_name, json_encode($selected_permissions)]);
+                            
+                            // لاگ‌گیری دسترسی‌های سفارشی
+                            logAction($pdo, 'SET_CUSTOM_PERMISSIONS', "تنظیم دسترسی‌های سفارشی برای کاربر $username", 'info', 'users', [
+                                'user_id' => $user_id,
+                                'permissions' => $selected_permissions
+                            ]);
                         }
                         
                         // ایجاد تنظیمات اعلان برای کاربر جدید

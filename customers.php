@@ -242,10 +242,24 @@ try {
 
         $customer_id = (int)$pdo->lastInsertId();
         
+        // لاگ‌گیری افزودن مشتری
+        logAction($pdo, 'ADD_CUSTOMER', "افزودن مشتری جدید: " . ($isLegal ? $company : $full_name) . " (ID: $customer_id)", 'info', 'customers', [
+            'customer_type' => $ctype,
+            'notification_type' => $notification_type,
+            'has_correspondences' => count($dirs) > 0
+        ]);
+        
         // ارسال اطلاع‌رسانی
         if ($notification_type !== 'none') {
             $sent_notifications = sendCustomerNotification($customer_id, $customer_data, $notification_type);
             $notification_message = !empty($sent_notifications) ? ' و ' . implode(' و ', $sent_notifications) . ' ارسال شد' : '';
+            
+            // لاگ‌گیری ارسال اطلاع‌رسانی
+            logAction($pdo, 'SEND_NOTIFICATION', "ارسال اطلاع‌رسانی برای مشتری $customer_id: " . implode(', ', $sent_notifications), 'info', 'customers', [
+                'customer_id' => $customer_id,
+                'notification_type' => $notification_type,
+                'sent_types' => $sent_notifications
+            ]);
         } else {
             $notification_message = '';
         }

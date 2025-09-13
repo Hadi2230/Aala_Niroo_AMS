@@ -97,19 +97,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $stmt->execute([$_SESSION['user_id'], $recipient_id, $subject, $message, $attachment_path, $attachment_name, $attachment_type]);
                                 
                                 if ($stmt->rowCount() > 0) {
+                                    $message_id = $pdo->lastInsertId();
                                     $success_message = 'پیام با موفقیت ارسال شد';
                                     if ($attachment_name) {
                                         $success_message .= ' و فایل ضمیمه شد';
                                     }
+                                    
+                                    // لاگ‌گیری ارسال پیام
+                                    logAction($pdo, 'SEND_MESSAGE', "ارسال پیام به کاربر $recipient_id: $subject", 'info', 'messages', [
+                                        'recipient_id' => $recipient_id,
+                                        'subject' => $subject,
+                                        'has_attachment' => !empty($attachment_name),
+                                        'attachment_name' => $attachment_name
+                                    ]);
                                     
                                     // ارسال اعلان
                                     $notification_text = "پیام جدید از " . ($_SESSION['full_name'] ?? $_SESSION['username']);
                                     if ($attachment_name) {
                                         $notification_text .= " با فایل ضمیمه";
                                     }
-                                    sendNotification($pdo, $recipient_id, 'پیام جدید', $notification_text, 'message', 'متوسط', $pdo->lastInsertId(), 'message');
+                                    sendNotification($pdo, $recipient_id, 'پیام جدید', $notification_text, 'message', 'متوسط', $message_id, 'message');
                                 } else {
                                     $error_message = 'خطا در ارسال پیام';
+                                    logAction($pdo, 'SEND_MESSAGE_ERROR', "خطا در ارسال پیام به کاربر $recipient_id", 'error', 'messages');
                                 }
                             }
                         }

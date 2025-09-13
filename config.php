@@ -636,14 +636,22 @@ function jsonResponse($data, $status = 200) {
 }
 
 // ثبت لاگ سیستم
-function logAction($pdo, $action, $description = '') {
+function logAction($pdo, $action, $description = '', $severity = 'info', $module = null, $request_data = null, $response_data = null) {
     $user_id = $_SESSION['user_id'] ?? null;
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
     
-    $stmt = $pdo->prepare("INSERT INTO system_logs (user_id, action, description, ip_address, user_agent) 
-                          VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$user_id, $action, $description, $ip_address, $user_agent]);
+    // تبدیل داده‌ها به JSON اگر آرایه باشند
+    if (is_array($request_data)) {
+        $request_data = json_encode($request_data, JSON_UNESCAPED_UNICODE);
+    }
+    if (is_array($response_data)) {
+        $response_data = json_encode($response_data, JSON_UNESCAPED_UNICODE);
+    }
+    
+    $stmt = $pdo->prepare("INSERT INTO system_logs (user_id, action, description, ip_address, user_agent, request_data, response_data, severity, module) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$user_id, $action, $description, $ip_address, $user_agent, $request_data, $response_data, $severity, $module]);
 }
 
 // نام مستعار برای logAction

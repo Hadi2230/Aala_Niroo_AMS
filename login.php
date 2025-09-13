@@ -47,12 +47,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$locked) {
 
 			try { $pdo->prepare('UPDATE users SET last_login = NOW() WHERE id = ?')->execute([$user['id']]); } catch (Throwable $e) { error_log('Login update error: ' . $e->getMessage()); }
 
+			// لاگ‌گیری ورود موفق
+			logAction($pdo, 'LOGIN_SUCCESS', "ورود موفق کاربر: $username", 'info', 'auth', [
+				'username' => $username,
+				'user_id' => $user['id'],
+				'role' => $_SESSION['role']
+			]);
+
 			$success = 'ورود موفقیت‌آمیز بود! در حال انتقال...';
 			echo "<script>setTimeout(function(){ window.location.href='dashboard.php'; }, 1200);</script>";
 		} else {
 			$_SESSION['login_attempts']++;
+			
+			// لاگ‌گیری ورود ناموفق
+			logAction($pdo, 'LOGIN_FAILED', "تلاش ورود ناموفق برای کاربر: $username", 'warning', 'auth', [
+				'username' => $username,
+				'attempts' => $_SESSION['login_attempts'],
+				'reason' => $user ? 'invalid_password' : 'user_not_found'
+			]);
+			
 			if ($_SESSION['login_attempts'] >= 5) {
 				$_SESSION['lock_time'] = time();
+				
+				// لاگ‌گیری قفل اکانت
+				logAction($pdo, 'ACCOUNT_LOCKED', "قفل اکانت به دلیل تلاش‌های مکرر: $username", 'critical', 'auth', [
+					'username' => $username,
+					'attempts' => $_SESSION['login_attempts']
+				]);
 				$locked = true;
 				$error = "تعداد تلاش ورود بیش از حد مجاز است. لطفاً $lock_duration ثانیه دیگر تلاش کنید.";
 			} else {
