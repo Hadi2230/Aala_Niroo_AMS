@@ -8,105 +8,167 @@ if (!isset($_SESSION['user_id'])) {
 include 'config.php';
 
 // بررسی دسترسی
-checkPermission('کاربر عادی');
+if (!hasPermission('messages.send') && !hasPermission('messages.receive')) {
+    die('دسترسی غیرمجاز - شما مجوز دسترسی به پیام‌ها را ندارید');
+}
 
-// دریافت اعلان‌های خوانده نشده
-$unread_notifications = getUnreadNotifications($pdo, $_SESSION['user_id']);
-$unread_messages = getUnreadMessages($pdo, $_SESSION['user_id']);
-
-// پردازش فرم‌ها
+// پردازش فرم
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrfToken();
     
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'send_message':
-                $receiver_id = sanitizeInput($_POST['receiver_id']);
+                $recipient_id = (int)$_POST['recipient_id'];
                 $subject = sanitizeInput($_POST['subject']);
                 $message = sanitizeInput($_POST['message']);
-                $related_ticket_id = sanitizeInput($_POST['related_ticket_id']);
-                $related_maintenance_id = sanitizeInput($_POST['related_maintenance_id']);
                 
-                if ($receiver_id && $message) {
-                    $message_id = sendInternalMessage($pdo, $_SESSION['user_id'], $receiver_id, $subject, $message, $related_ticket_id, $related_maintenance_id);
-                    logAction($pdo, 'send_message', "پیام جدید با شناسه {$message_id} ارسال شد");
-                    $success_message = "پیام با موفقیت ارسال شد";
+                if (empty($recipient_id) || empty($subject) || empty($message)) {
+                    $error_message = 'لطفاً تمام فیلدها را پر کنید';
                 } else {
-                    $error_message = "لطفاً گیرنده و متن پیام را مشخص کنید";
+                    try {
+                        // بررسی وجود گیرنده
+                        $stmt = $pdo->prepare("SELECT id, username, full_name FROM users WHERE id = ? AND id != ?");
+                        $stmt->execute([$recipient_id, $_SESSION['user_id']]);
+                        $recipient = $stmt->fetch();
+                        
+                        if (!$recipient) {
+                            $error_message = 'گیرنده انتخاب شده معتبر نیست';
+                        } else {
+                            // ارسال پیام
+                            $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, is_read, created_at) VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
+                            $stmt->execute([$_SESSION['user_id'], $recipient_id, $subject, $message]);
+                            
+                            if ($stmt->rowCount() > 0) {
+                                $success_message = 'پیام با موفقیت ارسال شد';
+                                
+                                // ارسال اعلان
+                                sendNotification($pdo, $recipient_id, 'پیام جدید', "پیام جدید از " . ($_SESSION['full_name'] ?? $_SESSION['username']), 'message', 'متوسط', $pdo->lastInsertId(), 'message');
+                            } else {
+                                $error_message = 'خطا در ارسال پیام';
+                            }
+                        }
+                    } catch (Exception $e) {
+                        $error_message = 'خطا در ارسال پیام: ' . $e->getMessage();
+                    }
                 }
                 break;
                 
             case 'mark_as_read':
-                $message_id = sanitizeInput($_POST['message_id']);
+                $message_id = (int)$_POST['message_id'];
+                try {
+                    $stmt = $pdo->prepare("UPDATE messages SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE id = ? AND receiver_id = ?");
+                    $stmt->execute([$message_id, $_SESSION['user_id']]);
+                    $success_message = 'پیام به عنوان خوانده شده علامت‌گذاری شد';
+                } catch (Exception $e) {
+                    $error_message = 'خطا در به‌روزرسانی پیام';
+                }
+                break;
                 
-                $stmt = $pdo->prepare("UPDATE messages SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = ? AND receiver_id = ?");
-                if ($stmt->execute([$message_id, $_SESSION['user_id']])) {
-                    logAction($pdo, 'mark_message_read', "پیام {$message_id} به عنوان خوانده شده علامت‌گذاری شد");
-                    $success_message = "پیام به عنوان خوانده شده علامت‌گذاری شد";
-                } else {
-                    $error_message = "خطا در به‌روزرسانی پیام";
+            case 'delete_message':
+                $message_id = (int)$_POST['message_id'];
+                try {
+                    $stmt = $pdo->prepare("DELETE FROM messages WHERE id = ? AND (sender_id = ? OR receiver_id = ?)");
+                    $stmt->execute([$message_id, $_SESSION['user_id'], $_SESSION['user_id']]);
+                    $success_message = 'پیام با موفقیت حذف شد';
+                } catch (Exception $e) {
+                    $error_message = 'خطا در حذف پیام';
                 }
                 break;
         }
     }
 }
 
+// دریافت فیلتر
+$filter = $_GET['filter'] ?? 'all';
+$search = $_GET['search'] ?? '';
+
+// دریافت کاربران برای ارسال پیام
+$users = [];
+try {
+    $stmt = $pdo->prepare("SELECT id, username, full_name FROM users WHERE id != ? AND is_active = 1 ORDER BY full_name, username");
+    $stmt->execute([$_SESSION['user_id']]);
+    $users = $stmt->fetchAll();
+} catch (Exception $e) {
+    $error_message = 'خطا در دریافت لیست کاربران: ' . $e->getMessage();
+}
+
 // دریافت پیام‌ها
-$filter = isset($_GET['filter']) ? sanitizeInput($_GET['filter']) : 'all';
-$search = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
-
-$where_conditions = [];
-$params = [];
-
-if ($filter === 'sent') {
-    $where_conditions[] = "m.sender_id = ?";
-    $params[] = $_SESSION['user_id'];
-} elseif ($filter === 'received') {
-    $where_conditions[] = "m.receiver_id = ?";
-    $params[] = $_SESSION['user_id'];
-} else {
-    $where_conditions[] = "(m.sender_id = ? OR m.receiver_id = ?)";
-    $params[] = $_SESSION['user_id'];
-    $params[] = $_SESSION['user_id'];
+$messages = [];
+try {
+    $where_conditions = [];
+    $params = [$_SESSION['user_id']];
+    
+    switch ($filter) {
+        case 'sent':
+            $where_conditions[] = "m.sender_id = ?";
+            break;
+        case 'received':
+            $where_conditions[] = "m.receiver_id = ?";
+            break;
+        case 'unread':
+            $where_conditions[] = "m.receiver_id = ? AND m.is_read = 0";
+            break;
+        default: // all
+            $where_conditions[] = "(m.sender_id = ? OR m.receiver_id = ?)";
+            $params[] = $_SESSION['user_id'];
+            break;
+    }
+    
+    if (!empty($search)) {
+        $where_conditions[] = "(m.subject LIKE ? OR m.message LIKE ?)";
+        $search_term = "%$search%";
+        $params[] = $search_term;
+        $params[] = $search_term;
+    }
+    
+    $where_clause = implode(' AND ', $where_conditions);
+    
+    $stmt = $pdo->prepare("
+        SELECT m.*, 
+               sender.username as sender_username, sender.full_name as sender_name,
+               receiver.username as receiver_username, receiver.full_name as receiver_name
+        FROM messages m
+        LEFT JOIN users sender ON m.sender_id = sender.id
+        LEFT JOIN users receiver ON m.receiver_id = receiver.id
+        WHERE $where_clause
+        ORDER BY m.created_at DESC
+    ");
+    $stmt->execute($params);
+    $messages = $stmt->fetchAll();
+} catch (Exception $e) {
+    $error_message = 'خطا در دریافت پیام‌ها: ' . $e->getMessage();
 }
 
-if ($search) {
-    $where_conditions[] = "(m.subject LIKE ? OR m.message LIKE ? OR u1.full_name LIKE ? OR u2.full_name LIKE ?)";
-    $search_param = "%{$search}%";
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
+// آمار پیام‌ها
+$stats = [
+    'total' => 0,
+    'unread' => 0,
+    'sent' => 0,
+    'received' => 0
+];
+
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM messages WHERE sender_id = ? OR receiver_id = ?");
+    $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
+    $stats['total'] = $stmt->fetch()['total'];
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) as unread FROM messages WHERE receiver_id = ? AND is_read = 0");
+    $stmt->execute([$_SESSION['user_id']]);
+    $stats['unread'] = $stmt->fetch()['unread'];
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) as sent FROM messages WHERE sender_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $stats['sent'] = $stmt->fetch()['sent'];
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) as received FROM messages WHERE receiver_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $stats['received'] = $stmt->fetch()['received'];
+} catch (Exception $e) {
+    // خطا در آمار
 }
-
-$where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
-
-$messages_query = "
-    SELECT m.*, 
-           u1.full_name as sender_name, 
-           u2.full_name as receiver_name,
-           t.ticket_number,
-           ms.maintenance_type
-    FROM messages m
-    LEFT JOIN users u1 ON m.sender_id = u1.id
-    LEFT JOIN users u2 ON m.receiver_id = u2.id
-    LEFT JOIN tickets t ON m.related_ticket_id = t.id
-    LEFT JOIN maintenance_schedules ms ON m.related_maintenance_id = ms.id
-    {$where_clause}
-    ORDER BY m.created_at DESC
-";
-
-$stmt = $pdo->prepare($messages_query);
-$stmt->execute($params);
-$messages = $stmt->fetchAll();
-
-// دریافت کاربران برای فرم
-$users = $pdo->query("SELECT id, full_name FROM users WHERE is_active = 1 AND id != ? ORDER BY full_name")->fetchAll([$_SESSION['user_id']]);
-
-// دریافت تیکت‌ها و تعمیرات برای فرم
-$tickets = $pdo->query("SELECT id, ticket_number, title FROM tickets ORDER BY created_at DESC LIMIT 20")->fetchAll();
-$maintenance = $pdo->query("SELECT id, maintenance_type, schedule_date FROM maintenance_schedules ORDER BY created_at DESC LIMIT 20")->fetchAll();
 ?>
+
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
 <head>
@@ -117,154 +179,443 @@ $maintenance = $pdo->query("SELECT id, maintenance_type, schedule_date FROM main
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
-        body { font-family: Vazirmatn, sans-serif; background-color: #f8f9fa; padding-top: 80px; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .card-header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; border-radius: 12px 12px 0 0 !important; font-weight: 600; }
-        .btn-primary { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); border: none; }
-        .message-item { border-left: 4px solid #3498db; }
-        .message-item.unread { background-color: #f8f9ff; border-left-color: #8b5cf6; }
-        .message-item.sent { border-left-color: #10b981; }
-        .message-item.received { border-left-color: #3498db; }
-        .message-preview { max-height: 60px; overflow: hidden; text-overflow: ellipsis; }
-        .related-badge { font-size: 0.7rem; padding: 2px 6px; }
+        body { 
+            font-family: Vazirmatn, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-top: 80px;
+        }
+        .dark-mode { 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d3748 100%) !important; 
+            color: #ffffff !important; 
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            margin: 20px 0;
+        }
+        .dark-mode .main-container {
+            background: rgba(45, 55, 72, 0.95);
+        }
+        .card { 
+            border: none; 
+            border-radius: 15px; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1); 
+            margin-bottom: 20px; 
+            overflow: hidden;
+        }
+        .dark-mode .card { 
+            background-color: #2d3748; 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .card-header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none;
+            padding: 20px 25px;
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            border: none; 
+            border-radius: 10px; 
+            padding: 10px 25px; 
+            transition: all 0.3s; 
+            font-weight: 500;
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4); 
+        }
+        .message-item { 
+            border: 1px solid #e9ecef; 
+            border-radius: 15px; 
+            margin-bottom: 15px; 
+            padding: 20px; 
+            transition: all 0.3s; 
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .message-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .message-item:hover { 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            transform: translateY(-2px);
+        }
+        .message-item:hover::before {
+            opacity: 1;
+        }
+        .message-item.unread { 
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            border-left: 4px solid #667eea;
+        }
+        .message-item.unread::before {
+            opacity: 1;
+        }
+        .dark-mode .message-item { 
+            background-color: #374151; 
+            border-color: #4b5563; 
+        }
+        .dark-mode .message-item.unread { 
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        }
+        .message-meta { 
+            font-size: 0.85rem; 
+            color: #6c757d; 
+            margin-bottom: 10px;
+        }
+        .dark-mode .message-meta { 
+            color: #9ca3af; 
+        }
+        .message-content { 
+            margin-top: 15px; 
+            line-height: 1.8; 
+            color: #495057;
+        }
+        .dark-mode .message-content {
+            color: #e2e8f0;
+        }
+        .stats-card { 
+            text-align: center; 
+            padding: 25px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border-radius: 15px; 
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+        .stats-number { 
+            font-size: 2.5rem; 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+            position: relative;
+            z-index: 1;
+        }
+        .stats-label { 
+            font-size: 0.9rem; 
+            opacity: 0.9; 
+            position: relative;
+            z-index: 1;
+        }
+        .filter-buttons .btn { 
+            margin-left: 8px; 
+            margin-bottom: 8px; 
+            border-radius: 25px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .filter-buttons .btn:hover {
+            transform: translateY(-2px);
+        }
+        .search-box { 
+            max-width: 350px; 
+            border-radius: 25px;
+            border: 2px solid #e9ecef;
+            padding: 12px 20px;
+            transition: all 0.3s;
+        }
+        .search-box:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .message-actions { 
+            margin-top: 15px; 
+        }
+        .message-actions .btn { 
+            margin-left: 8px; 
+            border-radius: 20px;
+            padding: 6px 15px;
+        }
+        .user-option { 
+            padding: 12px 15px; 
+            border-bottom: 1px solid #e9ecef; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        .user-option:hover { 
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            transform: translateX(-5px);
+        }
+        .user-option:last-child { 
+            border-bottom: none; 
+        }
+        .user-name { 
+            font-weight: 600; 
+            color: #495057;
+        }
+        .user-username { 
+            font-size: 0.85rem; 
+            color: #6c757d; 
+        }
+        .message-subject {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .dark-mode .message-subject {
+            color: #e2e8f0;
+        }
+        .message-preview {
+            color: #6c757d;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .dark-mode .message-preview {
+            color: #9ca3af;
+        }
+        .badge {
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-weight: 500;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .dark-mode .empty-state {
+            color: #9ca3af;
+        }
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 15px 15px 0 0;
+        }
+        .btn-close {
+            filter: invert(1);
+        }
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            transition: all 0.3s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .alert {
+            border-radius: 10px;
+            border: none;
+            padding: 15px 20px;
+        }
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-left: 15px;
+        }
     </style>
 </head>
-<body>
+<body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme']==='dark' ? 'dark-mode' : ''; ?>">
     <?php include 'navbar.php'; ?>
-    
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fa fa-envelope"></i> پیام‌های داخلی</h2>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
-                        <i class="fa fa-plus"></i> پیام جدید
-                    </button>
-                </div>
 
-                <?php if (isset($success_message)): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <?php echo $success_message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (isset($error_message)): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?php echo $error_message; ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                <?php endif; ?>
-
-                <!-- فیلترها -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3">
-                            <div class="col-md-4">
-                                <input type="text" class="form-control" name="search" placeholder="جستجو در پیام‌ها..." value="<?php echo htmlspecialchars($search); ?>">
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" name="filter">
-                                    <option value="all" <?php echo $filter === 'all' ? 'selected' : ''; ?>>همه پیام‌ها</option>
-                                    <option value="received" <?php echo $filter === 'received' ? 'selected' : ''; ?>>دریافتی</option>
-                                    <option value="sent" <?php echo $filter === 'sent' ? 'selected' : ''; ?>>ارسالی</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn-outline-primary w-100">فیلتر</button>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex gap-2">
-                                    <span class="badge bg-info"><?php echo count($messages); ?> پیام</span>
-                                    <span class="badge bg-warning"><?php echo count($unread_messages); ?> خوانده نشده</span>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="container mt-4">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h4 class="mb-0"><i class="fas fa-envelope me-2"></i>پیام‌های داخلی</h4>
+                                    <small class="opacity-75">مدیریت و ارسال پیام‌های داخلی</small>
                                 </div>
+                                <button class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#composeModal">
+                                    <i class="fas fa-plus me-2"></i>ارسال پیام جدید
+                                </button>
                             </div>
-                        </form>
-                    </div>
-                </div>
+                            <div class="card-body">
+                                <?php if (isset($success_message)): ?>
+                                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                        <i class="fas fa-check-circle me-2"></i><?php echo $success_message; ?>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                <?php endif; ?>
 
-                <!-- لیست پیام‌ها -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fa fa-list"></i> لیست پیام‌ها
-                    </div>
-                    <div class="card-body">
-                        <?php if ($messages): ?>
-                            <div class="list-group">
-                                <?php foreach ($messages as $msg): ?>
-                                    <?php
-                                    $is_sent = $msg['sender_id'] == $_SESSION['user_id'];
-                                    $is_unread = !$msg['is_read'] && !$is_sent;
-                                    $item_class = 'message-item ' . ($is_sent ? 'sent' : 'received') . ($is_unread ? ' unread' : '');
-                                    ?>
-                                    <div class="list-group-item <?php echo $item_class; ?>">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <h6 class="mb-0">
-                                                        <?php if ($is_sent): ?>
-                                                            <i class="fa fa-paper-plane text-success me-1"></i>
-                                                            به: <?php echo htmlspecialchars($msg['receiver_name']); ?>
-                                                        <?php else: ?>
-                                                            <i class="fa fa-inbox text-primary me-1"></i>
-                                                            از: <?php echo htmlspecialchars($msg['sender_name']); ?>
-                                                            <?php if ($is_unread): ?>
-                                                                <span class="badge bg-danger ms-2">جدید</span>
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
-                                                    </h6>
-                                                    <div>
-                                                        <?php if ($msg['related_ticket_id']): ?>
-                                                            <span class="badge related-badge bg-info">
-                                                                <i class="fa fa-ticket-alt"></i> <?php echo htmlspecialchars($msg['ticket_number']); ?>
-                                                            </span>
-                                                        <?php endif; ?>
-                                                        <?php if ($msg['related_maintenance_id']): ?>
-                                                            <span class="badge related-badge bg-warning">
-                                                                <i class="fa fa-tools"></i> <?php echo htmlspecialchars($msg['maintenance_type']); ?>
-                                                            </span>
-                                                        <?php endif; ?>
+                                <?php if (isset($error_message)): ?>
+                                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                        <i class="fas fa-exclamation-triangle me-2"></i><?php echo $error_message; ?>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- آمار پیام‌ها -->
+                                <div class="row mb-4">
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="stats-number"><?php echo $stats['total']; ?></div>
+                                            <div class="stats-label">کل پیام‌ها</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="stats-number"><?php echo $stats['unread']; ?></div>
+                                            <div class="stats-label">خوانده نشده</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="stats-number"><?php echo $stats['sent']; ?></div>
+                                            <div class="stats-label">ارسالی</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stats-card">
+                                            <div class="stats-number"><?php echo $stats['received']; ?></div>
+                                            <div class="stats-label">دریافتی</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- فیلترها و جستجو -->
+                                <div class="row mb-4">
+                                    <div class="col-md-8">
+                                        <div class="filter-buttons">
+                                            <a href="?filter=all" class="btn btn-outline-primary <?php echo $filter == 'all' ? 'active' : ''; ?>">
+                                                <i class="fas fa-list me-1"></i>همه
+                                            </a>
+                                            <a href="?filter=unread" class="btn btn-outline-warning <?php echo $filter == 'unread' ? 'active' : ''; ?>">
+                                                <i class="fas fa-envelope me-1"></i>خوانده نشده
+                                            </a>
+                                            <a href="?filter=sent" class="btn btn-outline-info <?php echo $filter == 'sent' ? 'active' : ''; ?>">
+                                                <i class="fas fa-paper-plane me-1"></i>ارسالی
+                                            </a>
+                                            <a href="?filter=received" class="btn btn-outline-success <?php echo $filter == 'received' ? 'active' : ''; ?>">
+                                                <i class="fas fa-inbox me-1"></i>دریافتی
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <form method="GET" class="d-flex">
+                                            <input type="hidden" name="filter" value="<?php echo $filter; ?>">
+                                            <input type="text" class="form-control search-box" name="search" placeholder="جستجو در پیام‌ها..." value="<?php echo htmlspecialchars($search); ?>">
+                                            <button type="submit" class="btn btn-outline-secondary ms-2">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <!-- لیست پیام‌ها -->
+                                <div class="messages-list">
+                                    <?php if (empty($messages)): ?>
+                                        <div class="empty-state">
+                                            <i class="fas fa-envelope-open"></i>
+                                            <h5>هیچ پیامی یافت نشد</h5>
+                                            <p>هنوز پیامی در این بخش وجود ندارد</p>
+                                        </div>
+                                    <?php else: ?>
+                                        <?php foreach ($messages as $message): ?>
+                                            <div class="message-item <?php echo !$message['is_read'] && $message['receiver_id'] == $_SESSION['user_id'] ? 'unread' : ''; ?>">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="message-avatar">
+                                                        <?php 
+                                                        $name = $message['sender_id'] == $_SESSION['user_id'] ? 
+                                                            ($message['receiver_name'] ?? $message['receiver_username']) : 
+                                                            ($message['sender_name'] ?? $message['sender_username']);
+                                                        echo strtoupper(substr($name, 0, 1));
+                                                        ?>
                                                     </div>
-                                                </div>
-                                                
-                                                <?php if ($msg['subject']): ?>
-                                                    <h6 class="mb-1 text-primary"><?php echo htmlspecialchars($msg['subject']); ?></h6>
-                                                <?php endif; ?>
-                                                
-                                                <p class="message-preview text-muted mb-2"><?php echo htmlspecialchars($msg['message']); ?></p>
-                                                
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <small class="text-muted">
-                                                        <i class="fa fa-clock"></i> <?php echo jalaliDate($msg['created_at']); ?>
-                                                        <?php if ($msg['read_at']): ?>
-                                                            | <i class="fa fa-check-circle text-success"></i> خوانده شده: <?php echo jalaliDate($msg['read_at']); ?>
-                                                        <?php endif; ?>
-                                                    </small>
-                                                    
-                                                    <div class="btn-group btn-group-sm">
-                                                        <?php if (!$is_sent && !$msg['is_read']): ?>
-                                                            <form method="post" style="display: inline;">
-                                                                <input type="hidden" name="action" value="mark_as_read">
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                                            <div>
+                                                                <h6 class="mb-1">
+                                                                    <?php if ($message['sender_id'] == $_SESSION['user_id']): ?>
+                                                                        <i class="fas fa-paper-plane text-info me-2"></i>
+                                                                        به: <strong><?php echo htmlspecialchars($message['receiver_name'] ?? $message['receiver_username']); ?></strong>
+                                                                    <?php else: ?>
+                                                                        <i class="fas fa-inbox text-success me-2"></i>
+                                                                        از: <strong><?php echo htmlspecialchars($message['sender_name'] ?? $message['sender_username']); ?></strong>
+                                                                    <?php endif; ?>
+                                                                </h6>
+                                                                <div class="message-subject"><?php echo htmlspecialchars($message['subject']); ?></div>
+                                                            </div>
+                                                            <div class="text-end">
+                                                                <div class="message-meta">
+                                                                    <i class="fas fa-clock me-1"></i><?php echo jalali_format($message['created_at']); ?>
+                                                                    <?php if (!$message['is_read'] && $message['receiver_id'] == $_SESSION['user_id']): ?>
+                                                                        <span class="badge bg-warning ms-2">جدید</span>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="message-preview">
+                                                            <?php echo nl2br(htmlspecialchars(substr($message['message'], 0, 200))); ?>
+                                                            <?php if (strlen($message['message']) > 200): ?>...<?php endif; ?>
+                                                        </div>
+                                                        <div class="message-actions">
+                                                            <?php if (!$message['is_read'] && $message['receiver_id'] == $_SESSION['user_id']): ?>
+                                                                <form method="POST" style="display: inline;">
+                                                                    <input type="hidden" name="action" value="mark_as_read">
+                                                                    <input type="hidden" name="message_id" value="<?php echo $message['id']; ?>">
+                                                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                                        <i class="fas fa-check me-1"></i>خوانده شد
+                                                                    </button>
+                                                                </form>
+                                                            <?php endif; ?>
+                                                            <form method="POST" style="display: inline;" onsubmit="return confirm('آیا مطمئن هستید؟')">
+                                                                <input type="hidden" name="action" value="delete_message">
+                                                                <input type="hidden" name="message_id" value="<?php echo $message['id']; ?>">
                                                                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                                                <input type="hidden" name="message_id" value="<?php echo $msg['id']; ?>">
-                                                                <button type="submit" class="btn btn-outline-success btn-sm">
-                                                                    <i class="fa fa-check"></i> خوانده شد
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                    <i class="fas fa-trash me-1"></i>حذف
                                                                 </button>
                                                             </form>
-                                                        <?php endif; ?>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                        <?php else: ?>
-                            <div class="text-center py-5">
-                                <i class="fa fa-envelope fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">هیچ پیامی یافت نشد.</p>
-                            </div>
-                        <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -272,67 +623,86 @@ $maintenance = $pdo->query("SELECT id, maintenance_type, schedule_date FROM main
     </div>
 
     <!-- Modal ارسال پیام جدید -->
-    <div class="modal fade" id="sendMessageModal" tabindex="-1">
+    <div class="modal fade" id="composeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <form class="modal-content" method="post">
+            <form class="modal-content" method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title">ارسال پیام جدید</h5>
+                    <h5 class="modal-title"><i class="fas fa-paper-plane me-2"></i>ارسال پیام جدید</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="action" value="send_message">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">گیرنده *</label>
-                            <select class="form-select" name="receiver_id" required>
-                                <option value="">انتخاب گیرنده</option>
-                                <?php foreach ($users as $user): ?>
-                                    <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['full_name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">موضوع</label>
-                            <input type="text" class="form-control" name="subject" placeholder="موضوع پیام (اختیاری)">
-                        </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">گیرنده <span class="text-danger">*</span></label>
+                        <select class="form-select" name="recipient_id" required>
+                            <option value="">انتخاب گیرنده...</option>
+                            <?php foreach ($users as $user): ?>
+                                <option value="<?php echo $user['id']; ?>">
+                                    <?php 
+                                    $display_name = $user['full_name'] ?: $user['username'];
+                                    echo htmlspecialchars($display_name);
+                                    ?>
+                                    (<?php echo htmlspecialchars($user['username']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if (empty($users)): ?>
+                            <div class="text-muted small mt-2">
+                                <i class="fas fa-info-circle me-1"></i>هیچ کاربر فعالی برای ارسال پیام وجود ندارد
+                            </div>
+                        <?php endif; ?>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">مرتبط با تیکت</label>
-                            <select class="form-select" name="related_ticket_id">
-                                <option value="">انتخاب تیکت (اختیاری)</option>
-                                <?php foreach ($tickets as $ticket): ?>
-                                    <option value="<?php echo $ticket['id']; ?>"><?php echo htmlspecialchars($ticket['ticket_number'] . ' - ' . $ticket['title']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">مرتبط با تعمیرات</label>
-                            <select class="form-select" name="related_maintenance_id">
-                                <option value="">انتخاب تعمیرات (اختیاری)</option>
-                                <?php foreach ($maintenance as $maint): ?>
-                                    <option value="<?php echo $maint['id']; ?>"><?php echo htmlspecialchars($maint['maintenance_type'] . ' - ' . jalaliDate($maint['schedule_date'])); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">موضوع <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="subject" required placeholder="موضوع پیام را وارد کنید...">
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">متن پیام *</label>
-                        <textarea class="form-control" name="message" rows="5" required placeholder="متن پیام خود را بنویسید..."></textarea>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">متن پیام <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="message" rows="6" required placeholder="متن پیام خود را بنویسید..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ارسال پیام</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>انصراف
+                    </button>
+                    <button type="submit" class="btn btn-primary" <?php echo empty($users) ? 'disabled' : ''; ?>>
+                        <i class="fas fa-paper-plane me-1"></i>ارسال پیام
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-hide alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+
+        // Form validation
+        document.getElementById('composeModal').addEventListener('show.bs.modal', function() {
+            const form = this.querySelector('form');
+            form.reset();
+        });
+
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html>
