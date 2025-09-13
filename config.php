@@ -13,20 +13,16 @@ ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
-$host = 'localhost:3307';
-$dbname = 'aala_niroo';
-$username = 'root';
-$password = '';
+$db_path = __DIR__ . '/aala_niroo_ams.db';
 
 // تنظیمات زمانzone
 date_default_timezone_set('Asia/Tehran');
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
+    $pdo = new PDO("sqlite:$db_path", null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_persian_ci"
+        PDO::ATTR_EMULATE_PREPARES => false
     ]);
 } catch (PDOException $e) {
     error_log("[" . date('Y-m-d H:i:s') . "] خطا در اتصال به دیتابیس: " . $e->getMessage());
