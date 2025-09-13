@@ -12,7 +12,7 @@ if (!hasPermission('messages.send') && !hasPermission('messages.receive')) {
     die('دسترسی غیرمجاز - شما مجوز دسترسی به پیام‌ها را ندارید');
 }
 
-// ایجاد جدول messages اگر وجود ندارد
+// ایجاد جدول messages اگر وجود ندارد (بدون Foreign Key)
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -30,9 +30,7 @@ try {
         INDEX(sender_id),
         INDEX(receiver_id),
         INDEX(is_read),
-        INDEX(created_at),
-        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+        INDEX(created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Exception $e) {
     // جدول ممکن است قبلاً وجود داشته باشد
