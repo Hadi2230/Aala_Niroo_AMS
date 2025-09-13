@@ -1,0 +1,16 @@
+{
+    "name": "aala-niroo/ams",
+    "description": "سیستم مدیریت دارایی‌های اعلا نیرو",
+    "type": "project",
+    "require": {
+        "phpmailer/phpmailer": "^6.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
