@@ -86,12 +86,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // ---------- ویرایش دارایی ----------
         if (isset($_POST['edit_asset'])) {
+            // Sanitize all input fields
             $name = trim($_POST['name'] ?? '');
             $brand = trim($_POST['brand'] ?? '');
             $model = trim($_POST['model'] ?? '');
             $serial_number = trim($_POST['serial_number'] ?? '');
+            if (empty($serial_number)) {
+                $serial_number = null; // Set to NULL for empty values to avoid UNIQUE constraint violation
+            }
+            
             $purchase_date = trim($_POST['purchase_date'] ?? '');
             $status = trim($_POST['status'] ?? '');
+            
+            // Generator specific fields
             $power_capacity = trim($_POST['power_capacity'] ?? '');
             $engine_type = trim($_POST['engine_type'] ?? '');
             $engine_model = trim($_POST['engine_model'] ?? '');
@@ -106,19 +113,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $battery_charger = trim($_POST['battery_charger'] ?? '');
             $oil_capacity = trim($_POST['oil_capacity'] ?? '');
             $radiator_capacity = trim($_POST['radiator_capacity'] ?? '');
+            $antifreeze = trim($_POST['antifreeze'] ?? '');
+            
+            // Filter parts
             $oil_filter_part = trim($_POST['oil_filter_part'] ?? '');
             $fuel_filter_part = trim($_POST['fuel_filter_part'] ?? '');
             $water_fuel_filter_part = trim($_POST['water_fuel_filter_part'] ?? '');
             $air_filter_part = trim($_POST['air_filter_part'] ?? '');
             $water_filter_part = trim($_POST['water_filter_part'] ?? '');
+            
+            // Workshop dates
             $workshop_entry_date = trim($_POST['workshop_entry_date'] ?? '');
             $workshop_exit_date = trim($_POST['workshop_exit_date'] ?? '');
+            
+            // Manual links
             $datasheet_link = trim($_POST['datasheet_link'] ?? '');
             $engine_manual_link = trim($_POST['engine_manual_link'] ?? '');
             $alternator_manual_link = trim($_POST['alternator_manual_link'] ?? '');
             $control_panel_manual_link = trim($_POST['control_panel_manual_link'] ?? '');
+            
+            // Consumable specific fields
+            $consumable_type = trim($_POST['consumable_type'] ?? '');
+            
+            // Device identifier
+            $device_identifier = trim($_POST['device_identifier'] ?? '');
+            if (empty($device_identifier)) {
+                $device_identifier = null; // Set to NULL for empty values
+            }
+            
+            // Additional fields that might be present
+            $fuel_tank_specs = trim($_POST['fuel_tank_specs'] ?? '');
+            $other_items = trim($_POST['other_items'] ?? '');
+            $heater = trim($_POST['heater'] ?? '');
+            $supply_method = trim($_POST['supply_method'] ?? '');
+            if (empty($supply_method)) {
+                $supply_method = null;
+            }
+            $location = trim($_POST['location'] ?? '');
+            if (empty($location)) {
+                $location = null;
+            }
+            $quantity = trim($_POST['quantity'] ?? '');
+            if (empty($quantity)) {
+                $quantity = null;
+            }
+            $supplier_name = trim($_POST['supplier_name'] ?? '');
+            if (empty($supplier_name)) {
+                $supplier_name = null;
+            }
+            $supplier_contact = trim($_POST['supplier_contact'] ?? '');
+            if (empty($supplier_contact)) {
+                $supplier_contact = null;
+            }
+            
             $description = trim($_POST['description'] ?? '');
 
+            // Update query with all possible fields
             $stmt = $pdo->prepare("
                 UPDATE assets SET 
                 name = ?, brand = ?, model = ?, serial_number = ?, purchase_date = ?, 
@@ -126,11 +176,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 engine_serial = ?, alternator_model = ?, alternator_serial = ?, 
                 device_model = ?, device_serial = ?, control_panel_model = ?, 
                 breaker_model = ?, battery = ?, battery_charger = ?, oil_capacity = ?, 
-                radiator_capacity = ?, oil_filter_part = ?, fuel_filter_part = ?, 
+                radiator_capacity = ?, antifreeze = ?, oil_filter_part = ?, fuel_filter_part = ?, 
                 water_fuel_filter_part = ?, air_filter_part = ?, water_filter_part = ?, 
                 workshop_entry_date = ?, workshop_exit_date = ?, datasheet_link = ?, 
                 engine_manual_link = ?, alternator_manual_link = ?, 
-                control_panel_manual_link = ?, description = ?
+                control_panel_manual_link = ?, consumable_type = ?, device_identifier = ?,
+                fuel_tank_specs = ?, other_items = ?, heater = ?, supply_method = ?,
+                location = ?, quantity = ?, supplier_name = ?, supplier_contact = ?, description = ?
                 WHERE id = ?
             ");
             
@@ -139,10 +191,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $power_capacity, $engine_type, $engine_model, $engine_serial, 
                 $alternator_model, $alternator_serial, $device_model, $device_serial, 
                 $control_panel_model, $breaker_model, $battery, $battery_charger, 
-                $oil_capacity, $radiator_capacity, $oil_filter_part, $fuel_filter_part, 
+                $oil_capacity, $radiator_capacity, $antifreeze, $oil_filter_part, $fuel_filter_part, 
                 $water_fuel_filter_part, $air_filter_part, $water_filter_part, 
                 $workshop_entry_date, $workshop_exit_date, $datasheet_link, 
-                $engine_manual_link, $alternator_manual_link, $control_panel_manual_link, 
+                $engine_manual_link, $alternator_manual_link, $control_panel_manual_link,
+                $consumable_type, $device_identifier, $fuel_tank_specs, $other_items, $heater,
+                $supply_method, $location, $quantity, $supplier_name, $supplier_contact,
                 $description, $postAssetId
             ]);
 
@@ -202,8 +256,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---------- بارگذاری اطلاعات برای نمایش ----------
 try {
     if ($assetId > 0) {
-        // اطلاعات دارایی
-        $stmt = $pdo->prepare("SELECT * FROM assets WHERE id = ?");
+        // اطلاعات دارایی با نوع دارایی
+        $stmt = $pdo->prepare("
+            SELECT a.*, at.name as asset_type_name, at.display_name as asset_type_display 
+            FROM assets a 
+            LEFT JOIN asset_types at ON a.type_id = at.id 
+            WHERE a.id = ?
+        ");
         $stmt->execute([$assetId]);
         $assetData = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
         
@@ -736,63 +795,422 @@ try {
         <div class="modal fade" id="editAssetModal" tabindex="-1">
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
-                    <form method="post">
+                    <form method="post" id="editAssetForm">
                         <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                        <input type="hidden" id="edit_asset_type" value="">
                         <div class="modal-header">
                             <h5 class="modal-title">ویرایش اطلاعات دستگاه</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">نام دستگاه *</label>
-                                        <input type="text" name="name" class="form-control" value="<?= e($assetData['name'] ?? '') ?>" required>
+                            
+                            <!-- فیلدهای ژنراتور -->
+                            <div id="edit_generator_fields" class="edit-dynamic-field" style="display: none;">
+                                <h5 class="mb-3 text-secondary">مشخصات ژنراتور</h5>
+                                
+                                <!-- ردیف 1 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نام دستگاه *</label>
+                                            <select class="form-select" id="edit_gen_name" name="name" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="Cummins">Cummins</option>
+                                                <option value="Volvo">Volvo</option>
+                                                <option value="Perkins">Perkins</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شماره سریال دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_gen_serial_number" name="serial_number">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ خرید</label>
+                                            <input type="date" class="form-control" id="edit_gen_purchase_date" name="purchase_date">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">برند</label>
-                                        <input type="text" name="brand" class="form-control" value="<?= e($assetData['brand'] ?? '') ?>">
+
+                                <!-- ردیف 2 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت *</label>
+                                            <select class="form-select" id="edit_gen_status" name="status" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="ترخیص شده از گمرک">ترخیص شده از گمرک</option>
+                                                <option value="انبار نظر آباد">انبار نظر آباد</option>
+                                                <option value="در حال تعمیر">در حال تعمیر</option>
+                                                <option value="آماده بهره‌برداری">آماده بهره‌برداری</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">برند</label>
+                                            <input type="text" class="form-control" id="edit_gen_brand" name="brand">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">مدل دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_gen_device_model" name="device_model">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ردیف 3 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">ظرفیت توان (کیلووات)</label>
+                                            <input type="text" class="form-control" id="edit_gen_power_capacity" name="power_capacity">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">مدل موتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_engine_model" name="engine_model">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">سریال موتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_engine_serial" name="engine_serial">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ردیف 4 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">مدل آلترناتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_alternator_model" name="alternator_model">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">سریال آلترناتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_alternator_serial" name="alternator_serial">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">سریال دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_gen_device_serial" name="device_serial">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ردیف 5 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">مدل کنترل پنل</label>
+                                            <input type="text" class="form-control" id="edit_gen_control_panel_model" name="control_panel_model">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">مدل بریکر</label>
+                                            <input type="text" class="form-control" id="edit_gen_breaker_model" name="breaker_model">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">باتری</label>
+                                            <input type="text" class="form-control" id="edit_gen_battery" name="battery">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ردیف 6 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">حجم روغن</label>
+                                            <input type="text" class="form-control" id="edit_gen_oil_capacity" name="oil_capacity">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">حجم آب رادیاتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_radiator_capacity" name="radiator_capacity">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">ضدیخ</label>
+                                            <input type="text" class="form-control" id="edit_gen_antifreeze" name="antifreeze">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- فیلترها -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر فیلتر روغن</label>
+                                            <input type="text" class="form-control" id="edit_gen_oil_filter_part" name="oil_filter_part">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر فیلتر سوخت</label>
+                                            <input type="text" class="form-control" id="edit_gen_fuel_filter_part" name="fuel_filter_part">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر فیلتر سوخت آبیگیر</label>
+                                            <input type="text" class="form-control" id="edit_gen_water_fuel_filter_part" name="water_fuel_filter_part">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر فیلتر هوا</label>
+                                            <input type="text" class="form-control" id="edit_gen_air_filter_part" name="air_filter_part">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر فیلتر آب</label>
+                                            <input type="text" class="form-control" id="edit_gen_water_filter_part" name="water_filter_part">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- تاریخ‌های کارگاه -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ ورود به کارگاه</label>
+                                            <input type="date" class="form-control" id="edit_gen_workshop_entry_date" name="workshop_entry_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ خروج از کارگاه</label>
+                                            <input type="date" class="form-control" id="edit_gen_workshop_exit_date" name="workshop_exit_date">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- لینک‌های manual -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">لینک دیتاشیت</label>
+                                            <input type="text" class="form-control" id="edit_gen_datasheet_link" name="datasheet_link">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">لینک manual موتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_engine_manual_link" name="engine_manual_link">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">لینک manual آلترناتور</label>
+                                            <input type="text" class="form-control" id="edit_gen_alternator_manual_link" name="alternator_manual_link">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">لینک manual کنترل پنل</label>
+                                            <input type="text" class="form-control" id="edit_gen_control_panel_manual_link" name="control_panel_manual_link">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- توضیحات -->
+                                <div class="mb-3">
+                                    <label class="form-label">توضیحات</label>
+                                    <textarea class="form-control" id="edit_gen_description" name="description" rows="4"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- فیلدهای موتور برق -->
+                            <div id="edit_motor_fields" class="edit-dynamic-field" style="display: none;">
+                                <h5 class="mb-3 text-secondary">مشخصات موتور برق</h5>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نام موتور برق *</label>
+                                            <select class="form-select" id="edit_motor_name" name="name" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="Cummins">Cummins</option>
+                                                <option value="Volvo">Volvo</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نوع موتور *</label>
+                                            <select class="form-select" id="edit_motor_engine_type" name="engine_type" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="P4500">P4500</option>
+                                                <option value="P5000e">P5000e</option>
+                                                <option value="P2200">P2200</option>
+                                                <option value="P2600">P2600</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">سریال موتور</label>
+                                            <input type="text" class="form-control" id="edit_motor_serial_number" name="serial_number">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_motor_device_identifier" name="device_identifier">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ خرید</label>
+                                            <input type="date" class="form-control" id="edit_motor_purchase_date" name="purchase_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت *</label>
+                                            <select class="form-select" id="edit_motor_status" name="status" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="فعال">فعال</option>
+                                                <option value="غیرفعال">غیرفعال</option>
+                                                <option value="در حال تعمیر">در حال تعمیر</option>
+                                                <option value="آماده بهره‌برداری">آماده بهره‌برداری</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">مدل</label>
-                                        <input type="text" name="model" class="form-control" value="<?= e($assetData['model'] ?? '') ?>">
+
+                            <!-- فیلدهای اقلام مصرفی -->
+                            <div id="edit_consumable_fields" class="edit-dynamic-field" style="display: none;">
+                                <h5 class="mb-3 text-secondary">مشخصات اقلام مصرفی</h5>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نام کالا *</label>
+                                            <input type="text" class="form-control" id="edit_consumable_name" name="name" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ ثبت</label>
+                                            <input type="date" class="form-control" id="edit_consumable_purchase_date" name="purchase_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_consumable_device_identifier" name="device_identifier">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">سریال</label>
-                                        <input type="text" name="serial_number" class="form-control" value="<?= e($assetData['serial_number'] ?? '') ?>">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت *</label>
+                                            <select class="form-select" id="edit_consumable_status" name="status" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="فعال">فعال</option>
+                                                <option value="غیرفعال">غیرفعال</option>
+                                                <option value="در حال تعمیر">در حال تعمیر</option>
+                                                <option value="آماده بهره‌برداری">آماده بهره‌برداری</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نوع کالای مصرفی *</label>
+                                            <input type="text" class="form-control" id="edit_consumable_type" name="consumable_type" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">پارت نامبر</label>
+                                            <input type="text" class="form-control" id="edit_consumable_part" name="oil_filter_part">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">تاریخ خرید</label>
-                                        <input type="date" name="purchase_date" class="form-control" value="<?= e($assetData['purchase_date'] ?? '') ?>">
+
+                            <!-- فیلدهای قطعات -->
+                            <div id="edit_parts_fields" class="edit-dynamic-field" style="display: none;">
+                                <h5 class="mb-3 text-secondary">مشخصات قطعات</h5>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">نام قطعه *</label>
+                                            <input type="text" class="form-control" id="edit_parts_name" name="name" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شماره سریال</label>
+                                            <input type="text" class="form-control" id="edit_parts_serial_number" name="serial_number">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">شناسه دستگاه</label>
+                                            <input type="text" class="form-control" id="edit_parts_device_identifier" name="device_identifier">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">وضعیت</label>
-                                        <select name="status" class="form-control">
-                                            <option value="فعال" <?= ($assetData['status'] ?? '') === 'فعال' ? 'selected' : '' ?>>فعال</option>
-                                            <option value="غیرفعال" <?= ($assetData['status'] ?? '') === 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
-                                            <option value="در حال تعمیر" <?= ($assetData['status'] ?? '') === 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
-                                        </select>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">تاریخ ثبت</label>
+                                            <input type="date" class="form-control" id="edit_parts_purchase_date" name="purchase_date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">وضعیت *</label>
+                                            <select class="form-select" id="edit_parts_status" name="status" required>
+                                                <option value="">-- انتخاب کنید --</option>
+                                                <option value="فعال">فعال</option>
+                                                <option value="غیرفعال">غیرفعال</option>
+                                                <option value="در حال تعمیر">در حال تعمیر</option>
+                                                <option value="آماده بهره‌برداری">آماده بهره‌برداری</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <div class="mb-3">
+                                            <label class="form-label">توضیحات</label>
+                                            <textarea class="form-control" id="edit_parts_description" name="description" rows="3"></textarea>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">توضیحات</label>
-                                <textarea name="description" class="form-control" rows="4"><?= e($assetData['description'] ?? '') ?></textarea>
-                            </div>
+                            
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
@@ -977,6 +1395,167 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript for Edit Asset Modal -->
+    <script>
+        // Function to show edit modal with appropriate fields based on asset type
+        function showEditModal(assetData) {
+            // Hide all field sections first
+            document.querySelectorAll('.edit-dynamic-field').forEach(field => {
+                field.style.display = 'none';
+            });
+            
+            // Determine asset type from asset_types table
+            const assetTypeId = assetData.type_id;
+            let assetTypeName = '';
+            
+            // Map asset type ID to name (you might need to adjust these based on your database)
+            switch(assetTypeId) {
+                case '1': // Generator
+                case 1:
+                    assetTypeName = 'ژنراتور';
+                    break;
+                case '2': // Power Motor
+                case 2:
+                    assetTypeName = 'موتور برق';
+                    break;
+                case '3': // Consumables
+                case 3:
+                    assetTypeName = 'اقلام مصرفی';
+                    break;
+                case '4': // Parts
+                case 4:
+                    assetTypeName = 'قطعات';
+                    break;
+                default:
+                    // Try to determine from asset name or other fields
+                    if (assetData.power_capacity || assetData.engine_model || assetData.alternator_model) {
+                        assetTypeName = 'ژنراتور';
+                    } else if (assetData.engine_type) {
+                        assetTypeName = 'موتور برق';
+                    } else if (assetData.consumable_type) {
+                        assetTypeName = 'اقلام مصرفی';
+                    } else {
+                        assetTypeName = 'قطعات';
+                    }
+            }
+            
+            // Store asset type for form submission
+            document.getElementById('edit_asset_type').value = assetTypeName;
+            
+            // Show appropriate fields based on asset type
+            if (assetTypeName.includes('ژنراتور')) {
+                showGeneratorEditFields(assetData);
+            } else if (assetTypeName.includes('موتور برق')) {
+                showMotorEditFields(assetData);
+            } else if (assetTypeName.includes('مصرفی')) {
+                showConsumableEditFields(assetData);
+            } else if (assetTypeName.includes('قطعات')) {
+                showPartsEditFields(assetData);
+            }
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('editAssetModal'));
+            modal.show();
+        }
+        
+        // Function to populate generator fields
+        function showGeneratorEditFields(assetData) {
+            document.getElementById('edit_generator_fields').style.display = 'block';
+            
+            // Populate fields
+            setValue('edit_gen_name', assetData.name);
+            setValue('edit_gen_serial_number', assetData.serial_number);
+            setValue('edit_gen_purchase_date', assetData.purchase_date);
+            setValue('edit_gen_status', assetData.status);
+            setValue('edit_gen_brand', assetData.brand);
+            setValue('edit_gen_device_model', assetData.device_model);
+            setValue('edit_gen_power_capacity', assetData.power_capacity);
+            setValue('edit_gen_engine_model', assetData.engine_model);
+            setValue('edit_gen_engine_serial', assetData.engine_serial);
+            setValue('edit_gen_alternator_model', assetData.alternator_model);
+            setValue('edit_gen_alternator_serial', assetData.alternator_serial);
+            setValue('edit_gen_device_serial', assetData.device_serial);
+            setValue('edit_gen_control_panel_model', assetData.control_panel_model);
+            setValue('edit_gen_breaker_model', assetData.breaker_model);
+            setValue('edit_gen_battery', assetData.battery);
+            setValue('edit_gen_oil_capacity', assetData.oil_capacity);
+            setValue('edit_gen_radiator_capacity', assetData.radiator_capacity);
+            setValue('edit_gen_antifreeze', assetData.antifreeze);
+            setValue('edit_gen_oil_filter_part', assetData.oil_filter_part);
+            setValue('edit_gen_fuel_filter_part', assetData.fuel_filter_part);
+            setValue('edit_gen_water_fuel_filter_part', assetData.water_fuel_filter_part);
+            setValue('edit_gen_air_filter_part', assetData.air_filter_part);
+            setValue('edit_gen_water_filter_part', assetData.water_filter_part);
+            setValue('edit_gen_workshop_entry_date', assetData.workshop_entry_date);
+            setValue('edit_gen_workshop_exit_date', assetData.workshop_exit_date);
+            setValue('edit_gen_datasheet_link', assetData.datasheet_link);
+            setValue('edit_gen_engine_manual_link', assetData.engine_manual_link);
+            setValue('edit_gen_alternator_manual_link', assetData.alternator_manual_link);
+            setValue('edit_gen_control_panel_manual_link', assetData.control_panel_manual_link);
+            setValue('edit_gen_description', assetData.description);
+        }
+        
+        // Function to populate motor fields
+        function showMotorEditFields(assetData) {
+            document.getElementById('edit_motor_fields').style.display = 'block';
+            
+            // Populate fields
+            setValue('edit_motor_name', assetData.name);
+            setValue('edit_motor_engine_type', assetData.engine_type);
+            setValue('edit_motor_serial_number', assetData.serial_number);
+            setValue('edit_motor_device_identifier', assetData.device_identifier);
+            setValue('edit_motor_purchase_date', assetData.purchase_date);
+            setValue('edit_motor_status', assetData.status);
+        }
+        
+        // Function to populate consumable fields
+        function showConsumableEditFields(assetData) {
+            document.getElementById('edit_consumable_fields').style.display = 'block';
+            
+            // Populate fields
+            setValue('edit_consumable_name', assetData.name);
+            setValue('edit_consumable_purchase_date', assetData.purchase_date);
+            setValue('edit_consumable_device_identifier', assetData.device_identifier);
+            setValue('edit_consumable_status', assetData.status);
+            setValue('edit_consumable_type', assetData.consumable_type);
+            setValue('edit_consumable_part', assetData.oil_filter_part);
+        }
+        
+        // Function to populate parts fields
+        function showPartsEditFields(assetData) {
+            document.getElementById('edit_parts_fields').style.display = 'block';
+            
+            // Populate fields
+            setValue('edit_parts_name', assetData.name);
+            setValue('edit_parts_serial_number', assetData.serial_number);
+            setValue('edit_parts_device_identifier', assetData.device_identifier);
+            setValue('edit_parts_purchase_date', assetData.purchase_date);
+            setValue('edit_parts_status', assetData.status);
+            setValue('edit_parts_description', assetData.description);
+        }
+        
+        // Helper function to set value safely
+        function setValue(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element && value !== null && value !== undefined) {
+                element.value = value;
+            }
+        }
+        
+        // Add event listener to edit button
+        <?php if ($assetData): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            const editButton = document.querySelector('[data-bs-target="#editAssetModal"]');
+            if (editButton) {
+                editButton.addEventListener('click', function() {
+                    const assetData = <?= json_encode($assetData, JSON_UNESCAPED_UNICODE) ?>;
+                    showEditModal(assetData);
+                });
+            }
+        });
+        <?php endif; ?>
+    </script>
 </body>
 </html>
 
