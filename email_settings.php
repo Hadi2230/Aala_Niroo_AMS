@@ -9,12 +9,34 @@ include 'config.php';
 include 'email_config.php';
 
 // بررسی دسترسی ادمین
-if (!hasPermission('*')) {
+$is_admin = ($_SESSION['role'] === 'ادمین' || $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'administrator');
+if (!$is_admin) {
     die('دسترسی غیرمجاز - فقط ادمین می‌تواند تنظیمات ایمیل را مدیریت کند');
 }
 
 $success_message = '';
 $error_message = '';
+
+// توابع کمکی
+function verifyCsrfToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
+        die('CSRF token mismatch');
+    }
+    if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        die('CSRF token mismatch');
+    }
+}
+
+function sanitizeInput($input) {
+    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+function csrf_field() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+}
 
 // پردازش فرم تنظیمات ایمیل
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_email_settings') {

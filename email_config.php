@@ -32,31 +32,45 @@ function sendEmail($to, $subject, $body, $isHTML = true) {
     
     try {
         // بارگذاری PHPMailer
-        require_once 'vendor/autoload.php';
+        if (file_exists('vendor/autoload.php')) {
+            require_once 'vendor/autoload.php';
+            $mail = new PHPMailer(true);
+        } else {
+            // استفاده از mail() function اگر PHPMailer موجود نباشد
+            return mail($to, $subject, $body, "Content-Type: text/html; charset=UTF-8\r\nFrom: " . SMTP_FROM_EMAIL);
+        }
         
-        $mail = new PHPMailer(true);
-        
-        // تنظیمات SMTP
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = SMTP_ENCRYPTION;
-        $mail->Port = SMTP_PORT;
-        $mail->CharSet = 'UTF-8';
-        
-        // تنظیمات فرستنده
-        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        $mail->addAddress($to);
-        
-        // تنظیمات ایمیل
-        $mail->isHTML($isHTML);
-        $mail->Subject = $subject;
-        $mail->Body = $body;
-        
-        // ارسال ایمیل
-        $result = $mail->send();
+        if (class_exists('PHPMailer')) {
+            // تنظیمات SMTP
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USERNAME;
+            $mail->Password = SMTP_PASSWORD;
+            $mail->SMTPSecure = SMTP_ENCRYPTION;
+            $mail->Port = SMTP_PORT;
+            $mail->CharSet = 'UTF-8';
+            
+            // تنظیمات فرستنده
+            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+            $mail->addAddress($to);
+            
+            // تنظیمات ایمیل
+            $mail->isHTML($isHTML);
+            $mail->Subject = $subject;
+            $mail->Body = $body;
+            
+            // ارسال ایمیل
+            $result = $mail->send();
+        } else {
+            // استفاده از mail() function
+            $headers = "MIME-Version: 1.0\r\n";
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $headers .= "From: " . SMTP_FROM_NAME . " <" . SMTP_FROM_EMAIL . ">\r\n";
+            $headers .= "Reply-To: " . SMTP_FROM_EMAIL . "\r\n";
+            
+            $result = mail($to, $subject, $body, $headers);
+        }
         
         if (EMAIL_DEBUG) {
             error_log("Email sent to: $to, Subject: $subject, Result: " . ($result ? 'Success' : 'Failed'));
