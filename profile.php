@@ -979,3 +979,494 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+<!-- Additional functionality and enhancements -->
+<script>
+// Enhanced JavaScript functionality for better user experience
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh data every 30 seconds
+    setInterval(function() {
+        // Refresh page data without full reload
+        location.reload();
+    }, 30000);
+    
+    // Enhanced modal functionality
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.addEventListener('shown.bs.modal', function() {
+            // Focus on first input when modal opens
+            const firstInput = modal.querySelector('input, textarea, select');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        });
+    });
+    
+    // Enhanced table functionality
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+        // Add hover effects
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+            });
+            row.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+    });
+    
+    // Enhanced form validation
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('لطفاً تمام فیلدهای الزامی را پر کنید.');
+            }
+        });
+    });
+    
+    // Enhanced tab functionality
+    const tabLinks = document.querySelectorAll('.nav-tabs .nav-link');
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            // Add loading state
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + this.textContent.trim();
+            
+            setTimeout(() => {
+                // Remove loading state
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.className = 'fas fa-wrench';
+                }
+            }, 500);
+        });
+    });
+});
+
+// Additional utility functions
+function formatNumber(num) {
+    return new Intl.NumberFormat('fa-IR').format(num);
+}
+
+function formatDate(date) {
+    return new Intl.DateTimeFormat('fa-IR').format(new Date(date));
+}
+
+function showNotification(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i> 
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Enhanced file upload functionality
+function handleFileUpload(input) {
+    const file = input.files[0];
+    if (file) {
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            showNotification('حجم فایل نباید بیشتر از 10 مگابایت باشد.', 'danger');
+            input.value = '';
+            return;
+        }
+        
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'];
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('نوع فایل مجاز نیست. فقط تصاویر، PDF و فایل‌های متنی مجاز است.', 'danger');
+            input.value = '';
+            return;
+        }
+        
+        showNotification('فایل با موفقیت انتخاب شد.', 'success');
+    }
+}
+
+// Enhanced search functionality
+function searchTable(tableId, searchInput) {
+    const table = document.getElementById(tableId);
+    const input = document.getElementById(searchInput);
+    
+    if (!table || !input) return;
+    
+    const rows = table.querySelectorAll('tbody tr');
+    const searchTerm = input.value.toLowerCase();
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Enhanced export functionality
+function exportTable(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    let csv = '';
+    const rows = table.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td, th');
+        const rowData = Array.from(cells).map(cell => cell.textContent.trim());
+        csv += rowData.join(',') + '\n';
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename + '.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Enhanced print functionality
+function printPage() {
+    window.print();
+}
+
+// Enhanced responsive functionality
+function handleResize() {
+    const tables = document.querySelectorAll('.table-responsive');
+    tables.forEach(table => {
+        if (window.innerWidth < 768) {
+            table.classList.add('table-sm');
+        } else {
+            table.classList.remove('table-sm');
+        }
+    });
+}
+
+window.addEventListener('resize', handleResize);
+document.addEventListener('DOMContentLoaded', handleResize);
+</script>
+
+<!-- Additional CSS for enhanced functionality -->
+<style>
+/* Enhanced responsive design */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Enhanced animations */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Enhanced hover effects */
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    transition: all 0.3s ease;
+}
+
+/* Enhanced loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Enhanced form validation */
+.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.is-valid {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* Enhanced table styling */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.075);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Enhanced modal styling */
+.modal-content {
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+/* Enhanced alert styling */
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+    color: white;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+    color: white;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    color: #212529;
+}
+
+/* Enhanced badge styling */
+.badge {
+    font-size: 0.75em;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+}
+
+/* Enhanced button styling */
+.btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    border: none;
+    color: #212529;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+    border: none;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+    border: none;
+}
+
+/* Enhanced card styling */
+.card {
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.card-header {
+    border-radius: 0.5rem 0.5rem 0 0;
+    font-weight: 600;
+}
+
+/* Enhanced form styling */
+.form-control {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+/* Enhanced table styling */
+.table {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table tbody td {
+    vertical-align: middle;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Enhanced responsive utilities */
+.d-print-none {
+    display: none !important;
+}
+
+@media print {
+    .d-print-none {
+        display: none !important;
+    }
+    
+    .d-print-block {
+        display: block !important;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .card {
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+}
+
+/* Enhanced accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Enhanced focus indicators */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Enhanced loading states */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+/* Enhanced error states */
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Enhanced success states */
+.success-message {
+    color: #28a745;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Enhanced info states */
+.info-message {
+    color: #17a2b8;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Enhanced warning states */
+.warning-message {
+    color: #ffc107;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+</style>
