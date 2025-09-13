@@ -634,12 +634,6 @@ $filtered_count = count($assets);
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label class="form-label">شناسه دستگاه *</label>
-                                            <input type="text" class="form-control gen-device-identifier" id="gen_device_identifier" name="device_identifier" required>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
                                             <label class="form-label">مدل موتور</label>
                                             <input type="text" class="form-control" id="gen_engine_model" name="engine_model">
                                         </div>
@@ -1724,6 +1718,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // اجازه بده فرم submit شود
             return true;
+        });
+    }
+    
+    // اضافه کردن event listener برای پر کردن خودکار برند
+    const genNameSelect = document.getElementById('gen_name');
+    if (genNameSelect) {
+        genNameSelect.addEventListener('change', function() {
+            const brandField = document.getElementById('gen_brand');
+            if (brandField && this.value) {
+                brandField.value = this.value;
+            }
         });
     }
 });
