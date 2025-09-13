@@ -383,28 +383,24 @@ function createDatabaseTables($pdo) {
         
         // جدول پیام‌های داخلی
         "CREATE TABLE IF NOT EXISTS messages (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            sender_id INT NOT NULL,
-            receiver_id INT NOT NULL,
-            subject VARCHAR(255),
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER NOT NULL,
+            receiver_id INTEGER NOT NULL,
+            subject TEXT,
             message TEXT NOT NULL,
-            attachment_path VARCHAR(500),
-            attachment_name VARCHAR(255),
-            attachment_type VARCHAR(50),
-            is_read BOOLEAN DEFAULT false,
-            related_ticket_id INT,
-            related_maintenance_id INT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            read_at TIMESTAMP NULL,
+            attachment_path TEXT,
+            attachment_name TEXT,
+            attachment_type TEXT,
+            is_read BOOLEAN DEFAULT 0,
+            related_ticket_id INTEGER,
+            related_maintenance_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            read_at DATETIME NULL,
             FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
-            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL,
-            INDEX idx_sender_id (sender_id),
-            INDEX idx_receiver_id (receiver_id),
-            INDEX idx_is_read (is_read),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL
+        )",
         
         // جدول تاریخچه وضعیت تیکت‌ها
         "CREATE TABLE IF NOT EXISTS ticket_status_history (
@@ -534,6 +530,25 @@ function createDatabaseTables($pdo) {
         } catch (PDOException $e) {
             error_log("[" . date('Y-m-d H:i:s') . "] خطا در ایجاد جدول: " . $e->getMessage());
         }
+    }
+    
+    // اضافه کردن ستون‌های فایل ضمیمه به جدول messages اگر وجود نداشته باشند
+    try {
+        // بررسی وجود ستون‌های فایل ضمیمه
+        $stmt = $pdo->query("PRAGMA table_info(messages)");
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (!in_array('attachment_path', $columns)) {
+            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_path TEXT");
+        }
+        if (!in_array('attachment_name', $columns)) {
+            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_name TEXT");
+        }
+        if (!in_array('attachment_type', $columns)) {
+            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_type TEXT");
+        }
+    } catch (PDOException $e) {
+        error_log("[" . date('Y-m-d H:i:s') . "] خطا در اضافه کردن ستون‌های فایل ضمیمه: " . $e->getMessage());
     }
     
     // درج داده‌های اولیه اگر وجود ندارند
