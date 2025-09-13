@@ -12,6 +12,32 @@ if (!hasPermission('messages.send') && !hasPermission('messages.receive')) {
     die('دسترسی غیرمجاز - شما مجوز دسترسی به پیام‌ها را ندارید');
 }
 
+// ایجاد جدول messages اگر وجود ندارد
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sender_id INT NOT NULL,
+        receiver_id INT NOT NULL,
+        subject VARCHAR(500) DEFAULT '',
+        message TEXT NOT NULL,
+        attachment_path VARCHAR(500) NULL,
+        attachment_name VARCHAR(255) NULL,
+        attachment_type VARCHAR(50) NULL,
+        is_read BOOLEAN DEFAULT 0,
+        read_at TIMESTAMP NULL,
+        related_ticket_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(sender_id),
+        INDEX(receiver_id),
+        INDEX(is_read),
+        INDEX(created_at),
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {
+    // جدول ممکن است قبلاً وجود داشته باشد
+}
+
 // پردازش فرم
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrfToken();
@@ -69,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             
                             if (!isset($error_message)) {
                                 // ارسال پیام
-                                $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, attachment_path, attachment_name, attachment_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
+                                $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, attachment_path, attachment_name, attachment_type, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)");
                                 $stmt->execute([$_SESSION['user_id'], $recipient_id, $subject, $message, $attachment_path, $attachment_name, $attachment_type]);
                                 
                                 if ($stmt->rowCount() > 0) {
