@@ -905,9 +905,10 @@ function getUnreadNotifications($pdo, $user_id) {
 }
 
 // علامت‌گذاری اعلان به عنوان خوانده شده
-function markNotificationAsRead($pdo, $notification_id, $user_id) {
-    $stmt = $pdo->prepare("UPDATE notifications SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?");
-    $stmt->execute([$notification_id, $user_id]);
+function markNotificationAsRead($pdo, $notification_id) {
+    $stmt = $pdo->prepare("UPDATE notifications SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$notification_id]);
+    return $stmt->rowCount() > 0;
 }
 
 // دریافت پیام‌های خوانده نشده
