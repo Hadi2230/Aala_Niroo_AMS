@@ -1194,9 +1194,22 @@ $filtered_count = count($assets);
                                 <?php foreach ($assets as $asset): ?>
                                 <tr>
                                     <td>
-                                        <strong><?php echo htmlspecialchars($asset['name']) ?></strong>
-                                        <?php if ($asset['device_identifier']): ?>
-                                            <br><small class="text-muted">شناسه: <?php echo htmlspecialchars($asset['device_identifier']) ?></small>
+                                        <?php
+                                        // نمایش نام مناسب بر اساس نوع دارایی
+                                        $display_name = $asset['name'];
+                                        if ($asset['type_name'] === 'generator' && $asset['device_identifier']) {
+                                            $display_name = $asset['device_identifier'];
+                                        } elseif ($asset['type_name'] === 'power_motor' && $asset['serial_number']) {
+                                            $display_name = $asset['serial_number'];
+                                        } elseif ($asset['type_name'] === 'consumable' && $asset['device_identifier']) {
+                                            $display_name = $asset['device_identifier'];
+                                        } elseif ($asset['type_name'] === 'parts' && $asset['device_identifier']) {
+                                            $display_name = $asset['device_identifier'];
+                                        }
+                                        ?>
+                                        <strong><?php echo htmlspecialchars($display_name) ?></strong>
+                                        <?php if ($asset['device_identifier'] && $asset['type_name'] === 'generator'): ?>
+                                            <br><small class="text-muted">نام: <?php echo htmlspecialchars($asset['name']) ?></small>
                                         <?php endif; ?>
                                     </td>
                                     <td>

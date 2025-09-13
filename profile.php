@@ -475,11 +475,29 @@ try {
 <?php if ($assetId > 0): ?>
     <?php if ($assetData): ?>
         <!-- هدر پروفایل -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="mb-1">پروفایل دستگاه</h2>
-                <h4 class="text-primary mb-0"><?= e($assetData['name'] ?? 'بدون نام') ?></h4>
-            </div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">پروفایل دستگاه</h2>
+                    <?php
+                    // نمایش نام مناسب بر اساس نوع دارایی
+                    $display_name = $assetData['name'] ?? 'بدون نام';
+                    $asset_type_name = $assetData['asset_type_name'] ?? '';
+                    
+                    if ($asset_type_name === 'generator' && !empty($assetData['device_identifier'])) {
+                        $display_name = $assetData['device_identifier'];
+                    } elseif ($asset_type_name === 'power_motor' && !empty($assetData['serial_number'])) {
+                        $display_name = $assetData['serial_number'];
+                    } elseif ($asset_type_name === 'consumable' && !empty($assetData['device_identifier'])) {
+                        $display_name = $assetData['device_identifier'];
+                    } elseif ($asset_type_name === 'parts' && !empty($assetData['device_identifier'])) {
+                        $display_name = $assetData['device_identifier'];
+                    }
+                    ?>
+                    <h4 class="text-primary mb-0"><?= e($display_name) ?></h4>
+                    <?php if ($asset_type_name === 'generator' && !empty($assetData['device_identifier'])): ?>
+                        <small class="text-muted">نام: <?= e($assetData['name'] ?? 'بدون نام') ?></small>
+                    <?php endif; ?>
+                </div>
             <div>
                 <a href="profile.php" class="btn btn-outline-secondary">
                     <i class="fas fa-list"></i> لیست همه دارایی‌ها
@@ -509,6 +527,9 @@ try {
                         <p><strong>برند:</strong> <?= e($assetData['brand'] ?? '-') ?></p>
                         <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
                         <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['device_identifier'])): ?>
+                        <p><strong>شناسه دستگاه:</strong> <span class="text-primary fw-bold"><?= e($assetData['device_identifier']) ?></span></p>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6">
                         <p><strong>تاریخ خرید:</strong> <?= e($assetData['purchase_date'] ?? '-') ?></p>
@@ -517,41 +538,189 @@ try {
                                 <?= e($assetData['status'] ?? 'نامشخص') ?>
                             </span>
                         </p>
-                        <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity'] ?? '-') ?></p>
-                        <p><strong>نوع موتور:</strong> <?= e($assetData['engine_type'] ?? '-') ?></p>
+                        <p><strong>نوع دارایی:</strong> <?= e($assetData['asset_type_display'] ?? $assetData['asset_type_name'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['power_capacity'])): ?>
+                        <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity']) ?> کیلووات</p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['engine_type'])): ?>
+                        <p><strong>نوع موتور:</strong> <?= e($assetData['engine_type']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['consumable_type'])): ?>
+                        <p><strong>نوع کالای مصرفی:</strong> <?= e($assetData['consumable_type']) ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
 
                 <!-- اطلاعات موتور -->
-                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial'])): ?>
+                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial']) || !empty($assetData['oil_capacity']) || !empty($assetData['radiator_capacity'])): ?>
                 <div class="row mb-4">
                     <div class="col-12">
                         <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات موتور</h6>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model'] ?? '-') ?></p>
-                        <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['engine_model'])): ?>
+                        <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['engine_serial'])): ?>
+                        <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['oil_capacity'])): ?>
+                        <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['radiator_capacity'])): ?>
+                        <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity']) ?></p>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity'] ?? '-') ?></p>
-                        <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['antifreeze'])): ?>
+                        <p><strong>ضدیخ:</strong> <?= e($assetData['antifreeze']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['battery'])): ?>
+                        <p><strong>باتری:</strong> <?= e($assetData['battery']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['battery_charger'])): ?>
+                        <p><strong>شارژر باتری:</strong> <?= e($assetData['battery_charger']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['heater'])): ?>
+                        <p><strong>گرمکن:</strong> <?= e($assetData['heater']) ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
 
                 <!-- اطلاعات آلترناتور -->
-                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial'])): ?>
+                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial']) || !empty($assetData['device_model']) || !empty($assetData['device_serial'])): ?>
                 <div class="row mb-4">
                     <div class="col-12">
                         <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات آلترناتور</h6>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>مدل آلترناتور:</strong> <?= e($assetData['alternator_model'] ?? '-') ?></p>
-                        <p><strong>سریال آلترناتور:</strong> <?= e($assetData['alternator_serial'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['alternator_model'])): ?>
+                        <p><strong>مدل آلترناتور:</strong> <?= e($assetData['alternator_model']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['alternator_serial'])): ?>
+                        <p><strong>سریال آلترناتور:</strong> <?= e($assetData['alternator_serial']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['device_model'])): ?>
+                        <p><strong>مدل دستگاه:</strong> <?= e($assetData['device_model']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['device_serial'])): ?>
+                        <p><strong>سریال دستگاه:</strong> <?= e($assetData['device_serial']) ?></p>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>مدل دستگاه:</strong> <?= e($assetData['device_model'] ?? '-') ?></p>
-                        <p><strong>سریال دستگاه:</strong> <?= e($assetData['device_serial'] ?? '-') ?></p>
+                        <?php if (!empty($assetData['control_panel_model'])): ?>
+                        <p><strong>مدل کنترل پنل:</strong> <?= e($assetData['control_panel_model']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['breaker_model'])): ?>
+                        <p><strong>مدل بریکر:</strong> <?= e($assetData['breaker_model']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- فیلترها -->
+                <?php if (!empty($assetData['oil_filter_part']) || !empty($assetData['fuel_filter_part']) || !empty($assetData['air_filter_part']) || !empty($assetData['water_filter_part'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">فیلترها</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['oil_filter_part'])): ?>
+                        <p><strong>پارت نامبر فیلتر روغن:</strong> <?= e($assetData['oil_filter_part']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['fuel_filter_part'])): ?>
+                        <p><strong>پارت نامبر فیلتر سوخت:</strong> <?= e($assetData['fuel_filter_part']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['air_filter_part'])): ?>
+                        <p><strong>پارت نامبر فیلتر هوا:</strong> <?= e($assetData['air_filter_part']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['water_filter_part'])): ?>
+                        <p><strong>پارت نامبر فیلتر آب:</strong> <?= e($assetData['water_filter_part']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['water_fuel_filter_part'])): ?>
+                        <p><strong>پارت نامبر فیلتر سوخت آبیگیر:</strong> <?= e($assetData['water_fuel_filter_part']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات کارگاه -->
+                <?php if (!empty($assetData['workshop_entry_date']) || !empty($assetData['workshop_exit_date'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات کارگاه</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['workshop_entry_date'])): ?>
+                        <p><strong>تاریخ ورود به کارگاه:</strong> <?= e($assetData['workshop_entry_date']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['workshop_exit_date'])): ?>
+                        <p><strong>تاریخ خروج از کارگاه:</strong> <?= e($assetData['workshop_exit_date']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- لینک‌های manual -->
+                <?php if (!empty($assetData['datasheet_link']) || !empty($assetData['engine_manual_link']) || !empty($assetData['alternator_manual_link']) || !empty($assetData['control_panel_manual_link'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">لینک‌های مفید</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['datasheet_link'])): ?>
+                        <p><strong>دیتاشیت:</strong> <a href="<?= e($assetData['datasheet_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['engine_manual_link'])): ?>
+                        <p><strong>Manual موتور:</strong> <a href="<?= e($assetData['engine_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['alternator_manual_link'])): ?>
+                        <p><strong>Manual آلترناتور:</strong> <a href="<?= e($assetData['alternator_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['control_panel_manual_link'])): ?>
+                        <p><strong>Manual کنترل پنل:</strong> <a href="<?= e($assetData['control_panel_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- اطلاعات اضافی -->
+                <?php if (!empty($assetData['fuel_tank_specs']) || !empty($assetData['other_items']) || !empty($assetData['supply_method']) || !empty($assetData['location']) || !empty($assetData['quantity']) || !empty($assetData['supplier_name'])): ?>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اضافی</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['fuel_tank_specs'])): ?>
+                        <p><strong>مشخصات تانک سوخت:</strong> <?= nl2br(e($assetData['fuel_tank_specs'])) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['other_items'])): ?>
+                        <p><strong>سایر اقلام:</strong> <?= nl2br(e($assetData['other_items'])) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['supply_method'])): ?>
+                        <p><strong>نحوه تأمین:</strong> <?= e($assetData['supply_method']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php if (!empty($assetData['location'])): ?>
+                        <p><strong>مکان:</strong> <?= e($assetData['location']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['quantity'])): ?>
+                        <p><strong>تعداد:</strong> <?= e($assetData['quantity']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['supplier_name'])): ?>
+                        <p><strong>تأمین‌کننده:</strong> <?= e($assetData['supplier_name']) ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($assetData['supplier_contact'])): ?>
+                        <p><strong>تماس تأمین‌کننده:</strong> <?= e($assetData['supplier_contact']) ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
