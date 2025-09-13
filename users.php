@@ -110,6 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $role = sanitizeInput($_POST['role']);
                 $is_active = isset($_POST['is_active']) ? 1 : 0;
                 $selected_permissions = $_POST['permissions'] ?? [];
+                $new_password = sanitizeInput($_POST['new_password'] ?? '');
+                $confirm_password = sanitizeInput($_POST['confirm_password'] ?? '');
                 
                 if ($user_id && $username && $full_name && $role) {
                     try {
@@ -131,9 +133,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                         }
                         
-                        // به‌روزرسانی کاربر
-                        $stmt = $pdo->prepare("UPDATE users SET username = ?, full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?");
-                        $stmt->execute([$username, $full_name, $email, $role, $is_active, $user_id]);
+                        // بررسی تغییر رمز عبور
+                        if (!empty($new_password)) {
+                            if (strlen($new_password) < 6) {
+                                throw new Exception('رمز عبور جدید باید حداقل ۶ کاراکتر باشد');
+                            }
+                            
+                            if ($new_password !== $confirm_password) {
+                                throw new Exception('رمز عبور جدید و تأیید آن مطابقت ندارند');
+                            }
+                            
+                            // به‌روزرسانی کاربر با رمز عبور جدید
+                            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                            $stmt = $pdo->prepare("UPDATE users SET username = ?, password = ?, full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?");
+                            $stmt->execute([$username, $hashed_password, $full_name, $email, $role, $is_active, $user_id]);
+                        } else {
+                            // به‌روزرسانی کاربر بدون تغییر رمز عبور
+                            $stmt = $pdo->prepare("UPDATE users SET username = ?, full_name = ?, email = ?, role = ?, is_active = ? WHERE id = ?");
+                            $stmt->execute([$username, $full_name, $email, $role, $is_active, $user_id]);
+                        }
                         
                         // به‌روزرسانی دسترسی‌های سفارشی
                         $stmt = $pdo->prepare("DELETE FROM custom_roles WHERE user_id = ?");
@@ -147,6 +165,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $pdo->commit();
                         $success_message = "کاربر با موفقیت به‌روزرسانی شد";
+                        if (!empty($new_password)) {
+                            $success_message .= " و رمز عبور تغییر یافت";
+                        }
                     } catch (Exception $e) {
                         $pdo->rollBack();
                         $error_message = "خطا در به‌روزرسانی کاربر: " . $e->getMessage();
@@ -238,6 +259,29 @@ $users = $pdo->query("SELECT id, username, full_name, email, role, is_active, la
             padding: 5px;
         }
         .password-toggle:hover { color: #3498db; }
+        .password-change-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+        .password-change-section.show {
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .form-check-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .form-check-input:checked {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
     </style>
 </head>
 <body>
@@ -597,6 +641,43 @@ $users = $pdo->query("SELECT id, username, full_name, email, role, is_active, la
                         <small class="text-muted">رمز عبور فعلی کاربر (فقط برای نمایش)</small>
                     </div>
                     
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="changePasswordCheck" onchange="togglePasswordChange()">
+                            <label class="form-check-label" for="changePasswordCheck">
+                                <i class="fas fa-key me-1"></i>تغییر رمز عبور
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="passwordChangeSection" class="password-change-section" style="display: none;">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-key me-2"></i>تغییر رمز عبور
+                        </h6>
+                        <div class="mb-3">
+                            <label class="form-label">رمز عبور جدید</label>
+                            <div class="input-icon">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" name="new_password" id="newPasswordInput" class="form-control" placeholder="رمز عبور جدید را وارد کنید">
+                                <i class="fas fa-eye password-toggle" id="newPasswordToggle" onclick="toggleNewPassword()"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">تأیید رمز عبور جدید</label>
+                            <div class="input-icon">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" name="confirm_password" id="confirmPasswordInput" class="form-control" placeholder="رمز عبور جدید را مجدداً وارد کنید">
+                                <i class="fas fa-eye password-toggle" id="confirmPasswordToggle" onclick="toggleConfirmPassword()"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>نکته:</strong> رمز عبور جدید باید حداقل ۶ کاراکتر باشد و با تأیید آن مطابقت داشته باشد.
+                        </div>
+                    </div>
+                    
                     <!-- بخش دسترسی‌های سفارشی برای ویرایش -->
                     <div id="editCustomPermissions" style="display: none;">
                         <h6 class="text-primary mb-3">دسترسی‌های سفارشی</h6>
@@ -763,12 +844,73 @@ $users = $pdo->query("SELECT id, username, full_name, email, role, is_active, la
             
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
+                // نمایش رمز عبور اصلی اگر موجود باشد
+                const originalPassword = passwordInput.getAttribute('data-original');
+                if (originalPassword) {
+                    passwordInput.value = originalPassword;
+                }
+                passwordToggle.classList.remove('fa-eye');
+                passwordToggle.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                // بازگشت به حالت مخفی
+                passwordInput.value = '••••••••';
+                passwordToggle.classList.remove('fa-eye-slash');
+                passwordToggle.classList.add('fa-eye');
+            }
+        }
+
+        // تابع نمایش/مخفی کردن رمز عبور جدید
+        function toggleNewPassword() {
+            const passwordInput = document.getElementById('newPasswordInput');
+            const passwordToggle = document.getElementById('newPasswordToggle');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
                 passwordToggle.classList.remove('fa-eye');
                 passwordToggle.classList.add('fa-eye-slash');
             } else {
                 passwordInput.type = 'password';
                 passwordToggle.classList.remove('fa-eye-slash');
                 passwordToggle.classList.add('fa-eye');
+            }
+        }
+
+        // تابع نمایش/مخفی کردن تأیید رمز عبور
+        function toggleConfirmPassword() {
+            const passwordInput = document.getElementById('confirmPasswordInput');
+            const passwordToggle = document.getElementById('confirmPasswordToggle');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordToggle.classList.remove('fa-eye');
+                passwordToggle.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                passwordToggle.classList.remove('fa-eye-slash');
+                passwordToggle.classList.add('fa-eye');
+            }
+        }
+
+        // تابع نمایش/مخفی کردن بخش تغییر رمز عبور
+        function togglePasswordChange() {
+            const changePasswordCheck = document.getElementById('changePasswordCheck');
+            const passwordChangeSection = document.getElementById('passwordChangeSection');
+            
+            if (changePasswordCheck.checked) {
+                passwordChangeSection.style.display = 'block';
+                passwordChangeSection.classList.add('show');
+                document.getElementById('newPasswordInput').required = true;
+                document.getElementById('confirmPasswordInput').required = true;
+            } else {
+                passwordChangeSection.classList.remove('show');
+                setTimeout(() => {
+                    passwordChangeSection.style.display = 'none';
+                }, 300);
+                document.getElementById('newPasswordInput').required = false;
+                document.getElementById('confirmPasswordInput').required = false;
+                document.getElementById('newPasswordInput').value = '';
+                document.getElementById('confirmPasswordInput').value = '';
             }
         }
 
@@ -834,10 +976,18 @@ $users = $pdo->query("SELECT id, username, full_name, email, role, is_active, la
                 .then(response => response.json())
                 .then(data => {
                     if (data.password) {
-                        document.getElementById('currentPassword').value = data.password;
+                        // نمایش رمز عبور فعلی (hash شده)
+                        document.getElementById('currentPassword').value = '••••••••';
+                        // ذخیره رمز عبور اصلی برای نمایش
+                        document.getElementById('currentPassword').setAttribute('data-original', data.password);
+                    } else {
+                        document.getElementById('currentPassword').value = 'رمز عبور یافت نشد';
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('currentPassword').value = 'خطا در بارگذاری رمز عبور';
+                });
         }
 
         // بارگذاری دسترسی‌های کاربر
