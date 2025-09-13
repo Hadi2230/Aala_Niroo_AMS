@@ -1,7 +1,7 @@
 <?php
 /**
- * customers.php - نسخهٔ نهایی و کامل با سیستم ایمیل و SMS
- * Customer Management with Email and SMS Notifications
+ * customers.php - نسخهٔ نهایی و کامل با سیستم ایمیل، SMS و مکاتبات
+ * Customer Management with Email, SMS Notifications and Correspondence System
  */
 
 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -25,6 +25,13 @@ function generate_csrf(){ if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_to
 function require_csrf($t){ if (empty($t) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $t)) throw new RuntimeException('خطای CSRF — درخواست نامعتبر'); }
 function current_user_id(){ return $_SESSION['user_id'] ?? null; }
 function is_admin(){ $r = $_SESSION['role'] ?? ''; return in_array(mb_strtolower($r), ['admin','administrator','ادمین'], true); }
+
+// تنظیمات آپلود فایل
+$upload_base_fs = __DIR__ . '/uploads/correspondences';
+$upload_web_base = 'uploads/correspondences';
+$max_file_size = 8 * 1024 * 1024; // 8MB
+$allowed_ext = ['pdf','doc','docx','jpg','jpeg','png','xls','xlsx','zip','txt'];
+if (!is_dir($upload_base_fs)) @mkdir($upload_base_fs, 0755, true);
 
 // ایجاد جداول
 try {
@@ -93,13 +100,6 @@ try {
 } catch (Throwable $e) {
     $tables_error = 'خطا در ایجاد جداول: ' . $e->getMessage();
 }
-
-// تنظیمات آپلود فایل
-$upload_base_fs = __DIR__ . '/uploads/correspondences';
-$upload_web_base = 'uploads/correspondences';
-$max_file_size = 8 * 1024 * 1024; // 8MB
-$allowed_ext = ['pdf','doc','docx','jpg','jpeg','png','xls','xlsx','zip','txt'];
-if (!is_dir($upload_base_fs)) @mkdir($upload_base_fs, 0755, true);
 
 $success = $_GET['success'] ?? '';
 $error = $tables_error ?? '';
@@ -459,7 +459,7 @@ $csrf = generate_csrf();
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>مدیریت مشتریان — سیستم ایمیل و SMS</title>
+    <title>مدیریت مشتریان — سیستم ایمیل، SMS و مکاتبات</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
@@ -481,8 +481,6 @@ $csrf = generate_csrf();
         .phone-field { border-left: 3px solid #17a2b8; }
         .corr-box { background:#fff; border-radius:10px; padding:15px; box-shadow:0 6px 18px rgba(2,6,23,0.04); border: 1px solid #e9ecef; }
         .file-chip { margin-left:8px; display:inline-block; margin-top:6px; }
-        .fade-in { animation: fadeIn .28s ease; }
-        @keyframes fadeIn { from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
         @media (max-width:768px) { .search-input{ width:100%; } }
     </style>
 </head>
