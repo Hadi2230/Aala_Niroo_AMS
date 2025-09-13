@@ -8,24 +8,34 @@ if (!isset($_SESSION['user_id'])) {
 include 'config.php';
 
 // دریافت اطلاعات دستگاه
-$asset_id = $_GET['id'] ?? null;
-if (!$asset_id) {
-    header('Location: assets.php');
-    exit();
-}
+$assetId = $_GET['id'] ?? null;
+$assetData = null;
+$allAssets = [];
 
-$stmt = $pdo->prepare("
-    SELECT a.*, at.display_name as type_display_name, at.name as type_name 
-    FROM assets a 
-    JOIN asset_types at ON a.type_id = at.id 
-    WHERE a.id = ?
-");
-$stmt->execute([$asset_id]);
-$asset = $stmt->fetch();
-
-if (!$asset) {
-    header('Location: assets.php');
-    exit();
+if ($assetId) {
+    // دریافت اطلاعات دستگاه خاص
+    $stmt = $pdo->prepare("
+        SELECT a.*, at.display_name as type_display_name, at.name as type_name 
+        FROM assets a 
+        JOIN asset_types at ON a.type_id = at.id 
+        WHERE a.id = ?
+    ");
+    $stmt->execute([$assetId]);
+    $assetData = $stmt->fetch();
+    
+    if (!$assetData) {
+        header('Location: assets.php');
+        exit();
+    }
+} else {
+    // دریافت لیست همه دارایی‌ها
+    $stmt = $pdo->query("
+        SELECT a.*, at.display_name as type_display_name, at.name as type_name 
+        FROM assets a 
+        JOIN asset_types at ON a.type_id = at.id 
+        ORDER BY a.created_at DESC
+    ");
+    $allAssets = $stmt->fetchAll();
 }
 
 // دریافت انواع دستگاه‌ها
@@ -151,12 +161,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_asset'])) {
             $oil_filter_part, $fuel_filter_part, $water_fuel_filter_part,
             $air_filter_part, $water_filter_part, $device_identifier,
             $supply_method, $location, $quantity, $supplier_name, $supplier_contact,
-            $asset_id
+            $assetId
         ]);
         
         $pdo->commit();
         $_SESSION['success'] = "اطلاعات دستگاه با موفقیت به‌روزرسانی شد!";
-        header('Location: assets.php');
+        header('Location: profile.php?id=' . $assetId);
         exit();
         
     } catch (Exception $e) {
@@ -280,8 +290,7 @@ function gregorianToJalali($gregorian_date) {
 
             <!-- Main content -->
             <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <?php if ($assetId > 0): ?>
-                    <?php if ($assetData): ?>
+                <?php if ($assetId && $assetData): ?>
                         <!-- هدر پروفایل -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <div>
@@ -295,7 +304,7 @@ function gregorianToJalali($gregorian_date) {
                                 <a href="assets.php" class="btn btn-outline-primary">
                                     <i class="fas fa-cog"></i> مدیریت دارایی‌ها
                                 </a>
-                                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editAssetModal">
+                                <button class="btn btn-warning" onclick="showEditForm()">
                                     <i class="fas fa-edit"></i> ویرایش دستگاه
                                 </button>
                             </div>
@@ -395,14 +404,14 @@ function gregorianToJalali($gregorian_date) {
                             <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="card h-100">
                                     <div class="card-header">
-                                        <h5 class="mb-0"><?= htmlspecialchars($asset['name'] ?? 'بدون نام') ?></h5>
+                                        <h5 class="mb-0"><?= htmlspecialchars($assetData['name'] ?? 'بدون نام') ?></h5>
                                     </div>
                                     <div class="card-body">
-                                        <p><strong>برند:</strong> <?= htmlspecialchars($asset['brand'] ?? '-') ?></p>
-                                        <p><strong>مدل:</strong> <?= htmlspecialchars($asset['model'] ?? '-') ?></p>
+                                        <p><strong>برند:</strong> <?= htmlspecialchars($assetData['brand'] ?? '-') ?></p>
+                                        <p><strong>مدل:</strong> <?= htmlspecialchars($assetData['model'] ?? '-') ?></p>
                                         <p><strong>وضعیت:</strong> 
-                                            <span class="badge bg-<?= ($asset['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
-                                                <?= htmlspecialchars($asset['status'] ?? 'نامشخص') ?>
+                                            <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
+                                                <?= htmlspecialchars($assetData['status'] ?? 'نامشخص') ?>
                                             </span>
                                         </p>
                                     </div>
@@ -436,31 +445,33 @@ function gregorianToJalali($gregorian_date) {
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" id="editAssetForm" enctype="multipart/form-data">
-                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    
-                    <!-- Step 1: نوع دارایی -->
-                    <div class="form-step active" id="step1">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5>انتخاب نوع دارایی</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">نوع دارایی *</label>
-                                    <select class="form-select" id="type_id" name="type_id" required onchange="showFields()">
-                                        <option value="">-- انتخاب کنید --</option>
-                                        <?php foreach ($types as $type): ?>
-                                            <option value="<?php echo $type['id']; ?>" 
-                                                    <?php echo $asset['type_id'] == $type['id'] ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($type['display_name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                <!-- فرم ویرایش (مخفی شده) -->
+                <div id="editFormContainer" style="display: none;">
+                    <form method="POST" id="editAssetForm" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                        
+                        <!-- Step 1: نوع دارایی -->
+                        <div class="form-step active" id="step1">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>انتخاب نوع دارایی</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">نوع دارایی *</label>
+                                        <select class="form-select" id="type_id" name="type_id" required onchange="showFields()">
+                                            <option value="">-- انتخاب کنید --</option>
+                                            <?php foreach ($types as $type): ?>
+                                                <option value="<?php echo $type['id']; ?>" 
+                                                        <?php echo ($assetData && $assetData['type_id'] == $type['id']) ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars($type['display_name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
                     <!-- Step 2: اطلاعات -->
                     <div class="form-step" id="step2">
@@ -479,22 +490,22 @@ function gregorianToJalali($gregorian_date) {
                                                 <label class="form-label">نام دستگاه *</label>
                                                 <select class="form-select gen-name" id="gen_name" name="name" required>
                                                     <option value="">-- انتخاب کنید --</option>
-                                                    <option value="Cummins" <?php echo $asset['name'] == 'Cummins' ? 'selected' : ''; ?>>Cummins</option>
-                                                    <option value="Volvo" <?php echo $asset['name'] == 'Volvo' ? 'selected' : ''; ?>>Volvo</option>
-                                                    <option value="Perkins" <?php echo $asset['name'] == 'Perkins' ? 'selected' : ''; ?>>Perkins</option>
+                                                    <option value="Cummins" <?php echo ($assetData && $assetData['name'] == 'Cummins') ? 'selected' : ''; ?>>Cummins</option>
+                                                    <option value="Volvo" <?php echo ($assetData && $assetData['name'] == 'Volvo') ? 'selected' : ''; ?>>Volvo</option>
+                                                    <option value="Perkins" <?php echo ($assetData && $assetData['name'] == 'Perkins') ? 'selected' : ''; ?>>Perkins</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">شماره سریال دستگاه</label>
-                                                <input type="text" class="form-control gen-dev-serial" id="gen_serial_number" name="serial_number" value="<?php echo htmlspecialchars($asset['serial_number']); ?>">
+                                                <input type="text" class="form-control gen-dev-serial" id="gen_serial_number" name="serial_number" value="<?php echo htmlspecialchars($assetData['serial_number'] ?? ''); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">تاریخ خرید</label>
-                                                <input type="text" class="form-control persian-date" id="gen_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($asset['purchase_date']); ?>" autocomplete="off">
+                                                <input type="text" class="form-control persian-date" id="gen_purchase_date" name="purchase_date" value="<?php echo gregorianToJalali($assetData['purchase_date'] ?? ''); ?>" autocomplete="off">
                                             </div>
                                         </div>
                                     </div>
@@ -505,23 +516,23 @@ function gregorianToJalali($gregorian_date) {
                                                 <label class="form-label">وضعیت *</label>
                                                 <select class="form-select" id="gen_status" name="status" required>
                                                     <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $asset['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $asset['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $asset['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $asset['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
+                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
+                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
+                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
+                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">برند</label>
-                                                <input type="text" class="form-control" id="gen_brand" name="brand" value="<?php echo htmlspecialchars($asset['brand']); ?>">
+                                                <input type="text" class="form-control" id="gen_brand" name="brand" value="<?php echo htmlspecialchars($assetData['brand']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">مدل دستگاه *</label>
-                                                <input type="text" class="form-control gen-device-model" id="gen_device_model" name="device_model" value="<?php echo htmlspecialchars($asset['device_model']); ?>" required>
+                                                <input type="text" class="form-control gen-device-model" id="gen_device_model" name="device_model" value="<?php echo htmlspecialchars($assetData['device_model']); ?>" required>
                                             </div>
                                         </div>
                                     </div>
@@ -530,19 +541,19 @@ function gregorianToJalali($gregorian_date) {
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">ظرفیت توان (کیلووات)</label>
-                                                <input type="text" class="form-control" id="gen_power_capacity" name="power_capacity" value="<?php echo htmlspecialchars($asset['power_capacity']); ?>">
+                                                <input type="text" class="form-control" id="gen_power_capacity" name="power_capacity" value="<?php echo htmlspecialchars($assetData['power_capacity']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">مدل موتور</label>
-                                                <input type="text" class="form-control" id="gen_engine_model" name="engine_model" value="<?php echo htmlspecialchars($asset['engine_model']); ?>">
+                                                <input type="text" class="form-control" id="gen_engine_model" name="engine_model" value="<?php echo htmlspecialchars($assetData['engine_model']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">سریال موتور</label>
-                                                <input type="text" class="form-control" id="gen_engine_serial" name="engine_serial" value="<?php echo htmlspecialchars($asset['engine_serial']); ?>">
+                                                <input type="text" class="form-control" id="gen_engine_serial" name="engine_serial" value="<?php echo htmlspecialchars($assetData['engine_serial']); ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -551,19 +562,19 @@ function gregorianToJalali($gregorian_date) {
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">مدل آلترناتور</label>
-                                                <input type="text" class="form-control" id="gen_alternator_model" name="alternator_model" value="<?php echo htmlspecialchars($asset['alternator_model']); ?>">
+                                                <input type="text" class="form-control" id="gen_alternator_model" name="alternator_model" value="<?php echo htmlspecialchars($assetData['alternator_model']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">سریال آلترناتور *</label>
-                                                <input type="text" class="form-control gen-alt-serial" id="gen_alternator_serial" name="alternator_serial" value="<?php echo htmlspecialchars($asset['alternator_serial']); ?>" required>
+                                                <input type="text" class="form-control gen-alt-serial" id="gen_alternator_serial" name="alternator_serial" value="<?php echo htmlspecialchars($assetData['alternator_serial']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">سریال دستگاه</label>
-                                                <input type="text" class="form-control" id="gen_device_serial" name="device_serial" value="<?php echo htmlspecialchars($asset['device_serial']); ?>">
+                                                <input type="text" class="form-control" id="gen_device_serial" name="device_serial" value="<?php echo htmlspecialchars($assetData['device_serial']); ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -579,14 +590,14 @@ function gregorianToJalali($gregorian_date) {
                                                 <div class="input-group">
                                                     <input type="text" class="form-control identifier-complete gen-device-identifier"
                                                            id="device_identifier" name="device_identifier"
-                                                           value="<?php echo htmlspecialchars($asset['device_identifier']); ?>"
+                                                           value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>"
                                                            readonly>
                                                     <button class="btn btn-outline-secondary gen-copy-btn" type="button" id="copy_identifier" title="کپی">
                                                         کپی
                                                     </button>
                                                 </div>
                                                 <div class="form-text gen-identifier-hint" id="identifier_hint">
-                                                    شناسه تولید شده: <?php echo htmlspecialchars($asset['device_identifier']); ?>
+                                                    شناسه تولید شده: <?php echo htmlspecialchars($assetData['device_identifier']); ?>
                                                 </div>
                                             </div>
                                         </div>
@@ -601,7 +612,7 @@ function gregorianToJalali($gregorian_date) {
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">نام دستگاه *</label>
-                                                <input type="text" class="form-control" id="motor_name" name="name" value="<?php echo htmlspecialchars($asset['name']); ?>" required>
+                                                <input type="text" class="form-control" id="motor_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
@@ -624,23 +635,23 @@ function gregorianToJalali($gregorian_date) {
                                                 <label class="form-label">وضعیت *</label>
                                                 <select class="form-select" id="motor_status" name="status" required>
                                                     <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $asset['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $asset['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $asset['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $asset['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
+                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
+                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
+                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
+                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">برند</label>
-                                                <input type="text" class="form-control" id="motor_brand" name="brand" value="<?php echo htmlspecialchars($asset['brand']); ?>">
+                                                <input type="text" class="form-control" id="motor_brand" name="brand" value="<?php echo htmlspecialchars($assetData['brand']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">مدل</label>
-                                                <input type="text" class="form-control" id="motor_model" name="model" value="<?php echo htmlspecialchars($asset['model']); ?>">
+                                                <input type="text" class="form-control" id="motor_model" name="model" value="<?php echo htmlspecialchars($assetData['model']); ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -654,13 +665,13 @@ function gregorianToJalali($gregorian_date) {
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">نام کالا *</label>
-                                                <input type="text" class="form-control" id="consumable_name" name="name" value="<?php echo htmlspecialchars($asset['name']); ?>" required>
+                                                <input type="text" class="form-control" id="consumable_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">شماره شناسه *</label>
-                                                <input type="text" class="form-control" id="consumable_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($asset['device_identifier']); ?>" required>
+                                                <input type="text" class="form-control" id="consumable_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
@@ -677,23 +688,23 @@ function gregorianToJalali($gregorian_date) {
                                                 <label class="form-label">وضعیت *</label>
                                                 <select class="form-select" id="consumable_status" name="status" required>
                                                     <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $asset['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $asset['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $asset['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $asset['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
+                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
+                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
+                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
+                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">نوع کالا</label>
-                                                <input type="text" class="form-control" id="consumable_type" name="consumable_type" value="<?php echo htmlspecialchars($asset['consumable_type']); ?>">
+                                                <input type="text" class="form-control" id="consumable_type" name="consumable_type" value="<?php echo htmlspecialchars($assetData['consumable_type']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">تعداد</label>
-                                                <input type="number" class="form-control" id="consumable_quantity" name="quantity" value="<?php echo $asset['quantity']; ?>">
+                                                <input type="number" class="form-control" id="consumable_quantity" name="quantity" value="<?php echo $assetData['quantity']; ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -707,13 +718,13 @@ function gregorianToJalali($gregorian_date) {
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">نام قطعه *</label>
-                                                <input type="text" class="form-control" id="parts_name" name="name" value="<?php echo htmlspecialchars($asset['name']); ?>" required>
+                                                <input type="text" class="form-control" id="parts_name" name="name" value="<?php echo htmlspecialchars($assetData['name']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">شماره شناسه *</label>
-                                                <input type="text" class="form-control" id="parts_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($asset['device_identifier']); ?>" required>
+                                                <input type="text" class="form-control" id="parts_device_identifier" name="device_identifier" value="<?php echo htmlspecialchars($assetData['device_identifier']); ?>" required>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
@@ -730,23 +741,23 @@ function gregorianToJalali($gregorian_date) {
                                                 <label class="form-label">وضعیت *</label>
                                                 <select class="form-select" id="parts_status" name="status" required>
                                                     <option value="">-- انتخاب کنید --</option>
-                                                    <option value="فعال" <?php echo $asset['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
-                                                    <option value="غیرفعال" <?php echo $asset['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
-                                                    <option value="در حال تعمیر" <?php echo $asset['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
-                                                    <option value="آماده بهره‌برداری" <?php echo $asset['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
+                                                    <option value="فعال" <?php echo $assetData['status'] == 'فعال' ? 'selected' : ''; ?>>فعال</option>
+                                                    <option value="غیرفعال" <?php echo $assetData['status'] == 'غیرفعال' ? 'selected' : ''; ?>>غیرفعال</option>
+                                                    <option value="در حال تعمیر" <?php echo $assetData['status'] == 'در حال تعمیر' ? 'selected' : ''; ?>>در حال تعمیر</option>
+                                                    <option value="آماده بهره‌برداری" <?php echo $assetData['status'] == 'آماده بهره‌برداری' ? 'selected' : ''; ?>>آماده بهره‌برداری</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">نوع قطعه</label>
-                                                <input type="text" class="form-control" id="parts_type" name="consumable_type" value="<?php echo htmlspecialchars($asset['consumable_type']); ?>">
+                                                <input type="text" class="form-control" id="parts_type" name="consumable_type" value="<?php echo htmlspecialchars($assetData['consumable_type']); ?>">
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="mb-3">
                                                 <label class="form-label">تعداد</label>
-                                                <input type="number" class="form-control" id="parts_quantity" name="quantity" value="<?php echo $asset['quantity']; ?>">
+                                                <input type="number" class="form-control" id="parts_quantity" name="quantity" value="<?php echo $assetData['quantity']; ?>">
                                             </div>
                                         </div>
                                     </div>
@@ -755,15 +766,16 @@ function gregorianToJalali($gregorian_date) {
                         </div>
                     </div>
 
-                    <!-- دکمه‌های کنترل -->
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary" onclick="prevStep()" id="prevBtn" style="display: none;">قبلی</button>
-                        <div>
-                            <button type="button" class="btn btn-primary" onclick="nextStep()" id="nextBtn">بعدی</button>
-                            <button type="submit" class="btn btn-success" name="edit_asset" id="submitBtn" style="display: none;">ذخیره تغییرات</button>
+                        <!-- دکمه‌های کنترل -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" onclick="prevStep()" id="prevBtn" style="display: none;">قبلی</button>
+                            <div>
+                                <button type="button" class="btn btn-primary" onclick="nextStep()" id="nextBtn">بعدی</button>
+                                <button type="submit" class="btn btn-success" name="edit_asset" id="submitBtn" style="display: none;">ذخیره تغییرات</button>
+                            </div>
                         </div>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -884,6 +896,12 @@ function gregorianToJalali($gregorian_date) {
             // نمایش فیلدهای مربوط به نوع فعلی
             showFields();
         });
+
+        // تابع نمایش فرم ویرایش
+        function showEditForm() {
+            document.getElementById('editFormContainer').style.display = 'block';
+            document.getElementById('editFormContainer').scrollIntoView({ behavior: 'smooth' });
+        }
     </script>
 </body>
 </html>
