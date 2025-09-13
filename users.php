@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 include 'config.php';
+include 'email_config.php';
 
 // بررسی دسترسی ادمین
 if (!hasPermission('*')) {
@@ -92,7 +93,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         createUserNotificationSettings($pdo, $user_id);
                         
                         $pdo->commit();
-                        $success_message = "کاربر با موفقیت ایجاد شد";
+                        
+                        // ارسال ایمیل خوش‌آمدگویی
+                        if (EMAIL_ENABLED && !empty($email)) {
+                            $email_sent = sendWelcomeEmail($username, $email, $full_name, $password);
+                            if ($email_sent) {
+                                $success_message = "کاربر با موفقیت ایجاد شد و ایمیل خوش‌آمدگویی ارسال شد";
+                                
+                                // ارسال اطلاع‌رسانی به مدیر
+                                sendAdminNotification($username, $email, $full_name);
+                            } else {
+                                $success_message = "کاربر با موفقیت ایجاد شد اما ارسال ایمیل ناموفق بود";
+                            }
+                        } else {
+                            $success_message = "کاربر با موفقیت ایجاد شد";
+                        }
                     } catch (Exception $e) {
                         $pdo->rollBack();
                         $error_message = "خطا در ایجاد کاربر: " . $e->getMessage();

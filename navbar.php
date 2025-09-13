@@ -31,6 +31,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="email_settings.php">
+                        <i class="fa fa-envelope"></i> تنظیمات ایمیل
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="assignments.php">
                         <i class="fa fa-link"></i> انتساب‌ها
                     </a>
