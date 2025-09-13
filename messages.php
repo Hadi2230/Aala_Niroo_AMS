@@ -35,17 +35,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$recipient) {
                             $error_message = 'گیرنده انتخاب شده معتبر نیست';
                         } else {
-                            // ارسال پیام
-                            $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, is_read, created_at) VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
-                            $stmt->execute([$_SESSION['user_id'], $recipient_id, $subject, $message]);
+                            // آپلود فایل اگر وجود دارد
+                            $attachment_path = null;
+                            $attachment_name = null;
+                            $attachment_type = null;
                             
-                            if ($stmt->rowCount() > 0) {
-                                $success_message = 'پیام با موفقیت ارسال شد';
+                            if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+                                $upload_dir = 'uploads/messages/';
+                                if (!is_dir($upload_dir)) {
+                                    mkdir($upload_dir, 0755, true);
+                                }
                                 
-                                // ارسال اعلان
-                                sendNotification($pdo, $recipient_id, 'پیام جدید', "پیام جدید از " . ($_SESSION['full_name'] ?? $_SESSION['username']), 'message', 'متوسط', $pdo->lastInsertId(), 'message');
-                            } else {
-                                $error_message = 'خطا در ارسال پیام';
+                                $file_info = pathinfo($_FILES['attachment']['name']);
+                                $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'zip', 'rar'];
+                                $file_extension = strtolower($file_info['extension']);
+                                
+                                if (!in_array($file_extension, $allowed_extensions)) {
+                                    $error_message = 'نوع فایل مجاز نیست. فایل‌های مجاز: ' . implode(', ', $allowed_extensions);
+                                } elseif ($_FILES['attachment']['size'] > 10 * 1024 * 1024) { // 10MB limit
+                                    $error_message = 'حجم فایل نباید بیش از 10 مگابایت باشد';
+                                } else {
+                                    $file_name = time() . '_' . uniqid() . '.' . $file_extension;
+                                    $attachment_path = $upload_dir . $file_name;
+                                    
+                                    if (move_uploaded_file($_FILES['attachment']['tmp_name'], $attachment_path)) {
+                                        $attachment_name = $_FILES['attachment']['name'];
+                                        $attachment_type = $file_extension;
+                                    } else {
+                                        $error_message = 'خطا در آپلود فایل';
+                                    }
+                                }
+                            }
+                            
+                            if (!isset($error_message)) {
+                                // ارسال پیام
+                                $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, attachment_path, attachment_name, attachment_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)");
+                                $stmt->execute([$_SESSION['user_id'], $recipient_id, $subject, $message, $attachment_path, $attachment_name, $attachment_type]);
+                                
+                                if ($stmt->rowCount() > 0) {
+                                    $success_message = 'پیام با موفقیت ارسال شد';
+                                    if ($attachment_name) {
+                                        $success_message .= ' و فایل ضمیمه شد';
+                                    }
+                                    
+                                    // ارسال اعلان
+                                    $notification_text = "پیام جدید از " . ($_SESSION['full_name'] ?? $_SESSION['username']);
+                                    if ($attachment_name) {
+                                        $notification_text .= " با فایل ضمیمه";
+                                    }
+                                    sendNotification($pdo, $recipient_id, 'پیام جدید', $notification_text, 'message', 'متوسط', $pdo->lastInsertId(), 'message');
+                                } else {
+                                    $error_message = 'خطا در ارسال پیام';
+                                }
                             }
                         }
                     } catch (Exception $e) {
@@ -449,6 +490,45 @@ try {
             font-weight: bold;
             margin-left: 15px;
         }
+        .file-upload-container {
+            position: relative;
+        }
+        .file-upload-container.drag-over {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .file-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .dark-mode .file-info {
+            background: #374151;
+            border-color: #4b5563;
+        }
+        .attachment-info {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8f2ff 100%);
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .dark-mode .attachment-info {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            border-color: #4b5563;
+        }
+        .attachment-info a {
+            color: #667eea !important;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .attachment-info a:hover {
+            color: #5a67d8 !important;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme']==='dark' ? 'dark-mode' : ''; ?>">
@@ -588,6 +668,24 @@ try {
                                                             <?php echo nl2br(htmlspecialchars(substr($message['message'], 0, 200))); ?>
                                                             <?php if (strlen($message['message']) > 200): ?>...<?php endif; ?>
                                                         </div>
+                                                        
+                                                        <?php if (!empty($message['attachment_name'])): ?>
+                                                            <div class="attachment-info mt-3">
+                                                                <div class="d-flex align-items-center">
+                                                                    <i class="fas fa-paperclip text-muted me-2"></i>
+                                                                    <span class="text-muted me-2">فایل ضمیمه:</span>
+                                                                    <a href="<?php echo htmlspecialchars($message['attachment_path']); ?>" 
+                                                                       target="_blank" 
+                                                                       class="text-primary text-decoration-none fw-bold">
+                                                                        <i class="fas fa-download me-1"></i>
+                                                                        <?php echo htmlspecialchars($message['attachment_name']); ?>
+                                                                    </a>
+                                                                    <span class="badge bg-secondary ms-2">
+                                                                        <?php echo strtoupper($message['attachment_type'] ?? 'فایل'); ?>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
                                                         <div class="message-actions">
                                                             <?php if (!$message['is_read'] && $message['receiver_id'] == $_SESSION['user_id']): ?>
                                                                 <form method="POST" style="display: inline;">
@@ -625,7 +723,7 @@ try {
     <!-- Modal ارسال پیام جدید -->
     <div class="modal fade" id="composeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <form class="modal-content" method="POST">
+            <form class="modal-content" method="POST" enctype="multipart/form-data">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="fas fa-paper-plane me-2"></i>ارسال پیام جدید</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -663,6 +761,27 @@ try {
                     <div class="mb-4">
                         <label class="form-label fw-bold">متن پیام <span class="text-danger">*</span></label>
                         <textarea class="form-control" name="message" rows="6" required placeholder="متن پیام خود را بنویسید..."></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">فایل ضمیمه (اختیاری)</label>
+                        <div class="file-upload-container">
+                            <input type="file" class="form-control" name="attachment" id="attachmentInput" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.zip,.rar">
+                            <div class="file-info mt-2" id="fileInfo" style="display: none;">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file me-2 text-primary"></i>
+                                    <span class="file-name"></span>
+                                    <span class="file-size text-muted ms-2"></span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeFile">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-muted small mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                فایل‌های مجاز: JPG, PNG, GIF, PDF, DOC, DOCX, TXT, ZIP, RAR (حداکثر 10 مگابایت)
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -702,6 +821,79 @@ try {
                     behavior: 'smooth'
                 });
             });
+        });
+
+        // File upload handling
+        const attachmentInput = document.getElementById('attachmentInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = fileInfo.querySelector('.file-name');
+        const fileSize = fileInfo.querySelector('.file-size');
+        const removeFileBtn = document.getElementById('removeFile');
+
+        attachmentInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Check file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('حجم فایل نباید بیش از 10 مگابایت باشد');
+                    this.value = '';
+                    return;
+                }
+
+                // Check file type
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf', 
+                                    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                    'text/plain', 'application/zip', 'application/x-rar-compressed'];
+                
+                if (!allowedTypes.includes(file.type)) {
+                    alert('نوع فایل مجاز نیست. فایل‌های مجاز: JPG, PNG, GIF, PDF, DOC, DOCX, TXT, ZIP, RAR');
+                    this.value = '';
+                    return;
+                }
+
+                // Show file info
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.style.display = 'block';
+            }
+        });
+
+        removeFileBtn.addEventListener('click', function() {
+            attachmentInput.value = '';
+            fileInfo.style.display = 'none';
+        });
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Drag and drop functionality
+        const fileUploadContainer = document.querySelector('.file-upload-container');
+        
+        fileUploadContainer.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+
+        fileUploadContainer.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+
+        fileUploadContainer.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                attachmentInput.files = files;
+                attachmentInput.dispatchEvent(new Event('change'));
+            }
         });
     </script>
 </body>
