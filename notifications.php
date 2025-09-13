@@ -267,7 +267,7 @@ try {
                                                         <div class="col-md-6">
                                                             <small class="text-muted">
                                                                 <i class="fa fa-user"></i> فرستنده: سیستم<br>
-                                                                <i class="fa fa-calendar"></i> تاریخ: <?php echo jalaliDate($notification['created_at']); ?>
+                                                                <i class="fa fa-calendar"></i> تاریخ: <?php echo jalali_format($notification['created_at']); ?>
                                                             </small>
                                                         </div>
                                                         <div class="col-md-6">
