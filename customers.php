@@ -58,6 +58,31 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS correspondences (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        direction ENUM('ارسالی','دریافتی') NOT NULL,
+        subject VARCHAR(255) DEFAULT '',
+        notes TEXT,
+        corr_date DATE NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(customer_id),
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS correspondence_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        correspondence_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size BIGINT NOT NULL,
+        mime VARCHAR(150),
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(correspondence_id),
+        FOREIGN KEY (correspondence_id) REFERENCES correspondences(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
     // درج قالب‌های پیش‌فرض
     $pdo->exec("INSERT IGNORE INTO notification_templates (type, name, subject, content) VALUES 
         ('email', 'خوش‌آمدگویی مشتری حقیقی', 'خوش‌آمدید به سیستم مدیریت اعلا نیرو', 'سلام {full_name} عزیز،\n\nبه سیستم مدیریت اعلا نیرو خوش‌آمدید!\n\nاطلاعات شما:\nنام: {full_name}\nتلفن: {phone}\nآدرس: {address}\n\nبا تشکر\nتیم اعلا نیرو'),
@@ -68,6 +93,13 @@ try {
 } catch (Throwable $e) {
     $tables_error = 'خطا در ایجاد جداول: ' . $e->getMessage();
 }
+
+// تنظیمات آپلود فایل
+$upload_base_fs = __DIR__ . '/uploads/correspondences';
+$upload_web_base = 'uploads/correspondences';
+$max_file_size = 8 * 1024 * 1024; // 8MB
+$allowed_ext = ['pdf','doc','docx','jpg','jpeg','png','xls','xlsx','zip','txt'];
+if (!is_dir($upload_base_fs)) @mkdir($upload_base_fs, 0755, true);
 
 $success = $_GET['success'] ?? '';
 $error = $tables_error ?? '';
@@ -218,7 +250,58 @@ try {
             $notification_message = '';
         }
 
-        header('Location: customers.php?success=' . urlencode('مشتری با موفقیت ثبت شد' . $notification_message));
+        // پردازش مکاتبات همراه مشتری (اختیاری)
+        $dirs = $_POST['correspondence_direction'] ?? [];
+        $dates = $_POST['correspondence_date'] ?? [];
+        $subjects = $_POST['correspondence_subject'] ?? [];
+        $notes_arr = $_POST['correspondence_notes'] ?? [];
+        $files = $_FILES['correspondence_files'] ?? null;
+
+        for ($i=0; $i < count($dirs); $i++) {
+            $dir = in_array($dirs[$i], ['ارسالی','دریافتی'], true) ? $dirs[$i] : 'دریافتی';
+            $corr_date = !empty($dates[$i]) ? sanitize($dates[$i]) : null;
+            $subject = sanitize($subjects[$i] ?? '');
+            $note = sanitize($notes_arr[$i] ?? '');
+
+            $stmt = $pdo->prepare("INSERT INTO correspondences (customer_id, direction, subject, notes, corr_date, created_by) VALUES (:cid, :dir, :sub, :notes, :cdate, :created_by)");
+            $stmt->execute([
+                ':cid'=>$customer_id, ':dir'=>$dir, ':sub'=>$subject, ':notes'=>$note, ':cdate'=>$corr_date ?: null, ':created_by'=>current_user_id()
+            ]);
+            $corr_id = (int)$pdo->lastInsertId();
+
+            // فایل‌های این مکاتبه
+            if ($files && isset($files['name'][$i]) && is_array($files['name'][$i])) {
+                for ($f=0; $f < count($files['name'][$i]); $f++) {
+                    $origName = $files['name'][$i][$f];
+                    $tmpName = $files['tmp_name'][$i][$f];
+                    $size = (int)$files['size'][$i][$f];
+                    $err = (int)$files['error'][$i][$f];
+                    if ($err !== UPLOAD_ERR_OK) continue;
+                    if ($size <= 0 || $size > $max_file_size) continue;
+                    $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+                    if (!in_array($ext, $allowed_ext, true)) continue;
+
+                    $subdir = date('Y') . '/' . date('m');
+                    $targetDir = $upload_base_fs . '/' . $subdir;
+                    if (!is_dir($targetDir)) @mkdir($targetDir, 0755, true);
+
+                    $uniq = bin2hex(random_bytes(8));
+                    $safeName = preg_replace('/[^A-Za-z0-9_\-\.]/u', '_', mb_substr($origName, 0, 200));
+                    $storeName = $uniq . '_' . $safeName;
+                    $storePath = $targetDir . '/' . $storeName;
+                    $webPath = $upload_web_base . '/' . $subdir . '/' . $storeName;
+
+                    if (@move_uploaded_file($tmpName, $storePath)) {
+                        $stmtf = $pdo->prepare("INSERT INTO correspondence_files (correspondence_id, file_name, file_path, file_size, mime) VALUES (:cid, :fname, :fpath, :fsize, :fmime)");
+                        $stmtf->execute([
+                            ':cid'=>$corr_id, ':fname'=>$origName, ':fpath'=>$webPath, ':fsize'=>$size, ':fmime'=>mime_content_type($storePath) ?: ''
+                        ]);
+                    }
+                }
+            }
+        }
+
+        header('Location: customers.php?success=' . urlencode('مشتری و مکاتبات با موفقیت ثبت شد' . $notification_message));
         exit();
     }
 
@@ -268,6 +351,71 @@ try {
             header('Location: customers.php?success=' . urlencode('مشتری حذف شد'));
             exit();
         }
+    }
+
+    // افزودن مکاتبه برای مشتری موجود
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_correspondence']) && !empty($_POST['customer_id'])) {
+        require_csrf($_POST['csrf_token'] ?? '');
+        $customer_id = (int)$_POST['customer_id'];
+        $direction = in_array($_POST['direction'] ?? '', ['ارسالی','دریافتی'], true) ? $_POST['direction'] : 'دریافتی';
+        $corr_date = sanitize($_POST['corr_date'] ?? '') ?: null;
+        $subject = sanitize($_POST['subject'] ?? '');
+        $notes_c = sanitize($_POST['notes'] ?? '');
+
+        $stmt = $pdo->prepare("INSERT INTO correspondences (customer_id, direction, subject, notes, corr_date, created_by) VALUES (:cid, :dir, :sub, :notes, :cdate, :created_by)");
+        $stmt->execute([':cid'=>$customer_id, ':dir'=>$direction, ':sub'=>$subject, ':notes'=>$notes_c, ':cdate'=>$corr_date ?: null, ':created_by'=>current_user_id()]);
+        $corr_id = (int)$pdo->lastInsertId();
+
+        if (!empty($_FILES['files'])) {
+            for ($f=0; $f < count($_FILES['files']['name']); $f++) {
+                $origName = $_FILES['files']['name'][$f];
+                $tmpName = $_FILES['files']['tmp_name'][$f];
+                $size = (int)$_FILES['files']['size'][$f];
+                $err = (int)$_FILES['files']['error'][$f];
+                if ($err !== UPLOAD_ERR_OK) continue;
+                if ($size <= 0 || $size > $max_file_size) continue;
+                $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+                if (!in_array($ext, $allowed_ext, true)) continue;
+
+                $subdir = date('Y') . '/' . date('m');
+                $targetDir = $upload_base_fs . '/' . $subdir;
+                if (!is_dir($targetDir)) @mkdir($targetDir, 0755, true);
+
+                $uniq = bin2hex(random_bytes(8));
+                $safeName = preg_replace('/[^A-Za-z0-9_\-\.]/u', '_', mb_substr($origName, 0, 200));
+                $storeName = $uniq . '_' . $safeName;
+                $storePath = $targetDir . '/' . $storeName;
+                $webPath = $upload_web_base . '/' . $subdir . '/' . $storeName;
+
+                if (@move_uploaded_file($tmpName, $storePath)) {
+                    $stmtf = $pdo->prepare("INSERT INTO correspondence_files (correspondence_id, file_name, file_path, file_size, mime) VALUES (:cid, :fname, :fpath, :fsize, :fmime)");
+                    $stmtf->execute([':cid'=>$corr_id, ':fname'=>$origName, ':fpath'=>$webPath, ':fsize'=>$size, ':fmime'=>mime_content_type($storePath) ?: '']);
+                }
+            }
+        }
+
+        header('Location: customers.php?success=' . urlencode('مکاتبه ذخیره شد') . '#cust-' . $customer_id);
+        exit();
+    }
+
+    // دانلود فایل مکاتبه (امن)
+    if (!empty($_GET['download_corr_file'])) {
+        $file_id = (int)$_GET['download_corr_file'];
+        $stmt = $pdo->prepare("SELECT * FROM correspondence_files WHERE id = ?");
+        $stmt->execute([$file_id]);
+        $f = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$f) throw new RuntimeException('فایل پیدا نشد');
+        $baseReal = realpath($upload_base_fs);
+        $path = realpath(__DIR__ . '/' . $f['file_path']);
+        if (!$path || !$baseReal || strpos($path, $baseReal) !== 0) throw new RuntimeException('دسترسی به فایل غیرمجاز است');
+        if (!file_exists($path)) throw new RuntimeException('فایل روی سرور یافت نشد');
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: ' . ($f['mime'] ?: 'application/octet-stream'));
+        header('Content-Disposition: attachment; filename="' . basename($f['file_name']) . '"');
+        header('Content-Length: ' . (int)$f['file_size']);
+        readfile($path);
+        exit();
     }
 
 } catch (PDOException $e) {
@@ -331,6 +479,10 @@ $csrf = generate_csrf();
         .notification-both { background: #6f42c1; color: white; }
         .email-field { border-left: 3px solid #28a745; }
         .phone-field { border-left: 3px solid #17a2b8; }
+        .corr-box { background:#fff; border-radius:10px; padding:15px; box-shadow:0 6px 18px rgba(2,6,23,0.04); border: 1px solid #e9ecef; }
+        .file-chip { margin-left:8px; display:inline-block; margin-top:6px; }
+        .fade-in { animation: fadeIn .28s ease; }
+        @keyframes fadeIn { from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
         @media (max-width:768px) { .search-input{ width:100%; } }
     </style>
 </head>
@@ -485,6 +637,58 @@ if (!$embedded && file_exists('navbar.php')) {
                             </div>
                         </div>
 
+                        <!-- مکاتبات همراه مشتری -->
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-primary mb-0"><i class="fas fa-envelope me-2"></i>مکاتبات همراه مشتری (اختیاری)</h6>
+                                <button type="button" id="addCorrBtn" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-plus me-1"></i>افزودن مکاتبه
+                                </button>
+                            </div>
+
+                            <div id="correspondences_container"></div>
+
+                            <template id="corr_template">
+                                <div class="corr-box mb-3" data-index="__IDX__">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0 text-secondary">مکاتبه __NUM__</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-danger remove-corr">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-3">
+                                            <label class="form-label">نوع مکاتبه</label>
+                                            <select name="correspondence_direction[]" class="form-select">
+                                                <option value="ارسالی">ارسالی</option>
+                                                <option value="دریافتی">دریافتی</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">تاریخ</label>
+                                            <input type="date" name="correspondence_date[]" class="form-control">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">موضوع</label>
+                                            <input type="text" name="correspondence_subject[]" class="form-control" placeholder="موضوع مکاتبه">
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">یادداشت</label>
+                                            <textarea name="correspondence_notes[]" class="form-control" rows="2" placeholder="یادداشت‌های اضافی"></textarea>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">فایل‌ها</label>
+                                            <input type="file" name="correspondence_files[__IDX__][]" multiple class="form-control">
+                                            <div class="small text-muted mt-1">
+                                                فرمت‌های مجاز: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, ZIP, TXT — حداکثر هر فایل 8MB
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
                         <div class="col-12 text-end mt-3">
                             <button class="btn btn-primary btn-lg"><i class="fa fa-save me-1"></i> ذخیره مشتری</button>
                             <a class="btn btn-secondary btn-lg" data-bs-toggle="collapse" href="#addCustomer"><i class="fa fa-times me-1"></i> بستن</a>
@@ -543,9 +747,12 @@ if (!$embedded && file_exists('navbar.php')) {
                             </td>
                             <td><?= h($c['operator_name'] ?: '—') ?><div class="small text-muted"><?= h($c['operator_phone'] ?: '') ?></div></td>
                             <td><?= h(mb_substr($c['address'] ?: '-', 0, 50)) ?></td>
-                            <td style="min-width:200px;">
+                            <td style="min-width:240px;">
                                 <div class="btn-group" role="group">
                                     <a class="btn btn-sm btn-warning" href="?edit=<?= (int)$c['id'] ?>" title="ویرایش"><i class="fa fa-edit"></i></a>
+                                    <button class="btn btn-sm btn-info" data-bs-toggle="collapse" data-bs-target="#corr-collapse-<?= (int)$c['id'] ?>" aria-expanded="false" title="مکاتبات">
+                                        <i class="fas fa-envelope"></i>
+                                    </button>
                                     <?php if (is_admin()): ?>
                                         <form method="post" style="display:inline;" onsubmit="return confirm('آیا از حذف مشتری اطمینان دارید؟');">
                                             <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
@@ -554,6 +761,120 @@ if (!$embedded && file_exists('navbar.php')) {
                                             <button class="btn btn-sm btn-danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
                                         </form>
                                     <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- بخش مکاتبات مشتری -->
+                        <tr>
+                            <td colspan="8" class="p-0">
+                                <div class="collapse" id="corr-collapse-<?= (int)$c['id'] ?>">
+                                    <div class="p-4 bg-light border-top">
+                                        <?php
+                                            $stmtc = $pdo->prepare("SELECT * FROM correspondences WHERE customer_id = ? ORDER BY created_at DESC");
+                                            $stmtc->execute([(int)$c['id']]);
+                                            $corrs = $stmtc->fetchAll(PDO::FETCH_ASSOC);
+                                        ?>
+                                        <div class="mb-4">
+                                            <h6 class="mb-3 text-primary">
+                                                <i class="fas fa-envelope me-2"></i>مکاتبات (<?= count($corrs) ?>)
+                                            </h6>
+                                            <?php if (empty($corrs)): ?>
+                                                <div class="text-center text-muted py-4">
+                                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                                    <p>هیچ مکاتبه‌ای برای این مشتری ثبت نشده است.</p>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="row">
+                                                    <?php foreach ($corrs as $cc): ?>
+                                                        <div class="col-md-6 mb-3">
+                                                            <div class="card h-100">
+                                                                <div class="card-header d-flex justify-content-between align-items-center">
+                                                                    <div>
+                                                                        <span class="badge bg-<?= $cc['direction'] === 'ارسالی' ? 'success' : 'info' ?> me-2">
+                                                                            <?= h($cc['direction']) ?>
+                                                                        </span>
+                                                                        <strong><?= h($cc['subject'] ?: 'بدون موضوع') ?></strong>
+                                                                    </div>
+                                                                    <small class="text-muted">
+                                                                        <?= h($cc['corr_date'] ? date('Y/m/d', strtotime($cc['corr_date'])) : date('Y/m/d', strtotime($cc['created_at']))) ?>
+                                                                    </small>
+                                                                </div>
+                                                                <div class="card-body">
+                                                                    <p class="card-text"><?= nl2br(h($cc['notes'] ?: '—')) ?></p>
+                                                                    <?php
+                                                                        $stmtf = $pdo->prepare("SELECT * FROM correspondence_files WHERE correspondence_id = ? ORDER BY uploaded_at DESC");
+                                                                        $stmtf->execute([(int)$cc['id']]);
+                                                                        $files = $stmtf->fetchAll(PDO::FETCH_ASSOC);
+                                                                    ?>
+                                                                    <?php if (!empty($files)): ?>
+                                                                        <div class="mt-3">
+                                                                            <h6 class="small text-muted mb-2">فایل‌های ضمیمه:</h6>
+                                                                            <div class="d-flex flex-wrap gap-1">
+                                                                                <?php foreach ($files as $ff): ?>
+                                                                                    <a class="btn btn-sm btn-outline-secondary" href="?download_corr_file=<?= (int)$ff['id'] ?>" title="دانلود فایل">
+                                                                                        <i class="fas fa-file me-1"></i>
+                                                                                        <?= h(mb_substr($ff['file_name'], 0, 20)) ?>
+                                                                                        <?= mb_strlen($ff['file_name']) > 20 ? '...' : '' ?>
+                                                                                    </a>
+                                                                                <?php endforeach; ?>
+                                                                            </div>
+                                                                        </div>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <!-- فرم افزودن مکاتبه جدید -->
+                                        <div class="border-top pt-4">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-plus me-2"></i>افزودن مکاتبه جدید
+                                            </h6>
+                                            <form method="post" enctype="multipart/form-data">
+                                                <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+                                                <input type="hidden" name="add_correspondence" value="1">
+                                                <input type="hidden" name="customer_id" value="<?= (int)$c['id'] ?>">
+
+                                                <div class="row g-3">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">نوع مکاتبه</label>
+                                                        <select name="direction" class="form-select">
+                                                            <option value="ارسالی">ارسالی</option>
+                                                            <option value="دریافتی">دریافتی</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">تاریخ</label>
+                                                        <input type="date" name="corr_date" class="form-control">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">موضوع</label>
+                                                        <input type="text" name="subject" class="form-control" placeholder="موضوع مکاتبه">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label">یادداشت</label>
+                                                        <textarea name="notes" class="form-control" rows="3" placeholder="یادداشت‌های اضافی"></textarea>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label">فایل‌ها (اختیاری)</label>
+                                                        <input type="file" name="files[]" multiple class="form-control">
+                                                        <div class="small text-muted mt-1">
+                                                            فرمت‌های مجاز: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, ZIP, TXT — حداکثر هر فایل 8MB
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 text-end">
+                                                        <button class="btn btn-primary">
+                                                            <i class="fas fa-save me-1"></i>ذخیره مکاتبه
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -722,6 +1043,28 @@ if (!$embedded && file_exists('navbar.php')) {
     if (editCustomerTypeSelect) {
         editCustomerTypeSelect.addEventListener('change', toggleEditCustomerType);
         toggleEditCustomerType(); // Initial call
+    }
+    
+    // مدیریت مکاتبات پویا
+    let corrCounter = 0;
+    const cont = document.getElementById('correspondences_container');
+    const tpl = document.getElementById('corr_template').innerHTML;
+    const addCorrBtn = document.getElementById('addCorrBtn');
+    
+    if (addCorrBtn && cont && tpl) {
+        addCorrBtn.addEventListener('click', function(){
+            const html = tpl.replace(/__IDX__/g, corrCounter).replace(/__NUM__/g, corrCounter+1);
+            const wrapper = document.createElement('div'); 
+            wrapper.innerHTML = html; 
+            cont.appendChild(wrapper);
+            
+            // اضافه کردن event listener برای حذف
+            wrapper.querySelector('.remove-corr').addEventListener('click', function(){ 
+                wrapper.remove(); 
+            });
+            
+            corrCounter++;
+        });
     }
 })();
 </script>

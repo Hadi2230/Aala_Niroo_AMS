@@ -67,6 +67,43 @@ try {
     echo "❌ خطا در اضافه کردن قالب‌های پیش‌فرض: " . $e->getMessage() . "\n";
 }
 
+try {
+    // ایجاد جدول مکاتبات
+    $pdo->exec("CREATE TABLE IF NOT EXISTS correspondences (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        direction ENUM('ارسالی','دریافتی') NOT NULL,
+        subject VARCHAR(255) DEFAULT '',
+        notes TEXT,
+        corr_date DATE NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(customer_id),
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "✅ جدول correspondences ایجاد شد\n";
+} catch (Exception $e) {
+    echo "❌ خطا در ایجاد جدول correspondences: " . $e->getMessage() . "\n";
+}
+
+try {
+    // ایجاد جدول فایل‌های مکاتبات
+    $pdo->exec("CREATE TABLE IF NOT EXISTS correspondence_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        correspondence_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size BIGINT NOT NULL,
+        mime VARCHAR(150),
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX(correspondence_id),
+        FOREIGN KEY (correspondence_id) REFERENCES correspondences(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    echo "✅ جدول correspondence_files ایجاد شد\n";
+} catch (Exception $e) {
+    echo "❌ خطا در ایجاد جدول correspondence_files: " . $e->getMessage() . "\n";
+}
+
 echo "\n🎉 به‌روزرسانی دیتابیس تکمیل شد!\n";
 echo "حالا می‌توانید به صفحه customers.php بروید.\n";
 ?>
