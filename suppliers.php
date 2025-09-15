@@ -353,6 +353,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error_message = "خطا در حذف تامین‌کننده: " . $e->getMessage();
         }
     }
+    
+    // افزودن مدرک جدید
+    if (isset($_POST['add_document'])) {
+        try {
+            $supplier_id = (int)$_POST['supplier_id'];
+            $document_type = $_POST['document_type'];
+            $document_description = $_POST['document_description'] ?? '';
+            
+            if (isset($_FILES['document_file']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
+                $file_extension = strtolower(pathinfo($_FILES['document_file']['name'], PATHINFO_EXTENSION));
+                
+                if (in_array($file_extension, $allowed_extensions)) {
+                    $new_filename = 'doc_' . $supplier_id . '_' . time() . '.' . $file_extension;
+                    $upload_path = $upload_base_dir . 'documents/' . $new_filename;
+                    
+                    if (move_uploaded_file($_FILES['document_file']['tmp_name'], $upload_path)) {
+                        $stmt = $pdo->prepare("INSERT INTO supplier_documents (supplier_id, document_type, document_name, file_path, file_size, file_type, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $supplier_id,
+                            $document_type,
+                            $_FILES['document_file']['name'],
+                            $upload_web_base . 'documents/' . $new_filename,
+                            $_FILES['document_file']['size'],
+                            $_FILES['document_file']['type'],
+                            $document_description
+                        ]);
+                        
+                        $success_message = "مدرک با موفقیت اضافه شد!";
+                    } else {
+                        $error_message = "خطا در آپلود فایل!";
+                    }
+                } else {
+                    $error_message = "فرمت فایل مجاز نیست!";
+                }
+            } else {
+                $error_message = "لطفاً فایل را انتخاب کنید!";
+            }
+            
+        } catch (Exception $e) {
+            $error_message = "خطا در افزودن مدرک: " . $e->getMessage();
+        }
+    }
+    
+    // افزودن مکاتبه جدید
+    if (isset($_POST['add_correspondence'])) {
+        try {
+            $supplier_id = (int)$_POST['supplier_id'];
+            $correspondence_type = $_POST['correspondence_type'];
+            $correspondence_subject = $_POST['correspondence_subject'];
+            $correspondence_content = $_POST['correspondence_content'] ?? '';
+            $correspondence_date = $_POST['correspondence_date'];
+            
+            $file_path = null;
+            $file_name = null;
+            $file_size = null;
+            $file_type = null;
+            
+            if (isset($_FILES['correspondence_file']) && $_FILES['correspondence_file']['error'] === UPLOAD_ERR_OK) {
+                $file_extension = strtolower(pathinfo($_FILES['correspondence_file']['name'], PATHINFO_EXTENSION));
+                
+                if (in_array($file_extension, $allowed_extensions)) {
+                    $new_filename = 'corr_' . $supplier_id . '_' . time() . '.' . $file_extension;
+                    $upload_path = $upload_base_dir . 'correspondences/' . $new_filename;
+                    
+                    if (move_uploaded_file($_FILES['correspondence_file']['tmp_name'], $upload_path)) {
+                        $file_path = $upload_web_base . 'correspondences/' . $new_filename;
+                        $file_name = $_FILES['correspondence_file']['name'];
+                        $file_size = $_FILES['correspondence_file']['size'];
+                        $file_type = $_FILES['correspondence_file']['type'];
+                    }
+                }
+            }
+            
+            $stmt = $pdo->prepare("INSERT INTO supplier_correspondences (supplier_id, correspondence_type, subject, content, correspondence_date, file_path, file_name, file_size, file_type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $supplier_id,
+                $correspondence_type,
+                $correspondence_subject,
+                $correspondence_content,
+                $correspondence_date,
+                $file_path,
+                $file_name,
+                $file_size,
+                $file_type,
+                $_SESSION['user_id']
+            ]);
+            
+            $success_message = "مکاتبه با موفقیت اضافه شد!";
+            
+        } catch (Exception $e) {
+            $error_message = "خطا در افزودن مکاتبه: " . $e->getMessage();
+        }
+    }
 }
 
 // دریافت لیست تامین‌کنندگان
@@ -1441,7 +1534,12 @@ try {
                         <div class="tab-pane fade" id="viewDocuments<?php echo $supplier['id']; ?>">
                             <div class="row">
                                 <div class="col-12">
-                                    <h6 class="mb-3">مدارک تامین‌کننده</h6>
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">مدارک تامین‌کننده</h6>
+                                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addDocumentModal<?php echo $supplier['id']; ?>">
+                                            <i class="fas fa-plus me-1"></i>افزودن مدرک جدید
+                                        </button>
+                                    </div>
                                     <?php
                                     // دریافت مدارک تامین‌کننده
                                     $documents_stmt = $pdo->prepare("SELECT * FROM supplier_documents WHERE supplier_id = ? ORDER BY upload_date DESC");
@@ -1490,7 +1588,12 @@ try {
                         <div class="tab-pane fade" id="viewCorrespondences<?php echo $supplier['id']; ?>">
                             <div class="row">
                                 <div class="col-12">
-                                    <h6 class="mb-3">مکاتبات تامین‌کننده</h6>
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">مکاتبات تامین‌کننده</h6>
+                                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCorrespondenceModal<?php echo $supplier['id']; ?>">
+                                            <i class="fas fa-plus me-1"></i>افزودن مکاتبه جدید
+                                        </button>
+                                    </div>
                                     <?php
                                     // دریافت مکاتبات تامین‌کننده
                                     $correspondences_stmt = $pdo->prepare("SELECT * FROM supplier_correspondences WHERE supplier_id = ? ORDER BY correspondence_date DESC");
@@ -1907,5 +2010,105 @@ try {
         button.closest('.correspondence-item').remove();
     }
     </script>
+
+    <!-- مودال افزودن مدرک جدید -->
+    <?php foreach ($suppliers as $supplier): ?>
+    <div class="modal fade" id="addDocumentModal<?php echo $supplier['id']; ?>" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">افزودن مدرک جدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <input type="hidden" name="supplier_id" value="<?php echo $supplier['id']; ?>">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">نوع مدرک</label>
+                                <select class="form-select" name="document_type" required>
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="مجوز_فعالیت">مجوز فعالیت</option>
+                                    <option value="پروانه_کسب">پروانه کسب</option>
+                                    <option value="گواهینامه_کیفیت">گواهینامه کیفیت</option>
+                                    <option value="بیمه">بیمه</option>
+                                    <option value="قرارداد">قرارداد</option>
+                                    <option value="سایر">سایر</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">فایل مدرک</label>
+                                <input type="file" class="form-control" name="document_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx" required>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="form-label">توضیحات</label>
+                                <textarea class="form-control" name="document_description" rows="3" placeholder="توضیحات مدرک"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="add_document" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>ذخیره مدرک
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال افزودن مکاتبه جدید -->
+    <div class="modal fade" id="addCorrespondenceModal<?php echo $supplier['id']; ?>" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">افزودن مکاتبه جدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <input type="hidden" name="supplier_id" value="<?php echo $supplier['id']; ?>">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">نوع مکاتبه</label>
+                                <select class="form-select" name="correspondence_type" required>
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="ایمیل">ایمیل</option>
+                                    <option value="نامه">نامه</option>
+                                    <option value="فکس">فکس</option>
+                                    <option value="تماس_تلفنی">تماس تلفنی</option>
+                                    <option value="جلسه">جلسه</option>
+                                    <option value="سایر">سایر</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">تاریخ</label>
+                                <input type="date" class="form-control" name="correspondence_date" value="<?php echo date('Y-m-d'); ?>" required>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="form-label">موضوع</label>
+                                <input type="text" class="form-control" name="correspondence_subject" placeholder="موضوع مکاتبه" required>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="form-label">محتوای مکاتبه</label>
+                                <textarea class="form-control" name="correspondence_content" rows="4" placeholder="محتوای مکاتبه"></textarea>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="form-label">فایل ضمیمه (اختیاری)</label>
+                                <input type="file" class="form-control" name="correspondence_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="add_correspondence" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>ذخیره مکاتبه
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
 </body>
 </html>
