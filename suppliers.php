@@ -6,6 +6,22 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once __DIR__ . '/config.php';
 
+// تابع برای دریافت توضیحات مدارک
+function getDocumentDescription($file_input, $key, $post_data) {
+    switch ($file_input) {
+        case 'quality_certificates_file':
+            return $post_data['quality_certificates'] ?? 'گواهینامه‌های کیفیت';
+        case 'insurance_documents_file':
+            return $post_data['insurance_documents'] ?? 'مدارک بیمه و قراردادها';
+        case 'other_documents_file':
+            return $post_data['other_documents'] ?? 'سایر مدارک قانونی';
+        case 'important_customers_file':
+            return $post_data['major_customers'] ?? 'لیست مشتریان مهم';
+        default:
+            return 'مدرک تامین‌کننده';
+    }
+}
+
 // بررسی embed mode
 $is_embed = isset($_GET['embed']) && $_GET['embed'] == '1';
 
@@ -204,26 +220,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $supplier_id = $pdo->lastInsertId();
             
-            // اپلود مدارک
-            if (isset($_FILES['documents']) && !empty($_FILES['documents']['name'][0])) {
-                foreach ($_FILES['documents']['name'] as $key => $filename) {
-                    if ($_FILES['documents']['error'][$key] === UPLOAD_ERR_OK) {
-                        $file_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                        if (in_array($file_extension, $allowed_extensions)) {
-                            $new_filename = 'doc_' . $supplier_id . '_' . time() . '_' . $key . '.' . $file_extension;
-                            $upload_path = $upload_base_dir . 'documents/' . $new_filename;
-                            
-                            if (move_uploaded_file($_FILES['documents']['tmp_name'][$key], $upload_path)) {
-                                $stmt = $pdo->prepare("INSERT INTO supplier_documents (supplier_id, document_type, document_name, file_path, file_size, file_type, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                                $stmt->execute([
-                                    $supplier_id,
-                                    $_POST['document_types'][$key] ?? 'سایر',
-                                    $filename,
-                                    $upload_web_base . 'documents/' . $new_filename,
-                                    $_FILES['documents']['size'][$key],
-                                    $_FILES['documents']['type'][$key],
-                                    $_POST['document_descriptions'][$key] ?? ''
-                                ]);
+            // اپلود مدارک دسته‌بندی شده
+            $document_categories = [
+                'quality_certificates_file' => 'گواهینامه_کیفیت',
+                'insurance_documents_file' => 'بیمه',
+                'other_documents_file' => 'سایر',
+                'important_customers_file' => 'لیست_مشتریان'
+            ];
+            
+            foreach ($document_categories as $file_input => $document_type) {
+                if (isset($_FILES[$file_input]) && !empty($_FILES[$file_input]['name'][0])) {
+                    foreach ($_FILES[$file_input]['name'] as $key => $filename) {
+                        if ($_FILES[$file_input]['error'][$key] === UPLOAD_ERR_OK) {
+                            $file_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                            if (in_array($file_extension, $allowed_extensions)) {
+                                $new_filename = 'doc_' . $supplier_id . '_' . $document_type . '_' . time() . '_' . $key . '.' . $file_extension;
+                                $upload_path = $upload_base_dir . 'documents/' . $new_filename;
+                                
+                                if (move_uploaded_file($_FILES[$file_input]['tmp_name'][$key], $upload_path)) {
+                                    $stmt = $pdo->prepare("INSERT INTO supplier_documents (supplier_id, document_type, document_name, file_path, file_size, file_type, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                    $stmt->execute([
+                                        $supplier_id,
+                                        $document_type,
+                                        $filename,
+                                        $upload_web_base . 'documents/' . $new_filename,
+                                        $_FILES[$file_input]['size'][$key],
+                                        $_FILES[$file_input]['type'][$key],
+                                        getDocumentDescription($file_input, $key, $_POST)
+                                    ]);
+                                }
                             }
                         }
                     }
@@ -1089,21 +1114,91 @@ try {
                             <!-- مدارک -->
                             <div class="tab-pane fade" id="documents" role="tabpanel">
                                 <div class="row mt-3">
-                                    <div class="col-12">
-                                        <label class="form-label">گواهینامه‌های کیفیت</label>
-                                        <textarea class="form-control" name="quality_certificates" rows="3" placeholder="ISO 9001, ISO 14001, ..."></textarea>
+                                    <!-- گواهینامه‌های کیفیت -->
+                                    <div class="col-12 mb-4">
+                                        <h6 class="text-primary mb-3">
+                                            <i class="fas fa-certificate me-2"></i>گواهینامه‌های کیفیت
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <label class="form-label">توضیحات گواهینامه‌ها</label>
+                                                <textarea class="form-control" name="quality_certificates" rows="2" placeholder="ISO 9001, ISO 14001, ISO 45001, HACCP, ..."></textarea>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">فایل گواهینامه‌ها</label>
+                                                <input type="file" class="form-control" name="quality_certificates_file[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                                                <small class="text-muted">می‌توانید چندین فایل انتخاب کنید</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-12">
-                                        <label class="form-label">بیمه / قراردادها / سایر مدارک</label>
-                                        <textarea class="form-control" name="insurance_documents" rows="2" placeholder="مدارک بیمه و قراردادها"></textarea>
+
+                                    <!-- بیمه و قراردادها -->
+                                    <div class="col-12 mb-4">
+                                        <h6 class="text-success mb-3">
+                                            <i class="fas fa-shield-alt me-2"></i>بیمه / قراردادها
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <label class="form-label">توضیحات بیمه و قراردادها</label>
+                                                <textarea class="form-control" name="insurance_documents" rows="2" placeholder="بیمه مسئولیت، بیمه کالا، قراردادهای همکاری، ..."></textarea>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">فایل بیمه و قراردادها</label>
+                                                <input type="file" class="form-control" name="insurance_documents_file[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                                                <small class="text-muted">می‌توانید چندین فایل انتخاب کنید</small>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-12">
-                                        <label class="form-label">سایر مدارک</label>
-                                        <textarea class="form-control" name="other_documents" rows="2" placeholder="سایر مدارک قانونی"></textarea>
+
+                                    <!-- سایر مدارک قانونی -->
+                                    <div class="col-12 mb-4">
+                                        <h6 class="text-warning mb-3">
+                                            <i class="fas fa-file-contract me-2"></i>سایر مدارک قانونی
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <label class="form-label">توضیحات سایر مدارک</label>
+                                                <textarea class="form-control" name="other_documents" rows="2" placeholder="مجوزهای خاص، گواهی‌های تخصصی، مدارک قانونی، ..."></textarea>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">فایل سایر مدارک</label>
+                                                <input type="file" class="form-control" name="other_documents_file[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                                                <small class="text-muted">می‌توانید چندین فایل انتخاب کنید</small>
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <!-- لیست مشتریان مهم -->
+                                    <div class="col-12 mb-4">
+                                        <h6 class="text-info mb-3">
+                                            <i class="fas fa-users me-2"></i>لیست مشتریان مهم
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <label class="form-label">توضیحات مشتریان مهم</label>
+                                                <textarea class="form-control" name="major_customers" rows="2" placeholder="برای ارزیابی اعتبار - نام شرکت‌ها و نوع همکاری"></textarea>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">فایل لیست مشتریان</label>
+                                                <input type="file" class="form-control" name="important_customers_file[]" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                                                <small class="text-muted">می‌توانید چندین فایل انتخاب کنید</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- راهنمای اپلود -->
                                     <div class="col-12">
-                                        <label class="form-label">لیست مشتریان مهم</label>
-                                        <textarea class="form-control" name="major_customers" rows="2" placeholder="برای اعتبارسنجی"></textarea>
+                                        <div class="alert alert-info">
+                                            <h6 class="alert-heading">
+                                                <i class="fas fa-info-circle me-2"></i>راهنمای اپلود مدارک
+                                            </h6>
+                                            <ul class="mb-0">
+                                                <li><strong>فرمت‌های مجاز:</strong> PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX</li>
+                                                <li><strong>حداکثر حجم:</strong> 10 مگابایت برای هر فایل</li>
+                                                <li><strong>توصیه:</strong> فایل‌های PDF برای مدارک رسمی و تصاویر JPG برای اسکن مدارک</li>
+                                                <li><strong>نام‌گذاری:</strong> نام فایل‌ها باید واضح و قابل فهم باشد</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
