@@ -303,6 +303,9 @@ if ($search_type === 'all' || $search_type === 'assets') {
     $stmt = $pdo->prepare($query);
     $stmt->execute($params);
     $assets = $stmt->fetchAll();
+} else {
+    // اگر نوع جستجو assets نیست، دارایی‌ها را خالی نگه دار
+    $assets = [];
 }
 
 // جستجو در مشتریان
@@ -1430,7 +1433,7 @@ $filtered_count = count($assets);
             </div>
 
             <!-- لیست دارایی‌های ثبت شده -->
-            <?php if (!empty($search) && ($search_type === 'all' || $search_type === 'assets')): ?>
+            <?php if ((!empty($search) && ($search_type === 'all' || $search_type === 'assets')) || ($search_type === 'assets' && empty($search))): ?>
             <div class="card mt-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
@@ -2283,6 +2286,8 @@ function clearSearch() {
 function showAllAssets() {
     document.getElementById('searchInput').value = '';
     document.getElementById('searchType').value = 'assets';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('statusFilter').value = '';
     document.getElementById('searchForm').submit();
 }
 </script>
