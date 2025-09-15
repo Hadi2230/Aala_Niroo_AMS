@@ -6,6 +6,9 @@ if (!isset($_SESSION['user_id'])) {
 }
 require_once __DIR__ . '/config.php';
 
+// بررسی embed mode
+$is_embed = isset($_GET['embed']) && $_GET['embed'] == '1';
+
 // ایجاد جدول suppliers اگر وجود ندارد
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
@@ -213,6 +216,17 @@ try {
             padding-top: 80px;
         }
         
+        <?php if ($is_embed): ?>
+        body {
+            background: #f8f9fa;
+            padding-top: 20px;
+        }
+        .main-container {
+            background: white;
+            box-shadow: none;
+        }
+        <?php endif; ?>
+        
         .main-container {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
@@ -274,18 +288,51 @@ try {
             color: #ffc107;
         }
         
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+        
         .nav-tabs .nav-link {
             border: none;
-            border-radius: 10px 10px 0 0;
-            margin-left: 5px;
-            background: #f8f9fa;
-            color: #6c757d;
-            transition: all 0.3s;
+            border-radius: 15px 15px 0 0;
+            margin-left: 8px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            font-weight: 600;
+            padding: 15px 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         
         .nav-tabs .nav-link.active {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
+        }
+        
+        .nav-tabs .nav-link.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #ffd700, #ffed4e);
+        }
+        
+        .nav-tabs .nav-link i {
+            margin-left: 8px;
+            font-size: 1.1em;
         }
         
         .form-control, .form-select {
@@ -347,7 +394,7 @@ try {
     </style>
 </head>
 <body>
-    <?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
+    <?php if (!$is_embed && file_exists('navbar.php')) include 'navbar.php'; ?>
     
     <div class="container">
         <div class="main-container">

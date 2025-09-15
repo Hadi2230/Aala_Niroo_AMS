@@ -1955,7 +1955,7 @@ document.addEventListener('click', function(e) {
 
 // Lazy-load iframes when collapse opens
 document.addEventListener('DOMContentLoaded', function(){
-    ['customersEmbed','assignmentsEmbed'].forEach(id => {
+    ['customersEmbed','assignmentsEmbed','suppliersEmbed'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         
