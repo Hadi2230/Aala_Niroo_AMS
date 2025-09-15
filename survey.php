@@ -1,6 +1,6 @@
 <?php
+session_start();
 require_once 'config.php';
-require_once 'sms.php';
 
 // بررسی احراز هویت
 if (!isset($_SESSION['user_id'])) {
@@ -8,283 +8,203 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// بررسی وجود نظرسنجی فعال
+// تعریف توابع مورد نیاز
+function verifyCsrfToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
+        throw new Exception('CSRF token mismatch');
+    }
+    if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        throw new Exception('CSRF token mismatch');
+    }
+}
+
+function csrf_field() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+}
+
+// ایجاد جداول اگر وجود ندارند
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS surveys (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        survey_id INT NOT NULL,
+        question_text TEXT NOT NULL,
+        question_type ENUM('text', 'textarea', 'radio', 'checkbox', 'select', 'number', 'date', 'yes_no', 'rating') DEFAULT 'text',
+        is_required BOOLEAN DEFAULT 1,
+        order_index INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_submissions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        survey_id INT NOT NULL,
+        customer_id INT NULL,
+        asset_id INT NULL,
+        status ENUM('draft', 'completed', 'pending') DEFAULT 'draft',
+        submitted_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+        FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_responses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        submission_id INT NOT NULL,
+        question_id INT NOT NULL,
+        response_text TEXT,
+        response_data JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
+        FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+} catch (Exception $e) {
+    $error_message = "خطا در ایجاد جداول: " . $e->getMessage();
+}
+
+// دریافت customer_id از URL
+$customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
+$asset_id = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : 0;
+
+// دریافت نظرسنجی فعال
 $active_survey = null;
 $questions = [];
 
 try {
-    $stmt = $pdo->prepare("
-        SELECT s.*, COUNT(sq.id) as question_count 
-        FROM surveys s 
-        LEFT JOIN survey_questions sq ON s.id = sq.survey_id 
-        WHERE s.id = (SELECT MAX(id) FROM surveys WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY))
-        GROUP BY s.id
-    ");
-    $stmt->execute();
+    $stmt = $pdo->query("SELECT * FROM surveys WHERE is_active = 1 ORDER BY id DESC LIMIT 1");
     $active_survey = $stmt->fetch();
     
-    if ($active_survey) {
-        $stmt = $pdo->prepare("SELECT id, question_text, question_type FROM survey_questions WHERE survey_id = ? ORDER BY id");
-        $stmt->execute([$active_survey['id']]);
-        $questions = $stmt->fetchAll();
-    } else {
-        // اگر نظرسنجی فعالی وجود ندارد، یک نظرسنجی نمونه ایجاد کن
-        try {
-            // ایجاد نظرسنجی نمونه
-            $stmt = $pdo->prepare("INSERT INTO surveys (title, description, is_active) VALUES (?, ?, ?)");
-            $stmt->execute([
-                'نظرسنجی رضایت مشتریان - شرکت اعلا نیرو',
-                'این نظرسنجی به منظور ارزیابی کیفیت خدمات و رضایت مشتریان از خدمات شرکت اعلا نیرو طراحی شده است.',
-                true
-            ]);
-            $survey_id = $pdo->lastInsertId();
-            
-            // ایجاد سوالات نمونه
-            $sample_questions = [
-                [
-                    'question_text' => 'آیا از کیفیت خدمات ارائه شده راضی هستید؟',
-                    'question_type' => 'yes_no',
-                    'is_required' => true,
-                    'order_index' => 1
-                ],
-                [
-                    'question_text' => 'نحوه برخورد کارکنان را چگونه ارزیابی می‌کنید؟',
-                    'question_type' => 'rating',
-                    'is_required' => true,
-                    'order_index' => 2
-                ],
-                [
-                    'question_text' => 'آیا در زمان مقرر خدمات به شما ارائه شده است؟',
-                    'question_type' => 'yes_no',
-                    'is_required' => true,
-                    'order_index' => 3
-                ],
-                [
-                    'question_text' => 'کیفیت تجهیزات و محصولات را چگونه ارزیابی می‌کنید؟',
-                    'question_type' => 'rating',
-                    'is_required' => true,
-                    'order_index' => 4
-                ],
-                [
-                    'question_text' => 'آیا مایل به استفاده مجدد از خدمات شرکت هستید؟',
-                    'question_type' => 'yes_no',
-                    'is_required' => true,
-                    'order_index' => 5
-                ],
-                [
-                    'question_text' => 'نظرات و پیشنهادات خود را در مورد خدمات شرکت بیان کنید:',
-                    'question_type' => 'text',
-                    'is_required' => false,
-                    'order_index' => 6
-                ]
-            ];
-            
-            foreach ($sample_questions as $question) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO survey_questions (survey_id, question_text, question_type, is_required, order_index) 
-                    VALUES (?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $survey_id,
-                    $question['question_text'],
-                    $question['question_type'],
-                    $question['is_required'],
-                    $question['order_index']
-                ]);
-            }
-            
-            // دریافت نظرسنجی ایجاد شده
-            $stmt = $pdo->prepare("
-                SELECT s.*, COUNT(sq.id) as question_count 
-                FROM surveys s 
-                LEFT JOIN survey_questions sq ON s.id = sq.survey_id 
-                WHERE s.id = ?
-                GROUP BY s.id
-            ");
-            $stmt->execute([$survey_id]);
-            $active_survey = $stmt->fetch();
-            
-            $stmt = $pdo->prepare("SELECT id, question_text, question_type FROM survey_questions WHERE survey_id = ? ORDER BY id");
-            $stmt->execute([$survey_id]);
-            $questions = $stmt->fetchAll();
-            
-        } catch (Exception $e) {
-            error_log("Sample survey creation error: " . $e->getMessage());
+    if (!$active_survey) {
+        // ایجاد نظرسنجی نمونه
+        $stmt = $pdo->prepare("INSERT INTO surveys (title, description, is_active) VALUES (?, ?, ?)");
+        $stmt->execute([
+            'نظرسنجی رضایت مشتریان - شرکت اعلا نیرو',
+            'این نظرسنجی به منظور ارزیابی کیفیت خدمات و رضایت مشتریان از خدمات شرکت اعلا نیرو طراحی شده است.',
+            1
+        ]);
+        $survey_id = $pdo->lastInsertId();
+        
+        // ایجاد سوالات نمونه
+        $sample_questions = [
+            ['آیا از کیفیت خدمات ارائه شده راضی هستید؟', 'yes_no', 1, 1],
+            ['نحوه برخورد کارکنان را چگونه ارزیابی می‌کنید؟', 'rating', 1, 2],
+            ['آیا در زمان مقرر خدمات به شما ارائه شده است؟', 'yes_no', 1, 3],
+            ['کیفیت تجهیزات و محصولات را چگونه ارزیابی می‌کنید؟', 'rating', 1, 4],
+            ['آیا مایل به استفاده مجدد از خدمات شرکت هستید؟', 'yes_no', 1, 5],
+            ['نظرات و پیشنهادات خود را در مورد خدمات شرکت بیان کنید:', 'textarea', 0, 6]
+        ];
+        
+        foreach ($sample_questions as $q) {
+            $stmt = $pdo->prepare("INSERT INTO survey_questions (survey_id, question_text, question_type, is_required, order_index) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$survey_id, $q[0], $q[1], $q[2], $q[3]]);
         }
+        
+        $active_survey = ['id' => $survey_id, 'title' => 'نظرسنجی رضایت مشتریان - شرکت اعلا نیرو', 'description' => 'این نظرسنجی به منظور ارزیابی کیفیت خدمات و رضایت مشتریان از خدمات شرکت اعلا نیرو طراحی شده است.'];
     }
-} catch (PDOException $e) {
-    error_log("Survey load error: " . $e->getMessage());
-    try {
-        if ($active_survey) {
-            $stmt = $pdo->prepare("SELECT id, question_text, question_type FROM survey_questions WHERE survey_id = ? ORDER BY id");
-            $stmt->execute([$active_survey['id']]);
-            $questions = $stmt->fetchAll();
-        }
-    } catch (PDOException $e2) {
-        error_log("Alternative survey load error: " . $e2->getMessage());
-    }
+    
+    // دریافت سوالات
+    $stmt = $pdo->prepare("SELECT * FROM survey_questions WHERE survey_id = ? ORDER BY order_index, id");
+    $stmt->execute([$active_survey['id']]);
+    $questions = $stmt->fetchAll();
+    
+} catch (Exception $e) {
+    $error_message = "خطا در دریافت نظرسنجی: " . $e->getMessage();
 }
 
 // پردازش ارسال فرم
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
-    verifyCsrfToken();
-    
-    // بررسی اجباری بودن مشتری
-    $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
-    if (!$customer_id) {
-        $_SESSION['error_message'] = "لطفاً یک مشتری انتخاب کنید.";
-        header("Location: survey.php");
-        exit();
-    }
-    
     try {
+        verifyCsrfToken();
+        
+        $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
+        if (!$customer_id) {
+            $_SESSION['error_message'] = "لطفاً یک مشتری انتخاب کنید.";
+            header("Location: survey_fixed.php");
+            exit();
+        }
+        
         $pdo->beginTransaction();
         
-        $stmt = $pdo->prepare("
-            INSERT INTO survey_submissions (survey_id, customer_id, asset_id, started_by, status) 
-            VALUES (?, ?, ?, ?, 'completed')
-        ");
+        // ایجاد ثبت نظرسنجی
+        $stmt = $pdo->prepare("INSERT INTO survey_submissions (survey_id, customer_id, asset_id, status, submitted_by) VALUES (?, ?, ?, ?, ?)");
         $asset_id = !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null;
-        $stmt->execute([$active_survey['id'], $customer_id, $asset_id, $_SESSION['user_id']]);
+        $stmt->execute([$active_survey['id'], $customer_id, $asset_id, 'completed', $_SESSION['user_id']]);
         $submission_id = $pdo->lastInsertId();
         
+        // ذخیره پاسخ‌ها
         foreach ($_POST as $key => $value) {
             if (strpos($key, 'question_') === 0) {
                 $question_id = (int)str_replace('question_', '', $key);
-                $ins = $pdo->prepare("
-                    INSERT INTO survey_responses 
-                    (survey_id, question_id, customer_id, asset_id, response_text, responded_by, submission_id) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ");
                 $response_text = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : trim((string)$value);
-                $ins->execute([
-                    $active_survey['id'], 
-                    $question_id, 
-                    $customer_id, 
-                    $asset_id, 
-                    $response_text, 
-                    $_SESSION['user_id'],
-                    $submission_id
-                ]);
+                
+                if (!empty($response_text)) {
+                    $stmt = $pdo->prepare("INSERT INTO survey_responses (submission_id, question_id, response_text) VALUES (?, ?, ?)");
+                    $stmt->execute([$submission_id, $question_id, $response_text]);
+                }
             }
         }
         
         $pdo->commit();
-        logAction($pdo, 'survey_submission', 'ارسال نظرسنجی با شناسه: ' . $submission_id);
         
-        // دریافت اطلاعات مشتری برای نمایش در مودال
-        $stmt = $pdo->prepare("
-            SELECT 
-                id,
-                CASE
-                    WHEN customer_type='حقوقی' AND COALESCE(company,'')<>'' THEN company
-                    WHEN COALESCE(full_name,'')<>'' THEN full_name
-                    ELSE COALESCE(company, full_name, CONCAT('مشتری ', id))
-                END AS display_name,
-                phone, company_phone, responsible_phone
-            FROM customers 
-            WHERE id = ?
-        ");
-        $stmt->execute([$customer_id]);
-        $customer = $stmt->fetch();
-        
-        // پیدا کردن شماره تلفن مناسب
-        $phone = null;
-        if ($customer) {
-            $phones = array_filter([
-                $customer['phone'] ?? null, 
-                $customer['company_phone'] ?? null, 
-                $customer['responsible_phone'] ?? null
-            ]);
-            $phone = !empty($phones) ? $phones[0] : null;
+        // لاگ‌گیری
+        if (function_exists('logAction')) {
+            logAction($pdo, 'survey_submission', 'ارسال نظرسنجی با شناسه: ' . $submission_id);
         }
         
-        // ایجاد متن پیامک
-        $sms_message = "مشتری گرامی {$customer['display_name']},\n";
-        $sms_message .= "نظرسنجی شما با موفقیت ثبت شد.\n";
-        $sms_message .= "از مشارکت شما در بهبود خدمات شرکت اعلا نیرو سپاسگزاریم.\n";
-        $sms_message .= "ارتباط با ما: ۰۲۱-۱۲۳۴۵۶۷۸";
-        
-        // ذخیره اطلاعات برای نمایش مودال ارسال پیامک
-        $_SESSION['survey_completed'] = true;
-        $_SESSION['submission_id'] = $submission_id;
-        $_SESSION['customer_id'] = $customer_id;
-        $_SESSION['customer_name'] = $customer['display_name'] ?? 'مشتری';
-        $_SESSION['customer_phone'] = $phone;
-        $_SESSION['sms_message'] = $sms_message;
-        
-        header("Location: survey.php");
+        $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد!";
+        header("Location: survey_list.php");
         exit();
         
     } catch (Exception $e) {
         $pdo->rollBack();
-        error_log("Survey submission error: " . $e->getMessage());
-        $_SESSION['error_message'] = "خطا در ثبت نظرسنجی. لطفاً مجدداً تلاش کنید.";
+        $_SESSION['error_message'] = "خطا در ثبت نظرسنجی: " . $e->getMessage();
     }
 }
 
-// پردازش درخواست ارسال پیامک
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_sms'])) {
-    verifyCsrfToken();
-    
-    $submission_id = $_SESSION['submission_id'] ?? null;
-    $customer_id = $_SESSION['customer_id'] ?? null;
-    $phone = $_SESSION['customer_phone'] ?? null;
-    $sms_message = $_SESSION['sms_message'] ?? null;
-    
-    if ($submission_id && $customer_id && $phone) {
-        try {
-            // ارسال پیامک
-            $sms_result = send_sms($phone, $sms_message);
-            
-            if ($sms_result['success']) {
-                // ذخیره اطلاعات ارسال پیامک
-                $stmt = $pdo->prepare("
-                    UPDATE survey_submissions 
-                    SET sms_sent = 1, sms_sent_at = NOW() 
-                    WHERE id = ?
-                ");
-                $stmt->execute([$submission_id]);
-                
-                $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت و پیامک برای مشتری ارسال شد.";
-                logAction($pdo, 'sms_sent', 'پیامک برای مشتری ' . $customer_id . ' ارسال شد');
-            } else {
-                $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد، اما ارسال پیامک با مشکل مواجه شد.";
-                logAction($pdo, 'sms_failed', 'خطا در ارسال پیامک برای مشتری ' . $customer_id);
-            }
-            
-        } catch (Exception $e) {
-            error_log("SMS processing error: " . $e->getMessage());
-            $_SESSION['error_message'] = "خطا در پردازش درخواست ارسال پیامک.";
-        }
-    } else {
-        $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد، اما شماره تلفنی برای ارسال پیامک یافت نشد.";
+// دریافت اطلاعات مشتری یا دستگاه
+$customer_info = null;
+$asset_info = null;
+
+if ($customer_id > 0) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM customers WHERE id = ?");
+        $stmt->execute([$customer_id]);
+        $customer_info = $stmt->fetch();
+    } catch (Exception $e) {
+        // خطا در دریافت اطلاعات مشتری
     }
-    
-    // پاک کردن session variables
-    unset($_SESSION['survey_completed'], $_SESSION['submission_id'], $_SESSION['customer_id'], 
-          $_SESSION['customer_name'], $_SESSION['customer_phone'], $_SESSION['sms_message']);
-    
-    header("Location: survey.php");
-    exit();
 }
 
-// اگر کاربر مودال را بست بدون اینکه پیامک ارسال کند
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['close_modal'])) {
-    verifyCsrfToken();
-    unset($_SESSION['survey_completed'], $_SESSION['submission_id'], $_SESSION['customer_id'],
-          $_SESSION['customer_name'], $_SESSION['customer_phone'], $_SESSION['sms_message']);
-    $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد.";
-    header("Location: survey.php");
-    exit();
+if ($asset_id > 0) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM assets WHERE id = ?");
+        $stmt->execute([$asset_id]);
+        $asset_info = $stmt->fetch();
+    } catch (Exception $e) {
+        // خطا در دریافت اطلاعات دستگاه
+    }
 }
 
-// دریافت لیست مشتریان و دارایی‌ها برای dropdownها
+// دریافت لیست مشتریان و دارایی‌ها
 $customers = [];
-$assets    = [];
+$assets = [];
 
 try {
-    // نمایش نام مشتری: شرکت (حقوقی) یا نام کامل (حقیقی) + تلفن‌ها
     $stmt = $pdo->query("
         SELECT 
             id,
@@ -293,44 +213,20 @@ try {
                 WHEN COALESCE(full_name,'')<>'' THEN full_name
                 ELSE COALESCE(company, full_name, CONCAT('مشتری ', id))
             END AS display_name,
-            NULLIF(phone,'')            AS phone,
-            NULLIF(company_phone,'')    AS company_phone,
-            NULLIF(responsible_phone,'')AS responsible_phone
+            phone, company_phone, responsible_phone
         FROM customers
         ORDER BY display_name
     ");
     $customers = $stmt->fetchAll();
-} catch (PDOException $e) {
-    error_log("Customers load error: " . $e->getMessage());
-    try {
-        $stmt = $pdo->query("
-            SELECT 
-                id,
-                COALESCE(company, full_name, CONCAT('مشتری ', id)) AS display_name,
-                NULL AS phone, NULL AS company_phone, NULL AS responsible_phone
-            FROM customers
-            ORDER BY display_name
-        ");
-        $customers = $stmt->fetchAll();
-    } catch (Throwable $e2) {}
+} catch (Exception $e) {
+    $customers = [];
 }
 
 try {
-    // دارایی‌های فعال + سازگاری با مقادیر انگلیسی/NULL
-    $stmt = $pdo->query("
-        SELECT id, name, serial_number 
-        FROM assets 
-        WHERE status = 'فعال' OR status IS NULL OR status IN ('Active','active','ACTIVE')
-        ORDER BY name
-    ");
+    $stmt = $pdo->query("SELECT id, name, serial_number FROM assets ORDER BY name");
     $assets = $stmt->fetchAll();
-    if (!$assets) {
-        // اگر چیزی نبود، همه را بیاور
-        $stmt = $pdo->query("SELECT id, name, serial_number FROM assets ORDER BY name");
-        $assets = $stmt->fetchAll();
-    }
-} catch (PDOException $e) {
-    error_log("Assets load error: " . $e->getMessage());
+} catch (Exception $e) {
+    $assets = [];
 }
 ?>
 <!DOCTYPE html>
@@ -363,18 +259,12 @@ try {
         .no-survey { text-align:center; padding:40px 20px; }
         .no-survey i { font-size:5rem; color:#ddd; margin-bottom:20px; }
         .character-counter { font-size:.85rem; color:#6c757d; text-align:left; }
-        .modal-content { border-radius:15px; overflow:hidden; }
-        .modal-header { background:linear-gradient(135deg,var(--secondary-color) 0%,var(--primary-color) 100%); color:#fff; }
-        .btn-sms { padding:10px 25px; border-radius:8px; font-weight:bold; }
-        .btn-sms-yes { background:linear-gradient(135deg,#28a745 0%,#20c997 100%); color:#fff; }
-        .btn-sms-no { background:linear-gradient(135deg,#6c757d 0%,#adb5bd 100%); color:#fff; }
-        .sms-preview { background-color:#f8f9fa; border-radius:10px; padding:15px; margin:15px 0; border:1px dashed #dee2e6; }
         .customer-info { background:linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%); border-radius:10px; padding:15px; margin:15px 0; }
         @media (max-width:768px){ .survey-body{padding:20px} .rating-stars label{width:35px; height:35px; font-size:20px} }
     </style>
 </head>
 <body>
-    <?php include 'navbar.php'; ?>
+    <?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
     
     <div class="container mb-5">
         <div class="survey-container">
@@ -398,12 +288,27 @@ try {
                     </div>
                 <?php endif; ?>
                 
+                <?php if (isset($error_message)): ?>
+                    <div class="alert alert-danger alert-survey">
+                        <i class="bi bi-exclamation-circle-fill"></i>
+                        <?php echo $error_message; ?>
+                    </div>
+                <?php endif; ?>
+                
                 <?php if ($active_survey): ?>
                     <div class="mb-4">
                         <h4><?php echo htmlspecialchars($active_survey['title'], ENT_QUOTES, 'UTF-8'); ?></h4>
                         <p class="text-muted"><?php echo htmlspecialchars($active_survey['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?></p>
-                        <p class="text-muted"><small>تعداد سوالات: <?php echo (int)$active_survey['question_count']; ?> سوال</small></p>
                     </div>
+                    
+                    <?php if ($customer_info): ?>
+                        <div class="customer-info">
+                            <h6><i class="bi bi-person-circle"></i> اطلاعات مشتری</h6>
+                            <p class="mb-1"><strong>نام:</strong> <?php echo htmlspecialchars($customer_info['full_name'] ?: $customer_info['company'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="mb-1"><strong>تلفن:</strong> <?php echo htmlspecialchars($customer_info['phone'] ?: $customer_info['company_phone'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="mb-0"><strong>آدرس:</strong> <?php echo htmlspecialchars($customer_info['address'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></p>
+                        </div>
+                    <?php endif; ?>
                     
                     <form method="POST" id="surveyForm">
                         <?php csrf_field(); ?>
@@ -417,12 +322,11 @@ try {
                                         $phones = array_filter([$c['phone'] ?? null, $c['company_phone'] ?? null, $c['responsible_phone'] ?? null]);
                                         $suffix = $phones ? (' — ' . htmlspecialchars(implode(' | ', $phones), ENT_QUOTES, 'UTF-8')) : '';
                                     ?>
-                                        <option value="<?php echo (int)$c['id']; ?>">
+                                        <option value="<?php echo (int)$c['id']; ?>" <?php echo ($customer_id == $c['id']) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($c['display_name'], ENT_QUOTES, 'UTF-8') . $suffix; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <div class="form-text text-danger">انتخاب مشتری اجباری است</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="asset_id" class="form-label">دارایی (اختیاری)</label>
@@ -431,7 +335,7 @@ try {
                                     <?php foreach ($assets as $a): 
                                         $label = $a['name'] . (empty($a['serial_number']) ? '' : (' - ' . $a['serial_number']));
                                     ?>
-                                        <option value="<?php echo (int)$a['id']; ?>">
+                                        <option value="<?php echo (int)$a['id']; ?>" <?php echo ($asset_id == $a['id']) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -445,6 +349,9 @@ try {
                                     <h5>
                                         <span class="question-number"><?php echo $index + 1; ?></span>
                                         <?php echo htmlspecialchars($question['question_text'], ENT_QUOTES, 'UTF-8'); ?>
+                                        <?php if ($question['is_required']): ?>
+                                            <span class="text-danger">*</span>
+                                        <?php endif; ?>
                                     </h5>
                                     
                                     <div class="question-body mt-3">
@@ -453,7 +360,7 @@ try {
                                                 <input class="form-check-input" type="radio" 
                                                     name="question_<?php echo (int)$question['id']; ?>" 
                                                     id="q<?php echo (int)$question['id']; ?>_yes" 
-                                                    value="بله" required>
+                                                    value="بله" <?php echo $question['is_required'] ? 'required' : ''; ?>>
                                                 <label class="form-check-label" for="q<?php echo (int)$question['id']; ?>_yes">بله</label>
                                             </div>
                                             <div class="form-check form-check-inline">
@@ -470,7 +377,7 @@ try {
                                                     <input type="radio" 
                                                         name="question_<?php echo (int)$question['id']; ?>" 
                                                         id="q<?php echo (int)$question['id']; ?>_star<?php echo $i; ?>" 
-                                                        value="<?php echo $i; ?>" <?php if ($i === 5) echo 'required'; ?>>
+                                                        value="<?php echo $i; ?>" <?php echo $question['is_required'] ? 'required' : ''; ?>>
                                                     <label for="q<?php echo (int)$question['id']; ?>_star<?php echo $i; ?>">
                                                         <i class="bi bi-star-fill"></i>
                                                     </label>
@@ -486,7 +393,7 @@ try {
                                                 rows="3" 
                                                 placeholder="پاسخ خود را وارد کنید..." 
                                                 oninput="countChars(this, 'charCounter<?php echo (int)$question['id']; ?>')"
-                                                required></textarea>
+                                                <?php echo $question['is_required'] ? 'required' : ''; ?>></textarea>
                                             <div class="character-counter">
                                                 <span id="charCounter<?php echo (int)$question['id']; ?>">0</span> کاراکتر
                                             </div>
@@ -508,56 +415,14 @@ try {
                         <i class="bi bi-clipboard-x"></i>
                         <h4>نظرسنجی فعالی موجود نیست</h4>
                         <p class="text-muted">در حال حاضر هیچ نظرسنجی فعالی برای شرکت وجود ندارد.</p>
-                        <a href="dashboard.php" class="btn btn-primary mt-3">
-                            <i class="bi bi-house-door"></i> بازگشت به داشبورد
+                        <a href="survey_list.php" class="btn btn-primary mt-3">
+                            <i class="bi bi-house-door"></i> بازگشت به لیست
                         </a>
                     </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
-
-    <!-- مودال ارسال پیامک -->
-    <?php if (isset($_SESSION['survey_completed']) && $_SESSION['survey_completed']): ?>
-    <div class="modal fade show" id="smsModal" tabindex="-1" aria-labelledby="smsModalLabel" style="display: block; padding-right: 17px;">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="smsModalLabel"><i class="bi bi-chat-dots-fill"></i> ارسال پیامک به مشتری</h5>
-                </div>
-                <div class="modal-body py-4">
-                    <div class="customer-info">
-                        <h6><i class="bi bi-person-circle"></i> اطلاعات مشتری</h6>
-                        <p class="mb-1"><strong>نام:</strong> <?php echo htmlspecialchars($_SESSION['customer_name'] ?? 'نامشخص', ENT_QUOTES, 'UTF-8'); ?></p>
-                        <p class="mb-0"><strong>شماره تلفن:</strong> <?php echo htmlspecialchars($_SESSION['customer_phone'] ?? 'ثبت نشده', ENT_QUOTES, 'UTF-8'); ?></p>
-                    </div>
-                    
-                    <div class="sms-preview">
-                        <h6><i class="bi bi-chat-text"></i> پیش نمایش پیامک</h6>
-                        <p class="mb-0 text-muted"><?php echo nl2br(htmlspecialchars($_SESSION['sms_message'] ?? '', ENT_QUOTES, 'UTF-8')); ?></p>
-                    </div>
-                    
-                    <div class="text-center mt-3">
-                        <p class="text-muted">آیا مایل به ارسال این پیامک برای مشتری هستید؟</p>
-                    </div>
-                    
-                    <form method="POST" id="smsForm">
-                        <?php csrf_field(); ?>
-                        <div class="d-flex justify-content-center gap-3 mt-4">
-                            <button type="submit" name="send_sms" value="yes" class="btn btn-sms btn-sms-yes">
-                                <i class="bi bi-check-lg"></i> بله، ارسال کن
-                            </button>
-                            <button type="submit" name="close_modal" class="btn btn-sms btn-sms-no">
-                                <i class="bi bi-x-lg"></i> خیر، ارسال نکن
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-    <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -600,14 +465,6 @@ try {
                         alert('لطفاً فیلدهای اجباری را تکمیل کنید.');
                     }
                 });
-            }
-            
-            // مدیریت مودال
-            const smsModal = document.getElementById('smsModal');
-            if (smsModal) {
-                document.body.classList.add('modal-open');
-                document.body.style.overflow = 'hidden';
-                document.body.style.paddingRight = '17px';
             }
         });
     </script>
