@@ -266,32 +266,104 @@ try {
 
 $asset_types = $pdo->query("SELECT * FROM asset_types ORDER BY display_name")->fetchAll();
 
+// سیستم جستجوی جامع
 $search = $_GET['search'] ?? '';
 $type_filter = $_GET['type_filter'] ?? '';
 $status_filter = $_GET['status_filter'] ?? '';
+$search_type = $_GET['search_type'] ?? 'all'; // all, assets, customers, assignments, suppliers
 
-$query = "SELECT a.*, at.display_name as type_display_name, at.name as type_name
-          FROM assets a 
-          JOIN asset_types at ON a.type_id = at.id 
-          WHERE 1=1";
-$params = [];
-if (!empty($search)) {
-    $query .= " AND (a.name LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.brand LIKE ?)";
-    $search_term = "%$search%";
-    $params[] = $search_term; $params[] = $search_term; $params[] = $search_term; $params[] = $search_term;
+// متغیرهای جستجو
+$assets = [];
+$customers = [];
+$assignments = [];
+$suppliers = [];
+$search_results = [];
+
+// جستجو در دارایی‌ها
+if ($search_type === 'all' || $search_type === 'assets') {
+    $query = "SELECT a.*, at.display_name as type_display_name, at.name as type_name
+              FROM assets a 
+              JOIN asset_types at ON a.type_id = at.id 
+              WHERE 1=1";
+    $params = [];
+    if (!empty($search)) {
+        $query .= " AND (a.name LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.brand LIKE ? OR a.device_identifier LIKE ?)";
+        $search_term = "%$search%";
+        $params[] = $search_term; $params[] = $search_term; $params[] = $search_term; $params[] = $search_term; $params[] = $search_term;
+    }
+    if (!empty($type_filter)) {
+        $query .= " AND a.type_id = ?";
+        $params[] = $type_filter;
+    }
+    if (!empty($status_filter)) {
+        $query .= " AND a.status = ?";
+        $params[] = $status_filter;
+    }
+    $query .= " ORDER BY a.created_at DESC";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $assets = $stmt->fetchAll();
 }
-if (!empty($type_filter)) {
-    $query .= " AND a.type_id = ?";
-    $params[] = $type_filter;
+
+// جستجو در مشتریان
+if ($search_type === 'all' || $search_type === 'customers') {
+    $customer_query = "SELECT * FROM customers WHERE 1=1";
+    $customer_params = [];
+    if (!empty($search)) {
+        $customer_query .= " AND (full_name LIKE ? OR company LIKE ? OR phone LIKE ? OR email LIKE ? OR company_email LIKE ?)";
+        $search_term = "%$search%";
+        $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term;
+    }
+    $customer_query .= " ORDER BY created_at DESC LIMIT 10";
+    $stmt = $pdo->prepare($customer_query);
+    $stmt->execute($customer_params);
+    $customers = $stmt->fetchAll();
 }
-if (!empty($status_filter)) {
-    $query .= " AND a.status = ?";
-    $params[] = $status_filter;
+
+// جستجو در انتساب‌ها
+if ($search_type === 'all' || $search_type === 'assignments') {
+    $assignment_query = "SELECT a.*, c.full_name as customer_name, c.company as customer_company, 
+                        ast.name as asset_name, ast.serial_number as asset_serial
+                        FROM assignments a 
+                        LEFT JOIN customers c ON a.customer_id = c.id 
+                        LEFT JOIN assets ast ON a.asset_id = ast.id 
+                        WHERE 1=1";
+    $assignment_params = [];
+    if (!empty($search)) {
+        $assignment_query .= " AND (a.notes LIKE ? OR c.full_name LIKE ? OR c.company LIKE ? OR ast.name LIKE ? OR ast.serial_number LIKE ?)";
+        $search_term = "%$search%";
+        $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term;
+    }
+    $assignment_query .= " ORDER BY a.created_at DESC LIMIT 10";
+    $stmt = $pdo->prepare($assignment_query);
+    $stmt->execute($assignment_params);
+    $assignments = $stmt->fetchAll();
 }
-$query .= " ORDER BY a.created_at DESC";
-$stmt = $pdo->prepare($query);
-$stmt->execute($params);
-$assets = $stmt->fetchAll();
+
+// جستجو در تامین‌کنندگان
+if ($search_type === 'all' || $search_type === 'suppliers') {
+    $supplier_query = "SELECT * FROM suppliers WHERE 1=1";
+    $supplier_params = [];
+    if (!empty($search)) {
+        $supplier_query .= " AND (company_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ? OR business_category LIKE ? OR email LIKE ?)";
+        $search_term = "%$search%";
+        $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term;
+    }
+    $supplier_query .= " ORDER BY created_at DESC LIMIT 10";
+    $stmt = $pdo->prepare($supplier_query);
+    $stmt->execute($supplier_params);
+    $suppliers = $stmt->fetchAll();
+}
+
+// ترکیب نتایج جستجو
+if ($search_type === 'all' && !empty($search)) {
+    $search_results = [
+        'assets' => $assets,
+        'customers' => $customers,
+        'assignments' => $assignments,
+        'suppliers' => $suppliers
+    ];
+}
 
 $total_assets = $pdo->query("SELECT COUNT(*) as total FROM assets")->fetch()['total'];
 $filtered_count = count($assets);
@@ -311,7 +383,57 @@ $filtered_count = count($assets);
         .form-select, .form-control { direction: rtl; text-align: right; } option { direction: rtl; text-align: right; }
         .card { border: none; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .card-header { border-radius: 10px 10px 0 0 !important; font-weight: 600; }
-        .search-box { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .search-box { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        
+        .search-box .card-header {
+            background: rgba(255,255,255,0.1) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .search-results .card {
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .search-results .card-header {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+        }
+        
+        .search-results .card.text-center {
+            transition: transform 0.3s ease;
+            border: 1px solid #e9ecef;
+        }
+        
+        .search-results .card.text-center:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .search-guide {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px dashed #dee2e6;
+        }
+        
+        .search-guide .display-1 {
+            opacity: 0.3;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .input-group-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
         .image-preview { max-width: 200px; max-height: 200px; margin-top: 10px; display: none; border-radius: 5px; border: 1px solid #ddd; }
         .dynamic-field { display: none; }
         .badge-status { font-size: 0.9rem; padding: 0.5em 0.8em; }
@@ -479,41 +601,79 @@ $filtered_count = count($assets);
                 </div>
             </div>
 
-            <!-- جستجو و فیلتر -->
-            <div class="card search-box">
+            <!-- سیستم جستجوی جامع -->
+            <div class="card search-box mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search me-2"></i>جستجوی جامع در تمام بخش‌ها
+                    </h5>
+                </div>
                 <div class="card-body">
-                    <form method="GET" class="row g-3">
-                        <div class="col-md-3">
-                            <input type="text" name="search" class="form-control" placeholder="جستجو بر اساس نام، سریال، مدل یا برند..." value="<?php echo htmlspecialchars($search) ?>">
+                    <form method="GET" id="searchForm">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">عبارت جستجو</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" name="search" class="form-control form-control-lg" 
+                                           placeholder="جستجو در تمام بخش‌ها..." 
+                                           value="<?php echo htmlspecialchars($search) ?>"
+                                           id="searchInput">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">نوع جستجو</label>
+                                <select name="search_type" class="form-select form-select-lg" id="searchType">
+                                    <option value="all" <?php echo $search_type === 'all' ? 'selected' : '' ?>>همه بخش‌ها</option>
+                                    <option value="assets" <?php echo $search_type === 'assets' ? 'selected' : '' ?>>دارایی‌ها</option>
+                                    <option value="customers" <?php echo $search_type === 'customers' ? 'selected' : '' ?>>مشتریان</option>
+                                    <option value="assignments" <?php echo $search_type === 'assignments' ? 'selected' : '' ?>>انتساب‌ها</option>
+                                    <option value="suppliers" <?php echo $search_type === 'suppliers' ? 'selected' : '' ?>>تامین‌کنندگان</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">نوع دارایی</label>
+                                <select name="type_filter" class="form-select" id="typeFilter">
+                                    <option value="">همه انواع</option>
+                                    <?php foreach ($asset_types as $type): ?>
+                                        <option value="<?php echo $type['id'] ?>" <?php echo $type_filter == $type['id'] ? 'selected' : '' ?>>
+                                            <?php echo $type['display_name'] ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">وضعیت</label>
+                                <select name="status_filter" class="form-select" id="statusFilter">
+                                    <option value="">همه وضعیت‌ها</option>
+                                    <option value="فعال" <?php echo $status_filter == 'فعال' ? 'selected' : '' ?>>فعال</option>
+                                    <option value="غیرفعال" <?php echo $status_filter == 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
+                                    <option value="در حال تعمیر" <?php echo $status_filter == 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
+                                    <option value="آماده بهره‌برداری" <?php echo $status_filter == 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <select name="type_filter" class="form-select">
-                                <option value="">همه انواع</option>
-                                <?php foreach ($asset_types as $type): ?>
-                                    <option value="<?php echo $type['id'] ?>" <?php echo $type_filter == $type['id'] ? 'selected' : '' ?>>
-                                        <?php echo $type['display_name'] ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <select name="status_filter" class="form-select">
-                                <option value="">همه وضعیت‌ها</option>
-                                <option value="فعال" <?php echo $status_filter == 'فعال' ? 'selected' : '' ?>>فعال</option>
-                                <option value="غیرفعال" <?php echo $status_filter == 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
-                                <option value="در حال تعمیر" <?php echo $status_filter == 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
-                                <option value="آماده بهره‌برداری" <?php echo $status_filter == 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-filter"></i> اعمال فیلتر
-                            </button>
-                        </div>
-                        <div class="col-md-2">
-                            <a href="assets.php" class="btn btn-outline-secondary w-100">
-                                <i class="fas fa-times"></i> حذف فیلتر
-                            </a>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                                        <i class="fas fa-times me-1"></i>پاک کردن
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" onclick="showAllAssets()">
+                                        <i class="fas fa-list me-1"></i>نمایش همه دارایی‌ها
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -525,6 +685,58 @@ $filtered_count = count($assets);
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
                 <?php unset($_SESSION['success']); ?>
+            <?php endif; ?>
+
+            <!-- نمایش نتایج جستجو -->
+            <?php if (!empty($search)): ?>
+                <div class="search-results mb-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-search me-2"></i>نتایج جستجو برای: "<?php echo htmlspecialchars($search) ?>"
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <?php if ($search_type === 'all'): ?>
+                                <!-- نمایش نتایج همه بخش‌ها -->
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <h3 class="text-primary"><?php echo count($assets); ?></h3>
+                                                <p class="mb-0">دارایی‌ها</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <h3 class="text-success"><?php echo count($customers); ?></h3>
+                                                <p class="mb-0">مشتریان</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <h3 class="text-warning"><?php echo count($assignments); ?></h3>
+                                                <p class="mb-0">انتساب‌ها</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card text-center">
+                                            <div class="card-body">
+                                                <h3 class="text-info"><?php echo count($suppliers); ?></h3>
+                                                <p class="mb-0">تامین‌کنندگان</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error'])): ?>
@@ -1194,9 +1406,17 @@ $filtered_count = count($assets);
             </div>
 
             <!-- لیست دارایی‌های ثبت شده -->
+            <?php if (!empty($search) && ($search_type === 'all' || $search_type === 'assets')): ?>
             <div class="card mt-4">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-list"></i> لیست دارایی‌های ثبت شده</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> 
+                        <?php if ($search_type === 'all'): ?>
+                            دارایی‌های یافت شده (<?php echo count($assets); ?> مورد)
+                        <?php else: ?>
+                            لیست دارایی‌های ثبت شده
+                        <?php endif; ?>
+                    </h5>
                 </div>
                 <div class="card-body">
                     <?php if (count($assets) > 0): ?>
@@ -1299,11 +1519,31 @@ $filtered_count = count($assets);
                         </div>
                     <?php else: ?>
                         <div class="alert alert-info text-center">
-                            <i class="fas fa-info-circle"></i> هیچ دارایی ثبت نشده است.
+                            <i class="fas fa-info-circle"></i> 
+                            <?php if (!empty($search)): ?>
+                                هیچ دارایی با عبارت "<?php echo htmlspecialchars($search) ?>" یافت نشد.
+                            <?php else: ?>
+                                هیچ دارایی ثبت نشده است.
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
+            <?php elseif (empty($search)): ?>
+            <!-- پیام راهنما برای جستجو -->
+            <div class="card mt-4">
+                <div class="card-body text-center py-5">
+                    <div class="display-1 text-muted mb-4">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3 class="text-muted mb-3">برای مشاهده دارایی‌ها جستجو کنید</h3>
+                    <p class="text-muted mb-4">از سیستم جستجوی جامع بالا استفاده کنید تا دارایی‌ها، مشتریان، انتساب‌ها و تامین‌کنندگان را پیدا کنید.</p>
+                    <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('searchInput').focus()">
+                        <i class="fas fa-search me-2"></i>شروع جستجو
+                    </button>
+                </div>
+            </div>
+            <?php endif; ?>
 
         </div>
     </div>
@@ -1969,7 +2209,58 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Initialize step navigation
     updateStepNav();
+    
+    // مدیریت جستجو
+    const searchInput = document.getElementById('searchInput');
+    const searchType = document.getElementById('searchType');
+    const typeFilter = document.getElementById('typeFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    
+    // تغییر نوع جستجو
+    searchType.addEventListener('change', function() {
+        if (this.value === 'all') {
+            typeFilter.disabled = false;
+            statusFilter.disabled = false;
+        } else {
+            typeFilter.disabled = true;
+            statusFilter.disabled = true;
+        }
+    });
+    
+    // جستجوی خودکار با تاخیر
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (this.value.length >= 2) {
+                document.getElementById('searchForm').submit();
+            }
+        }, 500);
+    });
+    
+    // Enter key برای جستجو
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('searchForm').submit();
+        }
+    });
 });
+
+// توابع کمکی
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchType').value = 'all';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    window.location.href = 'assets.php';
+}
+
+function showAllAssets() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchType').value = 'assets';
+    document.getElementById('searchForm').submit();
+}
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
