@@ -642,24 +642,57 @@ $filtered_count = count($assets);
         .nav-tabs .nav-link {
             border: 1px solid transparent;
             border-radius: 0.375rem 0.375rem 0 0;
-            font-weight: 500;
+            font-weight: 600;
             transition: all 0.3s ease;
+            color: #6c757d !important;
+            background-color: #f8f9fa;
         }
         
         .nav-tabs .nav-link:hover {
             border-color: #e9ecef #e9ecef #dee2e6;
-            background-color: #f8f9fa;
+            background-color: #e9ecef;
+            color: #495057 !important;
         }
         
         .nav-tabs .nav-link.active {
-            color: #495057;
-            background-color: #fff;
-            border-color: #dee2e6 #dee2e6 #fff;
-            font-weight: 600;
+            color: #fff !important;
+            background-color: #ffc107;
+            border-color: #ffc107 #ffc107 #fff;
+            font-weight: 700;
+            box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
         }
         
         .nav-tabs .nav-link i {
             font-size: 0.9em;
+            margin-right: 0.25rem;
+        }
+        
+        /* بهبود رنگ‌بندی تب‌های خاص */
+        #available-tools-tab {
+            color: #28a745 !important;
+        }
+        
+        #available-tools-tab:hover {
+            color: #fff !important;
+            background-color: #28a745;
+        }
+        
+        #issued-tools-tab {
+            color: #17a2b8 !important;
+        }
+        
+        #issued-tools-tab:hover {
+            color: #fff !important;
+            background-color: #17a2b8;
+        }
+        
+        #overdue-tools-tab {
+            color: #dc3545 !important;
+        }
+        
+        #overdue-tools-tab:hover {
+            color: #fff !important;
+            background-color: #dc3545;
         }
         
         /* بهبود ظاهر کارت‌های آمار */
