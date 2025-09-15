@@ -224,6 +224,114 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
     }
 }
 
+// افزودن ابزار جدید
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_tool'])) {
+    verifyCsrfToken();
+    try {
+        $pdo->beginTransaction();
+        
+        // تولید کد ابزار
+        $tool_code = 'T' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        // بررسی یکتایی کد
+        $check_stmt = $pdo->prepare("SELECT id FROM tools WHERE tool_code = ?");
+        $check_stmt->execute([$tool_code]);
+        while ($check_stmt->fetch()) {
+            $tool_code = 'T' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $check_stmt->execute([$tool_code]);
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO tools (
+            tool_code, name, category, brand, model, serial_number, 
+            purchase_date, purchase_price, supplier, location, 
+            condition_notes, next_maintenance_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $tool_code,
+            sanitizeInput($_POST['tool_name']),
+            sanitizeInput($_POST['tool_category']),
+            sanitizeInput($_POST['tool_brand'] ?? ''),
+            sanitizeInput($_POST['tool_model'] ?? ''),
+            sanitizeInput($_POST['tool_serial'] ?? ''),
+            $_POST['tool_purchase_date'] ?: null,
+            $_POST['tool_price'] ?: null,
+            sanitizeInput($_POST['tool_supplier'] ?? ''),
+            sanitizeInput($_POST['tool_location'] ?? ''),
+            sanitizeInput($_POST['tool_notes'] ?? ''),
+            $_POST['tool_next_maintenance'] ?: null
+        ]);
+        
+        $pdo->commit();
+        $_SESSION['success'] = "ابزار با موفقیت اضافه شد!";
+        logAction($pdo, 'ADD_TOOL', "افزودن ابزار جدید: " . sanitizeInput($_POST['tool_name']) . " (کد: $tool_code)");
+        header('Location: assets.php');
+        exit();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = "خطا در افزودن ابزار: " . $e->getMessage();
+        logAction($pdo, 'ADD_TOOL_ERROR', "خطا در افزودن ابزار: " . $e->getMessage());
+    }
+}
+
+// تحویل ابزار
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['issue_tool'])) {
+    verifyCsrfToken();
+    try {
+        $pdo->beginTransaction();
+        
+        $tool_id = (int)$_POST['tool_id'];
+        $issued_to = sanitizeInput($_POST['issued_to']);
+        $issue_date = $_POST['issue_date'];
+        $expected_return_date = $_POST['expected_return_date'] ?: null;
+        $purpose = sanitizeInput($_POST['purpose'] ?? '');
+        $condition_before = sanitizeInput($_POST['condition_before'] ?? '');
+        $notes = sanitizeInput($_POST['notes'] ?? '');
+        
+        // بررسی موجود بودن ابزار
+        $check_stmt = $pdo->prepare("SELECT tool_code, name FROM tools WHERE id = ? AND status = 'موجود'");
+        $check_stmt->execute([$tool_id]);
+        $tool = $check_stmt->fetch();
+        
+        if (!$tool) {
+            throw new Exception("ابزار انتخاب شده موجود نیست یا قبلاً تحویل داده شده است.");
+        }
+        
+        // ثبت تحویل
+        $stmt = $pdo->prepare("INSERT INTO tool_issues (
+            tool_id, issued_to, issued_by, issue_date, expected_return_date,
+            purpose, condition_before, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $tool_id,
+            $issued_to,
+            $_SESSION['user_id'],
+            $issue_date,
+            $expected_return_date,
+            $purpose,
+            $condition_before,
+            $notes
+        ]);
+        
+        // تغییر وضعیت ابزار
+        $update_stmt = $pdo->prepare("UPDATE tools SET status = 'تحویل_داده_شده' WHERE id = ?");
+        $update_stmt->execute([$tool_id]);
+        
+        $pdo->commit();
+        $_SESSION['success'] = "ابزار با موفقیت تحویل داده شد!";
+        logAction($pdo, 'ISSUE_TOOL', "تحویل ابزار: " . $tool['name'] . " به " . $issued_to);
+        header('Location: assets.php');
+        exit();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = "خطا در تحویل ابزار: " . $e->getMessage();
+        logAction($pdo, 'ISSUE_TOOL_ERROR', "خطا در تحویل ابزار: " . $e->getMessage());
+    }
+}
+
 if (isset($_GET['delete_id'])) {
     checkPermission('ادمین');
     $delete_id = (int)$_GET['delete_id'];
@@ -277,7 +385,81 @@ $assets = [];
 $customers = [];
 $assignments = [];
 $suppliers = [];
+$tools = [];
+$tools_issued = [];
+$tools_returned = [];
+$tools_overdue = [];
 $search_results = [];
+
+// ایجاد جداول ابزارها
+try {
+    // جدول ابزارها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tools (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tool_code VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        category ENUM('ابزار_دستی', 'ابزار_برقی', 'تجهیزات_اندازه_گیری', 'تجهیزات_ایمنی', 'سایر') NOT NULL,
+        brand VARCHAR(100),
+        model VARCHAR(100),
+        serial_number VARCHAR(100),
+        purchase_date DATE,
+        purchase_price DECIMAL(10,2),
+        supplier VARCHAR(255),
+        location VARCHAR(255),
+        status ENUM('موجود', 'تحویل_داده_شده', 'تعمیر', 'از_دست_رفته', 'خراب') DEFAULT 'موجود',
+        condition_notes TEXT,
+        maintenance_date DATE,
+        next_maintenance_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tool_code (tool_code),
+        INDEX idx_category (category),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول تحویل ابزارها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_issues (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tool_id INT NOT NULL,
+        issued_to VARCHAR(255) NOT NULL,
+        issued_by INT NOT NULL,
+        issue_date DATE NOT NULL,
+        expected_return_date DATE,
+        actual_return_date DATE,
+        purpose TEXT,
+        condition_before TEXT,
+        condition_after TEXT,
+        notes TEXT,
+        status ENUM('تحویل_داده_شده', 'برگشت_داده_شده', 'تاخیر_در_برگشت') DEFAULT 'تحویل_داده_شده',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tool_id (tool_id),
+        INDEX idx_issued_to (issued_to),
+        INDEX idx_status (status),
+        INDEX idx_issue_date (issue_date),
+        FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // دریافت آمار ابزارها
+    $tools_stmt = $pdo->query("SELECT * FROM tools WHERE status = 'موجود'");
+    $tools = $tools_stmt->fetchAll();
+    
+    $tools_issued_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'تحویل_داده_شده'");
+    $tools_issued = $tools_issued_stmt->fetchAll();
+    
+    $tools_returned_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'برگشت_داده_شده'");
+    $tools_returned = $tools_returned_stmt->fetchAll();
+    
+    $tools_overdue_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'تاخیر_در_برگشت' OR (status = 'تحویل_داده_شده' AND expected_return_date < CURDATE())");
+    $tools_overdue = $tools_overdue_stmt->fetchAll();
+    
+} catch (Exception $e) {
+    error_log("Error creating tools tables: " . $e->getMessage());
+    $tools = [];
+    $tools_issued = [];
+    $tools_returned = [];
+    $tools_overdue = [];
+}
 
 // جستجو در دارایی‌ها
 if ($search_type === 'all' || $search_type === 'assets') {
@@ -756,6 +938,69 @@ $filtered_count = count($assets);
                                             <div class="card-body">
                                                 <h3 class="text-info"><?php echo count($suppliers); ?></h3>
                                                 <p class="mb-0">تامین‌کنندگان</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- کارت مدیریت ابزارها -->
+                                <div class="row mt-4">
+                                    <div class="col-12">
+                                        <div class="card border-warning">
+                                            <div class="card-header bg-warning text-dark">
+                                                <h5 class="mb-0">
+                                                    <i class="fas fa-tools me-2"></i>مدیریت ابزارها و تجهیزات نصب
+                                                </h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-3">
+                                                        <div class="card text-center border-0 bg-light">
+                                                            <div class="card-body">
+                                                                <i class="fas fa-wrench fa-2x text-warning mb-2"></i>
+                                                                <h4 class="text-warning"><?php echo count($tools ?? []); ?></h4>
+                                                                <p class="mb-0">ابزارهای موجود</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card text-center border-0 bg-light">
+                                                            <div class="card-body">
+                                                                <i class="fas fa-hand-holding fa-2x text-success mb-2"></i>
+                                                                <h4 class="text-success"><?php echo count($tools_issued ?? []); ?></h4>
+                                                                <p class="mb-0">تحویل داده شده</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card text-center border-0 bg-light">
+                                                            <div class="card-body">
+                                                                <i class="fas fa-undo fa-2x text-info mb-2"></i>
+                                                                <h4 class="text-info"><?php echo count($tools_returned ?? []); ?></h4>
+                                                                <p class="mb-0">برگشت داده شده</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card text-center border-0 bg-light">
+                                                            <div class="card-body">
+                                                                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                                                                <h4 class="text-danger"><?php echo count($tools_overdue ?? []); ?></h4>
+                                                                <p class="mb-0">تاخیر در برگشت</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-3">
+                                                    <div class="col-12 text-center">
+                                                        <button type="button" class="btn btn-warning btn-lg me-2" data-bs-toggle="modal" data-bs-target="#toolsModal">
+                                                            <i class="fas fa-tools me-2"></i>مدیریت ابزارها
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-warning btn-lg" data-bs-toggle="modal" data-bs-target="#issueToolModal">
+                                                            <i class="fas fa-hand-holding me-2"></i>تحویل ابزار
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2290,7 +2535,459 @@ function showAllAssets() {
     document.getElementById('statusFilter').value = '';
     document.getElementById('searchForm').submit();
 }
+
+// توابع مدیریت ابزارها
+document.addEventListener('DOMContentLoaded', function() {
+    // بارگذاری ابزارهای موجود برای تحویل
+    loadAvailableTools();
+    
+    // بارگذاری داده‌های ابزارها
+    loadToolsData();
+});
+
+function loadAvailableTools() {
+    fetch('get_available_tools.php')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.querySelector('select[name="tool_id"]');
+            select.innerHTML = '<option value="">انتخاب کنید</option>';
+            
+            data.forEach(tool => {
+                const option = document.createElement('option');
+                option.value = tool.id;
+                option.textContent = `${tool.tool_code} - ${tool.name} (${tool.brand || 'بدون برند'})`;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error loading tools:', error));
+}
+
+function loadToolsData() {
+    // بارگذاری همه ابزارها
+    loadToolsTable('allToolsTableBody', 'all');
+    
+    // بارگذاری ابزارهای موجود
+    loadToolsTable('availableToolsTableBody', 'available');
+    
+    // بارگذاری ابزارهای تحویل داده شده
+    loadToolsTable('issuedToolsTableBody', 'issued');
+    
+    // بارگذاری ابزارهای تاخیر در برگشت
+    loadToolsTable('overdueToolsTableBody', 'overdue');
+}
+
+function loadToolsTable(tableBodyId, type) {
+    fetch(`get_tools_data.php?type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById(tableBodyId);
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">هیچ داده‌ای یافت نشد</td></tr>';
+                return;
+            }
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                
+                if (type === 'all') {
+                    row.innerHTML = `
+                        <td>${item.tool_code}</td>
+                        <td>${item.name}</td>
+                        <td><span class="badge bg-secondary">${item.category}</span></td>
+                        <td>${item.brand || '-'}</td>
+                        <td><span class="badge bg-${getStatusColor(item.status)}">${item.status}</span></td>
+                        <td>${item.location || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewTool(${item.id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="editTool(${item.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    `;
+                } else if (type === 'available') {
+                    row.innerHTML = `
+                        <td>${item.tool_code}</td>
+                        <td>${item.name}</td>
+                        <td><span class="badge bg-secondary">${item.category}</span></td>
+                        <td>${item.brand || '-'}</td>
+                        <td>${item.location || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="issueTool(${item.id})">
+                                <i class="fas fa-hand-holding"></i> تحویل
+                            </button>
+                        </td>
+                    `;
+                } else if (type === 'issued') {
+                    row.innerHTML = `
+                        <td>${item.tool_code}</td>
+                        <td>${item.name}</td>
+                        <td>${item.issued_to}</td>
+                        <td>${item.issue_date}</td>
+                        <td>${item.expected_return_date || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="returnTool(${item.id})">
+                                <i class="fas fa-undo"></i> برگشت
+                            </button>
+                        </td>
+                    `;
+                } else if (type === 'overdue') {
+                    const daysOverdue = Math.ceil((new Date() - new Date(item.expected_return_date)) / (1000 * 60 * 60 * 24));
+                    row.innerHTML = `
+                        <td>${item.tool_code}</td>
+                        <td>${item.name}</td>
+                        <td>${item.issued_to}</td>
+                        <td>${item.issue_date}</td>
+                        <td><span class="badge bg-danger">${daysOverdue} روز</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="remindReturn(${item.id})">
+                                <i class="fas fa-bell"></i> یادآوری
+                            </button>
+                        </td>
+                    `;
+                }
+                
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => console.error('Error loading tools data:', error));
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'موجود': return 'success';
+        case 'تحویل_داده_شده': return 'warning';
+        case 'تعمیر': return 'info';
+        case 'از_دست_رفته': return 'danger';
+        case 'خراب': return 'dark';
+        default: return 'secondary';
+    }
+}
+
+function viewTool(toolId) {
+    // نمایش جزئیات ابزار
+    alert('نمایش جزئیات ابزار: ' + toolId);
+}
+
+function editTool(toolId) {
+    // ویرایش ابزار
+    alert('ویرایش ابزار: ' + toolId);
+}
+
+function issueTool(toolId) {
+    // تحویل ابزار
+    document.querySelector('select[name="tool_id"]').value = toolId;
+    const modal = new bootstrap.Modal(document.getElementById('issueToolModal'));
+    modal.show();
+}
+
+function returnTool(issueId) {
+    // برگشت ابزار
+    if (confirm('آیا مطمئن هستید که این ابزار برگشت داده شده است؟')) {
+        // ارسال درخواست برگشت
+        fetch('return_tool.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({issue_id: issueId})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('ابزار با موفقیت برگشت داده شد');
+                loadToolsData();
+            } else {
+                alert('خطا در برگشت ابزار: ' + data.message);
+            }
+        });
+    }
+}
+
+function remindReturn(issueId) {
+    // یادآوری برگشت ابزار
+    alert('یادآوری برگشت ابزار ارسال شد');
+}
 </script>
+
+<!-- مودال مدیریت ابزارها -->
+<div class="modal fade" id="toolsModal" tabindex="-1" aria-labelledby="toolsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="toolsModalLabel">
+                    <i class="fas fa-tools me-2"></i>مدیریت ابزارها و تجهیزات نصب
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addToolModal">
+                            <i class="fas fa-plus me-2"></i>افزودن ابزار جدید
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="toolSearchInput" placeholder="جستجو در ابزارها...">
+                            <button class="btn btn-outline-secondary" type="button" id="toolSearchBtn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- تب‌های ابزارها -->
+                <ul class="nav nav-tabs" id="toolsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="all-tools-tab" data-bs-toggle="tab" data-bs-target="#all-tools" type="button" role="tab">
+                            همه ابزارها
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="available-tools-tab" data-bs-toggle="tab" data-bs-target="#available-tools" type="button" role="tab">
+                            ابزارهای موجود
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="issued-tools-tab" data-bs-toggle="tab" data-bs-target="#issued-tools" type="button" role="tab">
+                            تحویل داده شده
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="overdue-tools-tab" data-bs-toggle="tab" data-bs-target="#overdue-tools" type="button" role="tab">
+                            تاخیر در برگشت
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content mt-3" id="toolsTabContent">
+                    <!-- همه ابزارها -->
+                    <div class="tab-pane fade show active" id="all-tools" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>کد ابزار</th>
+                                        <th>نام</th>
+                                        <th>دسته‌بندی</th>
+                                        <th>برند</th>
+                                        <th>وضعیت</th>
+                                        <th>مکان</th>
+                                        <th>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allToolsTableBody">
+                                    <!-- داده‌ها با JavaScript پر می‌شود -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- ابزارهای موجود -->
+                    <div class="tab-pane fade" id="available-tools" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>کد ابزار</th>
+                                        <th>نام</th>
+                                        <th>دسته‌بندی</th>
+                                        <th>برند</th>
+                                        <th>مکان</th>
+                                        <th>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="availableToolsTableBody">
+                                    <!-- داده‌ها با JavaScript پر می‌شود -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- تحویل داده شده -->
+                    <div class="tab-pane fade" id="issued-tools" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-warning">
+                                    <tr>
+                                        <th>کد ابزار</th>
+                                        <th>نام</th>
+                                        <th>تحویل به</th>
+                                        <th>تاریخ تحویل</th>
+                                        <th>تاریخ برگشت مورد انتظار</th>
+                                        <th>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="issuedToolsTableBody">
+                                    <!-- داده‌ها با JavaScript پر می‌شود -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- تاخیر در برگشت -->
+                    <div class="tab-pane fade" id="overdue-tools" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-danger">
+                                    <tr>
+                                        <th>کد ابزار</th>
+                                        <th>نام</th>
+                                        <th>تحویل به</th>
+                                        <th>تاریخ تحویل</th>
+                                        <th>تاخیر (روز)</th>
+                                        <th>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overdueToolsTableBody">
+                                    <!-- داده‌ها با JavaScript پر می‌شود -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- مودال افزودن ابزار جدید -->
+<div class="modal fade" id="addToolModal" tabindex="-1" aria-labelledby="addToolModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="addToolModalLabel">
+                    <i class="fas fa-plus me-2"></i>افزودن ابزار جدید
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addToolForm" method="POST">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">نام ابزار *</label>
+                            <input type="text" class="form-control" name="tool_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">دسته‌بندی *</label>
+                            <select class="form-select" name="tool_category" required>
+                                <option value="">انتخاب کنید</option>
+                                <option value="ابزار_دستی">ابزار دستی</option>
+                                <option value="ابزار_برقی">ابزار برقی</option>
+                                <option value="تجهیزات_اندازه_گیری">تجهیزات اندازه‌گیری</option>
+                                <option value="تجهیزات_ایمنی">تجهیزات ایمنی</option>
+                                <option value="سایر">سایر</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">برند</label>
+                            <input type="text" class="form-control" name="tool_brand">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">مدل</label>
+                            <input type="text" class="form-control" name="tool_model">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">شماره سریال</label>
+                            <input type="text" class="form-control" name="tool_serial">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تاریخ خرید</label>
+                            <input type="date" class="form-control" name="tool_purchase_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">قیمت خرید (ریال)</label>
+                            <input type="number" class="form-control" name="tool_price" step="0.01">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تامین‌کننده</label>
+                            <input type="text" class="form-control" name="tool_supplier">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">مکان نگهداری</label>
+                            <input type="text" class="form-control" name="tool_location">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تاریخ تعمیر بعدی</label>
+                            <input type="date" class="form-control" name="tool_next_maintenance">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">یادداشت‌ها</label>
+                            <textarea class="form-control" name="tool_notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-success" name="add_tool">
+                        <i class="fas fa-save me-2"></i>ذخیره ابزار
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- مودال تحویل ابزار -->
+<div class="modal fade" id="issueToolModal" tabindex="-1" aria-labelledby="issueToolModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="issueToolModalLabel">
+                    <i class="fas fa-hand-holding me-2"></i>تحویل ابزار
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="issueToolForm" method="POST">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">انتخاب ابزار *</label>
+                            <select class="form-select" name="tool_id" required>
+                                <option value="">انتخاب کنید</option>
+                                <!-- با JavaScript پر می‌شود -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تحویل به *</label>
+                            <input type="text" class="form-control" name="issued_to" required placeholder="نام شخص یا بخش">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تاریخ تحویل *</label>
+                            <input type="date" class="form-control" name="issue_date" value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">تاریخ برگشت مورد انتظار</label>
+                            <input type="date" class="form-control" name="expected_return_date">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">هدف استفاده</label>
+                            <textarea class="form-control" name="purpose" rows="2" placeholder="توضیح کوتاه در مورد هدف استفاده از ابزار"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">شرایط ابزار قبل از تحویل</label>
+                            <textarea class="form-control" name="condition_before" rows="2" placeholder="شرایط فیزیکی ابزار قبل از تحویل"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">یادداشت‌ها</label>
+                            <textarea class="form-control" name="notes" rows="2" placeholder="یادداشت‌های اضافی"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-primary" name="issue_tool">
+                        <i class="fas fa-hand-holding me-2"></i>تحویل ابزار
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
