@@ -322,6 +322,7 @@ if ($search_type === 'all' || $search_type === 'customers') {
 
 // جستجو در انتساب‌ها
 if ($search_type === 'all' || $search_type === 'assignments') {
+    $assignments = [];
     try {
         // بررسی وجود جدول assignments
         $table_exists = $pdo->query("SHOW TABLES LIKE 'assignments'")->fetch();
@@ -342,12 +343,13 @@ if ($search_type === 'all' || $search_type === 'assignments') {
             $stmt = $pdo->prepare($assignment_query);
             $stmt->execute($assignment_params);
             $assignments = $stmt->fetchAll();
-        } else {
-            $assignments = [];
         }
     } catch (Exception $e) {
         $assignments = [];
-        error_log("Error in assignments search: " . $e->getMessage());
+        // فقط در صورت وجود جدول خطا را لاگ کن
+        if (isset($table_exists) && $table_exists) {
+            error_log("Error in assignments search: " . $e->getMessage());
+        }
     }
 }
 
