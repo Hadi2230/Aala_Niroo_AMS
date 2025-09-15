@@ -93,13 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $supplier_code = 'SUP' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
             
             $stmt = $pdo->prepare("INSERT INTO suppliers (
-                supplier_code, company_name, contact_person, supplier_type, business_category,
+                supplier_code, company_name, contact_person, supplier_type, business_category, logo_path,
                 address, city, state, country, postal_code, phone, mobile, fax, email, website,
                 linkedin, whatsapp, instagram, contact_person_name, contact_person_position, contact_person_phone,
                 bank_account, iban, bank_name, bank_branch, economic_code, national_id, registration_number,
                 vat_number, payment_terms, main_products, brands, moq, lead_time, shipping_terms,
                 quality_score, cooperation_start_date, satisfaction_level, importance_level, internal_notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             
             $stmt->execute([
                 $supplier_code,
@@ -107,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['contact_person'],
                 $_POST['supplier_type'],
                 $_POST['business_category'],
+                null, // logo_path - فعلاً null
                 $_POST['address'],
                 $_POST['city'],
                 $_POST['state'],
