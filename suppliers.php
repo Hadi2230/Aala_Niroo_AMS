@@ -9,8 +9,26 @@ require_once __DIR__ . '/config.php';
 // بررسی embed mode
 $is_embed = isset($_GET['embed']) && $_GET['embed'] == '1';
 
-// ایجاد جدول suppliers اگر وجود ندارد
+// تنظیمات اپلود فایل
+$upload_base_dir = __DIR__ . '/uploads/suppliers/';
+$upload_web_base = 'uploads/suppliers/';
+$max_file_size = 10 * 1024 * 1024; // 10MB
+$allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'xls', 'xlsx'];
+
+// ایجاد پوشه‌های اپلود
+if (!file_exists($upload_base_dir)) {
+    mkdir($upload_base_dir, 0755, true);
+}
+if (!file_exists($upload_base_dir . 'documents/')) {
+    mkdir($upload_base_dir . 'documents/', 0755, true);
+}
+if (!file_exists($upload_base_dir . 'correspondences/')) {
+    mkdir($upload_base_dir . 'correspondences/', 0755, true);
+}
+
+// ایجاد جداول مورد نیاز
 try {
+    // جدول suppliers
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
         id INT AUTO_INCREMENT PRIMARY KEY,
         supplier_code VARCHAR(50) UNIQUE NOT NULL,
@@ -81,6 +99,45 @@ try {
         INDEX idx_status (status),
         INDEX idx_importance_level (importance_level)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول مدارک تامین‌کنندگان
+    $pdo->exec("CREATE TABLE IF NOT EXISTS supplier_documents (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        supplier_id INT NOT NULL,
+        document_type ENUM('مجوز_فعالیت', 'پروانه_کسب', 'گواهینامه_کیفیت', 'بیمه', 'قرارداد', 'سایر') NOT NULL,
+        document_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size INT,
+        file_type VARCHAR(100),
+        upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        description TEXT,
+        is_active BOOLEAN DEFAULT 1,
+        INDEX idx_supplier_id (supplier_id),
+        INDEX idx_document_type (document_type),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول مکاتبات تامین‌کنندگان
+    $pdo->exec("CREATE TABLE IF NOT EXISTS supplier_correspondences (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        supplier_id INT NOT NULL,
+        correspondence_type ENUM('ایمیل', 'نامه', 'فکس', 'تماس_تلفنی', 'جلسه', 'سایر') NOT NULL,
+        subject VARCHAR(500) NOT NULL,
+        content TEXT,
+        correspondence_date DATE NOT NULL,
+        file_path VARCHAR(500),
+        file_name VARCHAR(255),
+        file_size INT,
+        file_type VARCHAR(100),
+        created_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_important BOOLEAN DEFAULT 0,
+        INDEX idx_supplier_id (supplier_id),
+        INDEX idx_correspondence_type (correspondence_type),
+        INDEX idx_correspondence_date (correspondence_date),
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
 } catch (Exception $e) {
     $error_message = "خطا در ایجاد جدول: " . $e->getMessage();
 }
@@ -144,6 +201,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_POST['importance_level'],
                 $_POST['internal_notes']
             ]);
+            
+            $supplier_id = $pdo->lastInsertId();
+            
+            // اپلود مدارک
+            if (isset($_FILES['documents']) && !empty($_FILES['documents']['name'][0])) {
+                foreach ($_FILES['documents']['name'] as $key => $filename) {
+                    if ($_FILES['documents']['error'][$key] === UPLOAD_ERR_OK) {
+                        $file_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        if (in_array($file_extension, $allowed_extensions)) {
+                            $new_filename = 'doc_' . $supplier_id . '_' . time() . '_' . $key . '.' . $file_extension;
+                            $upload_path = $upload_base_dir . 'documents/' . $new_filename;
+                            
+                            if (move_uploaded_file($_FILES['documents']['tmp_name'][$key], $upload_path)) {
+                                $stmt = $pdo->prepare("INSERT INTO supplier_documents (supplier_id, document_type, document_name, file_path, file_size, file_type, description) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                $stmt->execute([
+                                    $supplier_id,
+                                    $_POST['document_types'][$key] ?? 'سایر',
+                                    $filename,
+                                    $upload_web_base . 'documents/' . $new_filename,
+                                    $_FILES['documents']['size'][$key],
+                                    $_FILES['documents']['type'][$key],
+                                    $_POST['document_descriptions'][$key] ?? ''
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // اپلود مکاتبات
+            if (isset($_FILES['correspondences']) && !empty($_FILES['correspondences']['name'][0])) {
+                foreach ($_FILES['correspondences']['name'] as $key => $filename) {
+                    if ($_FILES['correspondences']['error'][$key] === UPLOAD_ERR_OK) {
+                        $file_extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        if (in_array($file_extension, $allowed_extensions)) {
+                            $new_filename = 'corr_' . $supplier_id . '_' . time() . '_' . $key . '.' . $file_extension;
+                            $upload_path = $upload_base_dir . 'correspondences/' . $new_filename;
+                            
+                            if (move_uploaded_file($_FILES['correspondences']['tmp_name'][$key], $upload_path)) {
+                                $stmt = $pdo->prepare("INSERT INTO supplier_correspondences (supplier_id, correspondence_type, subject, content, correspondence_date, file_path, file_name, file_size, file_type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                                $stmt->execute([
+                                    $supplier_id,
+                                    $_POST['correspondence_types'][$key] ?? 'سایر',
+                                    $_POST['correspondence_subjects'][$key] ?? 'مکاتبه',
+                                    $_POST['correspondence_contents'][$key] ?? '',
+                                    $_POST['correspondence_dates'][$key] ?? date('Y-m-d'),
+                                    $upload_web_base . 'correspondences/' . $new_filename,
+                                    $filename,
+                                    $_FILES['correspondences']['size'][$key],
+                                    $_FILES['correspondences']['type'][$key],
+                                    $_SESSION['user_id']
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
             
             $success_message = "تامین‌کننده با موفقیت اضافه شد!";
             
@@ -695,13 +809,18 @@ try {
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab">
+                                    <i class="fas fa-star me-1"></i>ارزیابی
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents" type="button" role="tab">
                                     <i class="fas fa-file-alt me-1"></i>مدارک
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab">
-                                    <i class="fas fa-star me-1"></i>ارزیابی
+                                <button class="nav-link" id="correspondences-tab" data-bs-toggle="tab" data-bs-target="#correspondences" type="button" role="tab">
+                                    <i class="fas fa-envelope me-1"></i>مکاتبات
                                 </button>
                             </li>
                         </ul>
@@ -927,6 +1046,102 @@ try {
                                     <div class="col-12">
                                         <label class="form-label">یادداشت‌ها و توضیحات داخلی</label>
                                         <textarea class="form-control" name="internal_notes" rows="3" placeholder="یادداشت‌های داخلی"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- مدارک -->
+                            <div class="tab-pane fade" id="documents" role="tabpanel">
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">مدارک تامین‌کننده</h5>
+                                        <div id="documents-container">
+                                            <div class="document-item mb-3 p-3 border rounded">
+                                                <div class="row">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">نوع مدرک</label>
+                                                        <select class="form-select" name="document_types[]">
+                                                            <option value="مجوز_فعالیت">مجوز فعالیت</option>
+                                                            <option value="پروانه_کسب">پروانه کسب</option>
+                                                            <option value="گواهینامه_کیفیت">گواهینامه کیفیت</option>
+                                                            <option value="بیمه">بیمه</option>
+                                                            <option value="قرارداد">قرارداد</option>
+                                                            <option value="سایر">سایر</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">فایل مدرک</label>
+                                                        <input type="file" class="form-control" name="documents[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">توضیحات</label>
+                                                        <input type="text" class="form-control" name="document_descriptions[]" placeholder="توضیحات مدرک">
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label">&nbsp;</label>
+                                                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeDocument(this)">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary" onclick="addDocument()">
+                                            <i class="fas fa-plus me-1"></i>افزودن مدرک جدید
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- مکاتبات -->
+                            <div class="tab-pane fade" id="correspondences" role="tabpanel">
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">مکاتبات تامین‌کننده</h5>
+                                        <div id="correspondences-container">
+                                            <div class="correspondence-item mb-3 p-3 border rounded">
+                                                <div class="row">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">نوع مکاتبه</label>
+                                                        <select class="form-select" name="correspondence_types[]">
+                                                            <option value="ایمیل">ایمیل</option>
+                                                            <option value="نامه">نامه</option>
+                                                            <option value="فکس">فکس</option>
+                                                            <option value="تماس_تلفنی">تماس تلفنی</option>
+                                                            <option value="جلسه">جلسه</option>
+                                                            <option value="سایر">سایر</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">موضوع</label>
+                                                        <input type="text" class="form-control" name="correspondence_subjects[]" placeholder="موضوع مکاتبه">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label">تاریخ</label>
+                                                        <input type="date" class="form-control" name="correspondence_dates[]" value="<?php echo date('Y-m-d'); ?>">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">فایل ضمیمه</label>
+                                                        <input type="file" class="form-control" name="correspondences[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx">
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <label class="form-label">&nbsp;</label>
+                                                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeCorrespondence(this)">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-2">
+                                                    <div class="col-12">
+                                                        <label class="form-label">محتوای مکاتبه</label>
+                                                        <textarea class="form-control" name="correspondence_contents[]" rows="2" placeholder="محتوای مکاتبه"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary" onclick="addCorrespondence()">
+                                            <i class="fas fa-plus me-1"></i>افزودن مکاتبه جدید
+                                        </button>
                                     </div>
                                 </div>
                             </div>
