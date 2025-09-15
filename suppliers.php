@@ -786,7 +786,7 @@ try {
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form method="POST" id="addSupplierForm">
+                    <form method="POST" id="addSupplierForm" enctype="multipart/form-data">
                         <ul class="nav nav-tabs" id="supplierTabs" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab">
@@ -1185,6 +1185,12 @@ try {
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewEvaluation<?php echo $supplier['id']; ?>" type="button">ارزیابی</button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewDocuments<?php echo $supplier['id']; ?>" type="button">مدارک</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewCorrespondences<?php echo $supplier['id']; ?>" type="button">مکاتبات</button>
+                        </li>
                     </ul>
                     <div class="tab-content mt-3">
                         <!-- اطلاعات پایه -->
@@ -1427,6 +1433,118 @@ try {
                                         <label class="info-label">یادداشت‌ها و توضیحات داخلی:</label>
                                         <div class="info-value"><?php echo nl2br(htmlspecialchars($supplier['internal_notes'] ?: '-')); ?></div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- مدارک -->
+                        <div class="tab-pane fade" id="viewDocuments<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="mb-3">مدارک تامین‌کننده</h6>
+                                    <?php
+                                    // دریافت مدارک تامین‌کننده
+                                    $documents_stmt = $pdo->prepare("SELECT * FROM supplier_documents WHERE supplier_id = ? ORDER BY upload_date DESC");
+                                    $documents_stmt->execute([$supplier['id']]);
+                                    $documents = $documents_stmt->fetchAll();
+                                    ?>
+                                    <?php if (count($documents) > 0): ?>
+                                        <div class="row">
+                                            <?php foreach ($documents as $doc): ?>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="card">
+                                                        <div class="card-body">
+                                                            <h6 class="card-title">
+                                                                <i class="fas fa-file-alt me-2"></i>
+                                                                <?php echo htmlspecialchars($doc['document_name']); ?>
+                                                            </h6>
+                                                            <p class="card-text">
+                                                                <small class="text-muted">
+                                                                    <strong>نوع:</strong> <?php echo htmlspecialchars($doc['document_type']); ?><br>
+                                                                    <strong>تاریخ آپلود:</strong> <?php echo jalali_format($doc['upload_date']); ?><br>
+                                                                    <strong>حجم:</strong> <?php echo number_format($doc['file_size'] / 1024, 2); ?> KB
+                                                                </small>
+                                                            </p>
+                                                            <?php if ($doc['description']): ?>
+                                                                <p class="card-text"><?php echo htmlspecialchars($doc['description']); ?></p>
+                                                            <?php endif; ?>
+                                                            <a href="<?php echo htmlspecialchars($doc['file_path']); ?>" class="btn btn-primary btn-sm" target="_blank">
+                                                                <i class="fas fa-download me-1"></i>دانلود
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            هیچ مدرکی برای این تامین‌کننده ثبت نشده است.
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- مکاتبات -->
+                        <div class="tab-pane fade" id="viewCorrespondences<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="mb-3">مکاتبات تامین‌کننده</h6>
+                                    <?php
+                                    // دریافت مکاتبات تامین‌کننده
+                                    $correspondences_stmt = $pdo->prepare("SELECT * FROM supplier_correspondences WHERE supplier_id = ? ORDER BY correspondence_date DESC");
+                                    $correspondences_stmt->execute([$supplier['id']]);
+                                    $correspondences = $correspondences_stmt->fetchAll();
+                                    ?>
+                                    <?php if (count($correspondences) > 0): ?>
+                                        <div class="row">
+                                            <?php foreach ($correspondences as $corr): ?>
+                                                <div class="col-12 mb-3">
+                                                    <div class="card">
+                                                        <div class="card-body">
+                                                            <div class="d-flex justify-content-between align-items-start">
+                                                                <h6 class="card-title">
+                                                                    <i class="fas fa-envelope me-2"></i>
+                                                                    <?php echo htmlspecialchars($corr['subject']); ?>
+                                                                </h6>
+                                                                <span class="badge bg-<?php 
+                                                                    echo $corr['correspondence_type'] === 'ایمیل' ? 'primary' : 
+                                                                        ($corr['correspondence_type'] === 'نامه' ? 'info' : 
+                                                                        ($corr['correspondence_type'] === 'فکس' ? 'warning' : 
+                                                                        ($corr['correspondence_type'] === 'تماس_تلفنی' ? 'success' : 
+                                                                        ($corr['correspondence_type'] === 'جلسه' ? 'danger' : 'secondary')))); 
+                                                                ?>">
+                                                                    <?php echo htmlspecialchars($corr['correspondence_type']); ?>
+                                                                </span>
+                                                            </div>
+                                                            <p class="card-text">
+                                                                <small class="text-muted">
+                                                                    <strong>تاریخ:</strong> <?php echo jalali_format($corr['correspondence_date']); ?><br>
+                                                                    <?php if ($corr['file_name']): ?>
+                                                                        <strong>فایل ضمیمه:</strong> <?php echo htmlspecialchars($corr['file_name']); ?>
+                                                                    <?php endif; ?>
+                                                                </small>
+                                                            </p>
+                                                            <?php if ($corr['content']): ?>
+                                                                <p class="card-text"><?php echo nl2br(htmlspecialchars($corr['content'])); ?></p>
+                                                            <?php endif; ?>
+                                                            <?php if ($corr['file_path']): ?>
+                                                                <a href="<?php echo htmlspecialchars($corr['file_path']); ?>" class="btn btn-outline-primary btn-sm" target="_blank">
+                                                                    <i class="fas fa-download me-1"></i>دانلود فایل
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            هیچ مکاتبه‌ای برای این تامین‌کننده ثبت نشده است.
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -1697,6 +1815,97 @@ try {
                 });
             }
         });
+    // توابع مدیریت مدارک
+    function addDocument() {
+        const container = document.getElementById('documents-container');
+        const newDocument = document.createElement('div');
+        newDocument.className = 'document-item mb-3 p-3 border rounded';
+        newDocument.innerHTML = `
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">نوع مدرک</label>
+                    <select class="form-select" name="document_types[]">
+                        <option value="مجوز_فعالیت">مجوز فعالیت</option>
+                        <option value="پروانه_کسب">پروانه کسب</option>
+                        <option value="گواهینامه_کیفیت">گواهینامه کیفیت</option>
+                        <option value="بیمه">بیمه</option>
+                        <option value="قرارداد">قرارداد</option>
+                        <option value="سایر">سایر</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">فایل مدرک</label>
+                    <input type="file" class="form-control" name="documents[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">توضیحات</label>
+                    <input type="text" class="form-control" name="document_descriptions[]" placeholder="توضیحات مدرک">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeDocument(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(newDocument);
+    }
+    
+    function removeDocument(button) {
+        button.closest('.document-item').remove();
+    }
+    
+    // توابع مدیریت مکاتبات
+    function addCorrespondence() {
+        const container = document.getElementById('correspondences-container');
+        const newCorrespondence = document.createElement('div');
+        newCorrespondence.className = 'correspondence-item mb-3 p-3 border rounded';
+        newCorrespondence.innerHTML = `
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">نوع مکاتبه</label>
+                    <select class="form-select" name="correspondence_types[]">
+                        <option value="ایمیل">ایمیل</option>
+                        <option value="نامه">نامه</option>
+                        <option value="فکس">فکس</option>
+                        <option value="تماس_تلفنی">تماس تلفنی</option>
+                        <option value="جلسه">جلسه</option>
+                        <option value="سایر">سایر</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">موضوع</label>
+                    <input type="text" class="form-control" name="correspondence_subjects[]" placeholder="موضوع مکاتبه">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">تاریخ</label>
+                    <input type="date" class="form-control" name="correspondence_dates[]" value="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">فایل ضمیمه</label>
+                    <input type="file" class="form-control" name="correspondences[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeCorrespondence(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <label class="form-label">محتوای مکاتبه</label>
+                    <textarea class="form-control" name="correspondence_contents[]" rows="2" placeholder="محتوای مکاتبه"></textarea>
+                </div>
+            </div>
+        `;
+        container.appendChild(newCorrespondence);
+    }
+    
+    function removeCorrespondence(button) {
+        button.closest('.correspondence-item').remove();
+    }
     </script>
 </body>
 </html>
