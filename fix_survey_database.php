@@ -92,10 +92,10 @@ try {
                 echo "<tr>";
                 echo "<td>{$row['id']}</td>";
                 echo "<td>{$row['survey_title']}</td>";
-                echo "<td>" . ($row['customer_name'] ?: $row['customer_company'] ?: '-') . "</td>";
+                echo "<td>" . ($row['customer_name'] ? $row['customer_name'] : ($row['customer_company'] ? $row['customer_company'] : '-')) . "</td>";
                 echo "<td>{$row['status']}</td>";
                 echo "<td>{$row['created_at']}</td>";
-                echo "<td>{$row['submitted_by_name'] ?: '-'}</td>";
+                echo "<td>" . ($row['submitted_by_name'] ? $row['submitted_by_name'] : '-') . "</td>";
                 echo "</tr>";
             }
             echo "</table>";
