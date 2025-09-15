@@ -349,6 +349,27 @@ try {
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
         }
         
+        .info-item {
+            margin-bottom: 1rem;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        
+        .info-value {
+            color: #212529;
+            font-size: 1rem;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: 0.375rem;
+            border: 1px solid #e9ecef;
+        }
+        
         .supplier-logo {
             width: 60px;
             height: 60px;
@@ -922,8 +943,289 @@ try {
         </div>
     </div>
 
-    <!-- مودال‌های ویرایش و حذف برای هر تامین‌کننده -->
+    <!-- مودال‌های مشاهده، ویرایش و حذف برای هر تامین‌کننده -->
     <?php foreach ($suppliers as $supplier): ?>
+    <!-- مودال مشاهده جزئیات تامین‌کننده -->
+    <div class="modal fade" id="supplierModal<?php echo $supplier['id']; ?>" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">جزئیات تامین‌کننده: <?php echo htmlspecialchars($supplier['company_name']); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" id="viewTabs<?php echo $supplier['id']; ?>" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#viewBasic<?php echo $supplier['id']; ?>" type="button">اطلاعات پایه</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewContact<?php echo $supplier['id']; ?>" type="button">اطلاعات تماس</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewFinancial<?php echo $supplier['id']; ?>" type="button">اطلاعات مالی</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewProducts<?php echo $supplier['id']; ?>" type="button">محصولات و خدمات</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#viewEvaluation<?php echo $supplier['id']; ?>" type="button">ارزیابی</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3">
+                        <!-- اطلاعات پایه -->
+                        <div class="tab-pane fade show active" id="viewBasic<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">نام شرکت / شخص:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['company_name']); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">کد تامین‌کننده:</label>
+                                        <div class="info-value"><span class="badge bg-primary"><?php echo htmlspecialchars($supplier['supplier_code']); ?></span></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">شخص رابط:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['contact_person'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">نوع تامین‌کننده:</label>
+                                        <div class="info-value">
+                                            <span class="badge bg-<?php echo $supplier['supplier_type'] === 'حقوقی' ? 'info' : 'success'; ?>">
+                                                <?php echo htmlspecialchars($supplier['supplier_type']); ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="info-item">
+                                        <label class="info-label">زمینه فعالیت:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['business_category'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- اطلاعات تماس -->
+                        <div class="tab-pane fade" id="viewContact<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="info-item">
+                                        <label class="info-label">آدرس کامل:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['address'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="info-item">
+                                        <label class="info-label">شهر:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['city'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="info-item">
+                                        <label class="info-label">استان:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['state'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="info-item">
+                                        <label class="info-label">کشور:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['country'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">تلفن ثابت:</label>
+                                        <div class="info-value">
+                                            <?php if ($supplier['phone']): ?>
+                                                <i class="fas fa-phone me-1"></i><?php echo htmlspecialchars($supplier['phone']); ?>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">موبایل:</label>
+                                        <div class="info-value">
+                                            <?php if ($supplier['mobile']): ?>
+                                                <i class="fas fa-mobile-alt me-1"></i><?php echo htmlspecialchars($supplier['mobile']); ?>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">ایمیل:</label>
+                                        <div class="info-value">
+                                            <?php if ($supplier['email']): ?>
+                                                <i class="fas fa-envelope me-1"></i>
+                                                <a href="mailto:<?php echo htmlspecialchars($supplier['email']); ?>"><?php echo htmlspecialchars($supplier['email']); ?></a>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">وب‌سایت:</label>
+                                        <div class="info-value">
+                                            <?php if ($supplier['website']): ?>
+                                                <i class="fas fa-globe me-1"></i>
+                                                <a href="<?php echo htmlspecialchars($supplier['website']); ?>" target="_blank"><?php echo htmlspecialchars($supplier['website']); ?></a>
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- اطلاعات مالی -->
+                        <div class="tab-pane fade" id="viewFinancial<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">شماره حساب بانکی:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['bank_account'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">شماره شبا / IBAN:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['iban'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">نام بانک:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['bank_name'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">شعبه:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['bank_branch'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">کد اقتصادی:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['economic_code'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">شماره ملی:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['national_id'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- محصولات و خدمات -->
+                        <div class="tab-pane fade" id="viewProducts<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="info-item">
+                                        <label class="info-label">کالاها / خدمات اصلی:</label>
+                                        <div class="info-value"><?php echo nl2br(htmlspecialchars($supplier['main_products'] ?: '-')); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">برندهای ارائه‌شده:</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['brands'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">حداقل مقدار سفارش (MOQ):</label>
+                                        <div class="info-value"><?php echo htmlspecialchars($supplier['moq'] ?: '-'); ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ارزیابی -->
+                        <div class="tab-pane fade" id="viewEvaluation<?php echo $supplier['id']; ?>">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">امتیاز کیفیت:</label>
+                                        <div class="info-value">
+                                            <div class="d-flex align-items-center">
+                                                <?php for ($i = 1; $i <= 10; $i++): ?>
+                                                    <i class="fas fa-star<?php echo $i <= $supplier['quality_score'] ? '' : '-o'; ?> text-warning me-1"></i>
+                                                <?php endfor; ?>
+                                                <span class="ms-2">(<?php echo $supplier['quality_score']; ?>/10)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">تاریخ شروع همکاری:</label>
+                                        <div class="info-value"><?php echo $supplier['cooperation_start_date'] ? jalali_format($supplier['cooperation_start_date']) : '-'; ?></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">سطح رضایت:</label>
+                                        <div class="info-value">
+                                            <span class="badge bg-<?php 
+                                                echo $supplier['satisfaction_level'] === 'عالی' ? 'success' : 
+                                                    ($supplier['satisfaction_level'] === 'خوب' ? 'info' : 
+                                                    ($supplier['satisfaction_level'] === 'متوسط' ? 'warning' : 'danger')); 
+                                            ?>">
+                                                <?php echo htmlspecialchars($supplier['satisfaction_level']); ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">سطح اهمیت:</label>
+                                        <div class="info-value">
+                                            <span class="badge bg-<?php 
+                                                echo $supplier['importance_level'] === 'Critical' ? 'danger' : 
+                                                    ($supplier['importance_level'] === 'Preferred' ? 'warning' : 'success'); 
+                                            ?>">
+                                                <?php echo htmlspecialchars($supplier['importance_level']); ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="info-item">
+                                        <label class="info-label">یادداشت‌ها و توضیحات داخلی:</label>
+                                        <div class="info-value"><?php echo nl2br(htmlspecialchars($supplier['internal_notes'] ?: '-')); ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#editSupplierModal<?php echo $supplier['id']; ?>">
+                        <i class="fas fa-edit me-1"></i>ویرایش
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- مودال ویرایش تامین‌کننده -->
     <div class="modal fade" id="editSupplierModal<?php echo $supplier['id']; ?>" tabindex="-1">
         <div class="modal-dialog modal-xl">
