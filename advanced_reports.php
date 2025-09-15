@@ -203,9 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سیستم گزارش‌گیری پیشرفته - اعلا نیرو</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <?php include __DIR__ . '/partials/head.php'; ?>
     <style>
         /* استایل‌های اختصاصی گزارش‌گیری */
         :root {
@@ -291,9 +289,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     </style>
 </head>
-<body>
+<body class="<?php echo isset($_COOKIE['theme']) && $_COOKIE['theme'] === 'dark' ? 'dark-mode' : ''; ?>">
     <!-- افزودن نوار ناوبری -->
-    <?php include 'navbar.php'; ?>
+    <?php include __DIR__ . '/navbar.php'; ?>
 
     <div class="container-fluid mt-4">
         <div class="row">
@@ -339,10 +337,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
                 <!-- بخش‌های مختلف گزارش‌گیری -->
-                <?php include 'report_sections/assets_report.php'; ?>
-                <?php include 'report_sections/customers_report.php'; ?>
-                <?php include 'report_sections/assignments_report.php'; ?>
-                <?php include 'report_sections/statistics_report.php'; ?>
+                <?php include __DIR__ . '/assets_report.php'; ?>
+                <?php include __DIR__ . '/customers_report.php'; ?>
+                <?php include __DIR__ . '/assignments_report.php'; ?>
+                <?php include __DIR__ . '/statistics_report.php'; ?>
             </div>
         </div>
     </div>
