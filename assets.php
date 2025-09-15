@@ -638,6 +638,46 @@ $filtered_count = count($assets);
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
         
+        /* بهبود ظاهر تب‌های ابزارها */
+        .nav-tabs .nav-link {
+            border: 1px solid transparent;
+            border-radius: 0.375rem 0.375rem 0 0;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: #e9ecef #e9ecef #dee2e6;
+            background-color: #f8f9fa;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: #495057;
+            background-color: #fff;
+            border-color: #dee2e6 #dee2e6 #fff;
+            font-weight: 600;
+        }
+        
+        .nav-tabs .nav-link i {
+            font-size: 0.9em;
+        }
+        
+        /* بهبود ظاهر کارت‌های آمار */
+        .bg-light.rounded {
+            transition: all 0.3s ease;
+            border: 1px solid #e9ecef;
+        }
+        
+        .bg-light.rounded:hover {
+            background-color: #f8f9fa !important;
+            border-color: #dee2e6;
+            transform: translateY(-1px);
+        }
+        
+        .fs-4 {
+            font-size: 1.2rem !important;
+        }
+        
         .input-group-text {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -949,62 +989,77 @@ $filtered_count = count($assets);
                 </div>
             <?php endif; ?>
             
-            <!-- کارت مدیریت ابزارها - همیشه نمایش داده می‌شود -->
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0">
-                                <i class="fas fa-tools me-2"></i>مدیریت ابزارها و تجهیزات نصب
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="card text-center border-0 bg-light">
-                                        <div class="card-body">
-                                            <i class="fas fa-wrench fa-2x text-warning mb-2"></i>
-                                            <h4 class="text-warning"><?php echo count($tools ?? []); ?></h4>
-                                            <p class="mb-0">ابزارهای موجود</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center border-0 bg-light">
-                                        <div class="card-body">
-                                            <i class="fas fa-hand-holding fa-2x text-success mb-2"></i>
-                                            <h4 class="text-success"><?php echo count($tools_issued ?? []); ?></h4>
-                                            <p class="mb-0">تحویل داده شده</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center border-0 bg-light">
-                                        <div class="card-body">
-                                            <i class="fas fa-undo fa-2x text-info mb-2"></i>
-                                            <h4 class="text-info"><?php echo count($tools_returned ?? []); ?></h4>
-                                            <p class="mb-0">برگشت داده شده</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center border-0 bg-light">
-                                        <div class="card-body">
-                                            <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
-                                            <h4 class="text-danger"><?php echo count($tools_overdue ?? []); ?></h4>
-                                            <p class="mb-0">تاخیر در برگشت</p>
-                                        </div>
-                                    </div>
+            <!-- کارت مدیریت ابزارها و تجهیزات نصب -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="card-title mb-1">مدیریت ابزارها و تجهیزات نصب</h5>
+                                <p class="text-muted mb-2">ثبت، تحویل و پیگیری ابزارهای نصب و تعمیر</p>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#toolsModal">
+                                        <i class="fas fa-tools me-1"></i>مدیریت ابزارها
+                                    </button>
+                                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#issueToolModal">
+                                        <i class="fas fa-hand-holding me-1"></i>تحویل ابزار
+                                    </button>
                                 </div>
                             </div>
-                            <div class="row mt-3">
-                                <div class="col-12 text-center">
-                                    <button type="button" class="btn btn-warning btn-lg me-2" data-bs-toggle="modal" data-bs-target="#toolsModal">
-                                        <i class="fas fa-tools me-2"></i>مدیریت ابزارها
-                                    </button>
-                                    <button type="button" class="btn btn-outline-warning btn-lg" data-bs-toggle="modal" data-bs-target="#issueToolModal">
-                                        <i class="fas fa-hand-holding me-2"></i>تحویل ابزار
-                                    </button>
+                            <div class="display-4 text-warning"><i class="fas fa-tools"></i></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- آمار ابزارها -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted mb-3">آمار ابزارها</h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-wrench text-warning fs-4"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-2">
+                                            <div class="fw-bold text-warning"><?php echo count($tools ?? []); ?></div>
+                                            <small class="text-muted">موجود</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-hand-holding text-success fs-4"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-2">
+                                            <div class="fw-bold text-success"><?php echo count($tools_issued ?? []); ?></div>
+                                            <small class="text-muted">تحویل داده</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-undo text-info fs-4"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-2">
+                                            <div class="fw-bold text-info"><?php echo count($tools_returned ?? []); ?></div>
+                                            <small class="text-muted">برگشت داده</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded">
+                                        <div class="flex-shrink-0">
+                                            <i class="fas fa-exclamation-triangle text-danger fs-4"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-2">
+                                            <div class="fw-bold text-danger"><?php echo count($tools_overdue ?? []); ?></div>
+                                            <small class="text-muted">تاخیر در برگشت</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2742,25 +2797,25 @@ function remindReturn(issueId) {
                 </div>
                 
                 <!-- تب‌های ابزارها -->
-                <ul class="nav nav-tabs" id="toolsTabs" role="tablist">
+                <ul class="nav nav-tabs nav-fill" id="toolsTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="all-tools-tab" data-bs-toggle="tab" data-bs-target="#all-tools" type="button" role="tab">
-                            همه ابزارها
+                            <i class="fas fa-list me-1"></i>همه ابزارها
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="available-tools-tab" data-bs-toggle="tab" data-bs-target="#available-tools" type="button" role="tab">
-                            ابزارهای موجود
+                            <i class="fas fa-wrench me-1"></i>ابزارهای موجود
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="issued-tools-tab" data-bs-toggle="tab" data-bs-target="#issued-tools" type="button" role="tab">
-                            تحویل داده شده
+                            <i class="fas fa-hand-holding me-1"></i>تحویل داده شده
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="overdue-tools-tab" data-bs-toggle="tab" data-bs-target="#overdue-tools" type="button" role="tab">
-                            تاخیر در برگشت
+                            <i class="fas fa-exclamation-triangle me-1"></i>تاخیر در برگشت
                         </button>
                     </li>
                 </ul>
