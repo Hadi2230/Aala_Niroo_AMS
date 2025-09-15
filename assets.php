@@ -403,9 +403,9 @@ $filtered_count = count($assets);
                 </div>
             </div>
 
-            <!-- کارت‌های جدید: مشتریان و انتساب‌ها -->
+            <!-- کارت‌های جدید: مشتریان، انتساب‌ها و تامین‌کنندگان -->
             <div class="row g-3 mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
@@ -423,7 +423,7 @@ $filtered_count = count($assets);
                     </div>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
@@ -440,6 +440,24 @@ $filtered_count = count($assets);
                         </div>
                     </div>
                 </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="card-title mb-1">مدیریت تامین‌کنندگان</h5>
+                                <p class="text-muted mb-2">مدیریت کامل تامین‌کنندگان، محصولات و خدمات</p>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-outline-primary" data-bs-toggle="collapse" href="#suppliersEmbed" role="button" aria-expanded="false" aria-controls="suppliersEmbed">
+                                        باز کردن داخل همین صفحه
+                                    </a>
+                                    <a class="btn btn-primary" href="suppliers.php" target="_blank">صفحه کامل</a>
+                                </div>
+                            </div>
+                            <div class="display-4 text-success"><i class="fas fa-truck"></i></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- محفظه‌های Embed -->
@@ -452,6 +470,12 @@ $filtered_count = count($assets);
             <div class="collapse mb-4" id="assignmentsEmbed">
                 <div class="embed-container p-2">
                     <iframe class="embed-frame" data-src="assignments.php?embed=1" title="مدیریت انتساب‌ها (Embed)" loading="lazy" referrerpolicy="no-referrer"></iframe>
+                </div>
+            </div>
+
+            <div class="collapse mb-4" id="suppliersEmbed">
+                <div class="embed-container p-2">
+                    <iframe class="embed-frame" data-src="suppliers.php?embed=1" title="مدیریت تامین‌کنندگان (Embed)" loading="lazy" referrerpolicy="no-referrer"></iframe>
                 </div>
             </div>
 
