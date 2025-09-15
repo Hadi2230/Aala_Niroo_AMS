@@ -322,37 +322,59 @@ if ($search_type === 'all' || $search_type === 'customers') {
 
 // جستجو در انتساب‌ها
 if ($search_type === 'all' || $search_type === 'assignments') {
-    $assignment_query = "SELECT a.*, c.full_name as customer_name, c.company as customer_company, 
-                        ast.name as asset_name, ast.serial_number as asset_serial
-                        FROM assignments a 
-                        LEFT JOIN customers c ON a.customer_id = c.id 
-                        LEFT JOIN assets ast ON a.asset_id = ast.id 
-                        WHERE 1=1";
-    $assignment_params = [];
-    if (!empty($search)) {
-        $assignment_query .= " AND (a.notes LIKE ? OR c.full_name LIKE ? OR c.company LIKE ? OR ast.name LIKE ? OR ast.serial_number LIKE ?)";
-        $search_term = "%$search%";
-        $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term;
+    try {
+        // بررسی وجود جدول assignments
+        $table_exists = $pdo->query("SHOW TABLES LIKE 'assignments'")->fetch();
+        if ($table_exists) {
+            $assignment_query = "SELECT a.*, c.full_name as customer_name, c.company as customer_company, 
+                                ast.name as asset_name, ast.serial_number as asset_serial
+                                FROM assignments a 
+                                LEFT JOIN customers c ON a.customer_id = c.id 
+                                LEFT JOIN assets ast ON a.asset_id = ast.id 
+                                WHERE 1=1";
+            $assignment_params = [];
+            if (!empty($search)) {
+                $assignment_query .= " AND (a.notes LIKE ? OR c.full_name LIKE ? OR c.company LIKE ? OR ast.name LIKE ? OR ast.serial_number LIKE ?)";
+                $search_term = "%$search%";
+                $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term;
+            }
+            $assignment_query .= " ORDER BY a.created_at DESC LIMIT 10";
+            $stmt = $pdo->prepare($assignment_query);
+            $stmt->execute($assignment_params);
+            $assignments = $stmt->fetchAll();
+        } else {
+            $assignments = [];
+        }
+    } catch (Exception $e) {
+        $assignments = [];
+        error_log("Error in assignments search: " . $e->getMessage());
     }
-    $assignment_query .= " ORDER BY a.created_at DESC LIMIT 10";
-    $stmt = $pdo->prepare($assignment_query);
-    $stmt->execute($assignment_params);
-    $assignments = $stmt->fetchAll();
 }
 
 // جستجو در تامین‌کنندگان
 if ($search_type === 'all' || $search_type === 'suppliers') {
-    $supplier_query = "SELECT * FROM suppliers WHERE 1=1";
-    $supplier_params = [];
-    if (!empty($search)) {
-        $supplier_query .= " AND (company_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ? OR business_category LIKE ? OR email LIKE ?)";
-        $search_term = "%$search%";
-        $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term;
+    try {
+        // بررسی وجود جدول suppliers
+        $table_exists = $pdo->query("SHOW TABLES LIKE 'suppliers'")->fetch();
+        if ($table_exists) {
+            $supplier_query = "SELECT * FROM suppliers WHERE 1=1";
+            $supplier_params = [];
+            if (!empty($search)) {
+                $supplier_query .= " AND (company_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ? OR business_category LIKE ? OR email LIKE ?)";
+                $search_term = "%$search%";
+                $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term;
+            }
+            $supplier_query .= " ORDER BY created_at DESC LIMIT 10";
+            $stmt = $pdo->prepare($supplier_query);
+            $stmt->execute($supplier_params);
+            $suppliers = $stmt->fetchAll();
+        } else {
+            $suppliers = [];
+        }
+    } catch (Exception $e) {
+        $suppliers = [];
+        error_log("Error in suppliers search: " . $e->getMessage());
     }
-    $supplier_query .= " ORDER BY created_at DESC LIMIT 10";
-    $stmt = $pdo->prepare($supplier_query);
-    $stmt->execute($supplier_params);
-    $suppliers = $stmt->fetchAll();
 }
 
 // ترکیب نتایج جستجو
