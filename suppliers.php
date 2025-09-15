@@ -151,6 +151,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error_message = "خطا در اضافه کردن تامین‌کننده: " . $e->getMessage();
         }
     }
+    
+    // ویرایش تامین‌کننده
+    if (isset($_POST['edit_supplier'])) {
+        try {
+            $supplier_id = (int)$_POST['supplier_id'];
+            
+            $stmt = $pdo->prepare("UPDATE suppliers SET 
+                company_name = ?, contact_person = ?, supplier_type = ?, business_category = ?, logo_path = ?,
+                address = ?, city = ?, state = ?, country = ?, postal_code = ?, phone = ?, mobile = ?, fax = ?, email = ?, website = ?,
+                linkedin = ?, whatsapp = ?, instagram = ?, contact_person_name = ?, contact_person_position = ?, contact_person_phone = ?,
+                bank_account = ?, iban = ?, bank_name = ?, bank_branch = ?, economic_code = ?, national_id = ?, registration_number = ?,
+                vat_number = ?, payment_terms = ?, main_products = ?, brands = ?, moq = ?, lead_time = ?, shipping_terms = ?,
+                quality_score = ?, cooperation_start_date = ?, satisfaction_level = ?, importance_level = ?, internal_notes = ?,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?");
+            
+            $stmt->execute([
+                $_POST['company_name'],
+                $_POST['contact_person'],
+                $_POST['supplier_type'],
+                $_POST['business_category'],
+                null, // logo_path - فعلاً null
+                $_POST['address'],
+                $_POST['city'],
+                $_POST['state'],
+                $_POST['country'],
+                $_POST['postal_code'],
+                $_POST['phone'],
+                $_POST['mobile'],
+                $_POST['fax'],
+                $_POST['email'],
+                $_POST['website'],
+                $_POST['linkedin'],
+                $_POST['whatsapp'],
+                $_POST['instagram'],
+                $_POST['contact_person_name'],
+                $_POST['contact_person_position'],
+                $_POST['contact_person_phone'],
+                $_POST['bank_account'],
+                $_POST['iban'],
+                $_POST['bank_name'],
+                $_POST['bank_branch'],
+                $_POST['economic_code'],
+                $_POST['national_id'],
+                $_POST['registration_number'],
+                $_POST['vat_number'],
+                $_POST['payment_terms'],
+                $_POST['main_products'],
+                $_POST['brands'],
+                $_POST['moq'],
+                $_POST['lead_time'],
+                $_POST['shipping_terms'],
+                $_POST['quality_score'],
+                $_POST['cooperation_start_date'],
+                $_POST['satisfaction_level'],
+                $_POST['importance_level'],
+                $_POST['internal_notes'],
+                $supplier_id
+            ]);
+            
+            $success_message = "تامین‌کننده با موفقیت ویرایش شد!";
+            
+        } catch (Exception $e) {
+            $error_message = "خطا در ویرایش تامین‌کننده: " . $e->getMessage();
+        }
+    }
+    
+    // حذف تامین‌کننده
+    if (isset($_POST['delete_supplier'])) {
+        try {
+            $supplier_id = (int)$_POST['supplier_id'];
+            
+            // حذف فایل‌های مرتبط (اگر وجود داشته باشد)
+            $supplier = $pdo->query("SELECT logo_path FROM suppliers WHERE id = $supplier_id")->fetch();
+            if ($supplier && $supplier['logo_path'] && file_exists($supplier['logo_path'])) {
+                unlink($supplier['logo_path']);
+            }
+            
+            // حذف تامین‌کننده
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            $stmt->execute([$supplier_id]);
+            
+            $success_message = "تامین‌کننده با موفقیت حذف شد!";
+            
+        } catch (Exception $e) {
+            $error_message = "خطا در حذف تامین‌کننده: " . $e->getMessage();
+        }
+    }
 }
 
 // دریافت لیست تامین‌کنندگان
@@ -477,8 +565,7 @@ try {
                 <div class="row">
                     <?php foreach ($suppliers as $supplier): ?>
                         <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card supplier-card importance-<?php echo strtolower($supplier['importance_level']); ?>" 
-                                 data-bs-toggle="modal" data-bs-target="#supplierModal<?php echo $supplier['id']; ?>">
+                            <div class="card supplier-card importance-<?php echo strtolower($supplier['importance_level']); ?>">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center mb-3">
                                         <img src="<?php echo $supplier['logo_path'] ?: 'https://via.placeholder.com/60x60?text=' . substr($supplier['company_name'], 0, 1); ?>" 
@@ -487,9 +574,28 @@ try {
                                             <h6 class="mb-1"><?php echo htmlspecialchars($supplier['company_name']); ?></h6>
                                             <small class="text-muted"><?php echo htmlspecialchars($supplier['supplier_code']); ?></small>
                                         </div>
-                                        <span class="status-badge status-<?php echo strtolower($supplier['status']); ?>">
-                                            <?php echo $supplier['status']; ?>
-                                        </span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="status-badge status-<?php echo strtolower($supplier['status']); ?>">
+                                                <?php echo $supplier['status']; ?>
+                                            </span>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        data-bs-toggle="modal" data-bs-target="#supplierModal<?php echo $supplier['id']; ?>"
+                                                        title="مشاهده جزئیات">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                                        data-bs-toggle="modal" data-bs-target="#editSupplierModal<?php echo $supplier['id']; ?>"
+                                                        title="ویرایش">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        data-bs-toggle="modal" data-bs-target="#deleteSupplierModal<?php echo $supplier['id']; ?>"
+                                                        title="حذف">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     <div class="mb-2">
@@ -815,6 +921,237 @@ try {
             </div>
         </div>
     </div>
+
+    <!-- مودال‌های ویرایش و حذف برای هر تامین‌کننده -->
+    <?php foreach ($suppliers as $supplier): ?>
+    <!-- مودال ویرایش تامین‌کننده -->
+    <div class="modal fade" id="editSupplierModal<?php echo $supplier['id']; ?>" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">ویرایش تامین‌کننده: <?php echo htmlspecialchars($supplier['company_name']); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" id="editSupplierForm<?php echo $supplier['id']; ?>">
+                    <input type="hidden" name="supplier_id" value="<?php echo $supplier['id']; ?>">
+                    <div class="modal-body">
+                        <ul class="nav nav-tabs" id="editTabs<?php echo $supplier['id']; ?>" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#editBasic<?php echo $supplier['id']; ?>" type="button">اطلاعات پایه</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#editContact<?php echo $supplier['id']; ?>" type="button">اطلاعات تماس</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#editFinancial<?php echo $supplier['id']; ?>" type="button">اطلاعات مالی</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#editProducts<?php echo $supplier['id']; ?>" type="button">محصولات و خدمات</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#editEvaluation<?php echo $supplier['id']; ?>" type="button">ارزیابی</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content mt-3">
+                            <!-- اطلاعات پایه -->
+                            <div class="tab-pane fade show active" id="editBasic<?php echo $supplier['id']; ?>">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">نام شرکت / شخص *</label>
+                                        <input type="text" class="form-control" name="company_name" value="<?php echo htmlspecialchars($supplier['company_name']); ?>" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">شخص رابط</label>
+                                        <input type="text" class="form-control" name="contact_person" value="<?php echo htmlspecialchars($supplier['contact_person']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">نوع تامین‌کننده *</label>
+                                        <select class="form-select" name="supplier_type" required>
+                                            <option value="حقوقی" <?php echo $supplier['supplier_type'] === 'حقوقی' ? 'selected' : ''; ?>>حقوقی</option>
+                                            <option value="حقیقی" <?php echo $supplier['supplier_type'] === 'حقیقی' ? 'selected' : ''; ?>>حقیقی</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">زمینه فعالیت</label>
+                                        <input type="text" class="form-control" name="business_category" value="<?php echo htmlspecialchars($supplier['business_category']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- اطلاعات تماس -->
+                            <div class="tab-pane fade" id="editContact<?php echo $supplier['id']; ?>">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <label class="form-label">آدرس کامل</label>
+                                        <textarea class="form-control" name="address" rows="3"><?php echo htmlspecialchars($supplier['address']); ?></textarea>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">شهر</label>
+                                        <input type="text" class="form-control" name="city" value="<?php echo htmlspecialchars($supplier['city']); ?>">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">استان</label>
+                                        <input type="text" class="form-control" name="state" value="<?php echo htmlspecialchars($supplier['state']); ?>">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">کشور</label>
+                                        <input type="text" class="form-control" name="country" value="<?php echo htmlspecialchars($supplier['country']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">تلفن ثابت</label>
+                                        <input type="text" class="form-control" name="phone" value="<?php echo htmlspecialchars($supplier['phone']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">موبایل</label>
+                                        <input type="text" class="form-control" name="mobile" value="<?php echo htmlspecialchars($supplier['mobile']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">ایمیل</label>
+                                        <input type="email" class="form-control" name="email" value="<?php echo htmlspecialchars($supplier['email']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">وب‌سایت</label>
+                                        <input type="url" class="form-control" name="website" value="<?php echo htmlspecialchars($supplier['website']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- اطلاعات مالی -->
+                            <div class="tab-pane fade" id="editFinancial<?php echo $supplier['id']; ?>">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">شماره حساب بانکی</label>
+                                        <input type="text" class="form-control" name="bank_account" value="<?php echo htmlspecialchars($supplier['bank_account']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">شماره شبا / IBAN</label>
+                                        <input type="text" class="form-control" name="iban" value="<?php echo htmlspecialchars($supplier['iban']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">نام بانک</label>
+                                        <input type="text" class="form-control" name="bank_name" value="<?php echo htmlspecialchars($supplier['bank_name']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">شعبه</label>
+                                        <input type="text" class="form-control" name="bank_branch" value="<?php echo htmlspecialchars($supplier['bank_branch']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">کد اقتصادی</label>
+                                        <input type="text" class="form-control" name="economic_code" value="<?php echo htmlspecialchars($supplier['economic_code']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">شماره ملی</label>
+                                        <input type="text" class="form-control" name="national_id" value="<?php echo htmlspecialchars($supplier['national_id']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- محصولات و خدمات -->
+                            <div class="tab-pane fade" id="editProducts<?php echo $supplier['id']; ?>">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <label class="form-label">کالاها / خدمات اصلی</label>
+                                        <textarea class="form-control" name="main_products" rows="3"><?php echo htmlspecialchars($supplier['main_products']); ?></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">برندهای ارائه‌شده</label>
+                                        <input type="text" class="form-control" name="brands" value="<?php echo htmlspecialchars($supplier['brands']); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">حداقل مقدار سفارش (MOQ)</label>
+                                        <input type="text" class="form-control" name="moq" value="<?php echo htmlspecialchars($supplier['moq']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ارزیابی -->
+                            <div class="tab-pane fade" id="editEvaluation<?php echo $supplier['id']; ?>">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">امتیاز کیفیت (0-10)</label>
+                                        <input type="number" class="form-control" name="quality_score" min="0" max="10" step="0.1" value="<?php echo $supplier['quality_score']; ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">تاریخ شروع همکاری</label>
+                                        <input type="date" class="form-control" name="cooperation_start_date" value="<?php echo $supplier['cooperation_start_date']; ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">سطح رضایت</label>
+                                        <select class="form-select" name="satisfaction_level">
+                                            <option value="عالی" <?php echo $supplier['satisfaction_level'] === 'عالی' ? 'selected' : ''; ?>>عالی</option>
+                                            <option value="خوب" <?php echo $supplier['satisfaction_level'] === 'خوب' ? 'selected' : ''; ?>>خوب</option>
+                                            <option value="متوسط" <?php echo $supplier['satisfaction_level'] === 'متوسط' ? 'selected' : ''; ?>>متوسط</option>
+                                            <option value="ضعیف" <?php echo $supplier['satisfaction_level'] === 'ضعیف' ? 'selected' : ''; ?>>ضعیف</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">سطح اهمیت</label>
+                                        <select class="form-select" name="importance_level">
+                                            <option value="Normal" <?php echo $supplier['importance_level'] === 'Normal' ? 'selected' : ''; ?>>عادی</option>
+                                            <option value="Preferred" <?php echo $supplier['importance_level'] === 'Preferred' ? 'selected' : ''; ?>>ترجیحی</option>
+                                            <option value="Critical" <?php echo $supplier['importance_level'] === 'Critical' ? 'selected' : ''; ?>>حیاتی</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">یادداشت‌ها و توضیحات داخلی</label>
+                                        <textarea class="form-control" name="internal_notes" rows="3"><?php echo htmlspecialchars($supplier['internal_notes']); ?></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="edit_supplier" class="btn btn-warning">
+                            <i class="fas fa-save me-1"></i>ویرایش تامین‌کننده
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال حذف تامین‌کننده -->
+    <div class="modal fade" id="deleteSupplierModal<?php echo $supplier['id']; ?>" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">حذف تامین‌کننده</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        آیا مطمئن هستید که می‌خواهید تامین‌کننده زیر را حذف کنید؟
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title"><?php echo htmlspecialchars($supplier['company_name']); ?></h6>
+                            <p class="card-text">
+                                <strong>کد:</strong> <?php echo htmlspecialchars($supplier['supplier_code']); ?><br>
+                                <strong>نوع:</strong> <?php echo htmlspecialchars($supplier['supplier_type']); ?><br>
+                                <strong>زمینه فعالیت:</strong> <?php echo htmlspecialchars($supplier['business_category'] ?: '-'); ?>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        این عمل قابل بازگشت نیست و تمام اطلاعات مربوط به این تامین‌کننده حذف خواهد شد.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <form method="POST" style="display: inline;">
+                        <input type="hidden" name="supplier_id" value="<?php echo $supplier['id']; ?>">
+                        <button type="submit" name="delete_supplier" class="btn btn-danger">
+                            <i class="fas fa-trash me-1"></i>حذف تامین‌کننده
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
