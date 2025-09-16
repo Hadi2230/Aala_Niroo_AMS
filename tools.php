@@ -106,6 +106,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 break;
                 
+            case 'edit_tool':
+                try {
+                    $pdo->beginTransaction();
+                    
+                    $stmt = $pdo->prepare("UPDATE tools SET name = ?, category = ?, brand = ?, model = ?, serial_number = ?, purchase_date = ?, purchase_price = ?, supplier = ?, location = ?, condition_notes = ?, maintenance_date = ?, next_maintenance_date = ? WHERE id = ?");
+                    $stmt->execute([
+                        $_POST['name'],
+                        $_POST['category'],
+                        $_POST['brand'] ?? null,
+                        $_POST['model'] ?? null,
+                        $_POST['serial_number'] ?? null,
+                        $_POST['purchase_date'] ?: null,
+                        $_POST['purchase_price'] ?: null,
+                        $_POST['supplier'] ?? null,
+                        $_POST['location'] ?? null,
+                        $_POST['condition_notes'] ?? null,
+                        $_POST['maintenance_date'] ?: null,
+                        $_POST['next_maintenance_date'] ?: null,
+                        $_POST['tool_id']
+                    ]);
+                    
+                    $pdo->commit();
+                    $_SESSION['success'] = "ابزار با موفقیت ویرایش شد";
+                    logAction($pdo, 'EDIT_TOOL', "ویرایش ابزار: " . $_POST['name'] . " (ID: " . $_POST['tool_id'] . ")");
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['error'] = "خطا در ویرایش ابزار: " . $e->getMessage();
+                    logAction($pdo, 'EDIT_TOOL_ERROR', "خطا در ویرایش ابزار: " . $e->getMessage());
+                }
+                break;
+                
             case 'issue_tool':
                 try {
                     $pdo->beginTransaction();
@@ -133,6 +164,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $pdo->rollBack();
                     $_SESSION['error'] = "خطا در تحویل ابزار: " . $e->getMessage();
                     logAction($pdo, 'ISSUE_TOOL_ERROR', "خطا در تحویل ابزار: " . $e->getMessage());
+                }
+                break;
+                
+            case 'return_tool':
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // به‌روزرسانی وضعیت تحویل ابزار
+                    $stmt = $pdo->prepare("UPDATE tool_issues SET status = 'برگشت_داده_شده', actual_return_date = CURDATE(), condition_after = ? WHERE id = ?");
+                    $stmt->execute([
+                        $_POST['condition_after'] ?? null,
+                        $_POST['tool_issue_id']
+                    ]);
+                    
+                    // به‌روزرسانی وضعیت ابزار
+                    $stmt = $pdo->prepare("UPDATE tools SET status = 'موجود' WHERE id = ?");
+                    $stmt->execute([$_POST['tool_id']]);
+                    
+                    $pdo->commit();
+                    $_SESSION['success'] = "ابزار با موفقیت برگشت داده شد";
+                    logAction($pdo, 'RETURN_TOOL', "برگشت ابزار: " . $_POST['tool_id']);
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['error'] = "خطا در برگشت ابزار: " . $e->getMessage();
+                    logAction($pdo, 'RETURN_TOOL_ERROR', "خطا در برگشت ابزار: " . $e->getMessage());
                 }
                 break;
         }
@@ -525,6 +581,87 @@ try {
         </div>
     </div>
 
+    <!-- مودال ویرایش ابزار -->
+    <div class="modal fade" id="editToolModal" tabindex="-1" aria-labelledby="editToolModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editToolModalLabel">
+                        <i class="fas fa-edit me-2"></i>ویرایش ابزار
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="edit_tool">
+                        <input type="hidden" name="tool_id" id="edit_tool_id">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_name" class="form-label">نام ابزار *</label>
+                                <input type="text" class="form-control" id="edit_name" name="name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_category" class="form-label">دسته‌بندی *</label>
+                                <select class="form-select" id="edit_category" name="category" required>
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="ابزار_دستی">ابزار دستی</option>
+                                    <option value="ابزار_برقی">ابزار برقی</option>
+                                    <option value="تجهیزات_اندازه_گیری">تجهیزات اندازه‌گیری</option>
+                                    <option value="تجهیزات_ایمنی">تجهیزات ایمنی</option>
+                                    <option value="سایر">سایر</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_brand" class="form-label">برند</label>
+                                <input type="text" class="form-control" id="edit_brand" name="brand">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_model" class="form-label">مدل</label>
+                                <input type="text" class="form-control" id="edit_model" name="model">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_serial_number" class="form-label">شماره سریال</label>
+                                <input type="text" class="form-control" id="edit_serial_number" name="serial_number">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_purchase_date" class="form-label">تاریخ خرید</label>
+                                <input type="date" class="form-control" id="edit_purchase_date" name="purchase_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_purchase_price" class="form-label">قیمت خرید</label>
+                                <input type="number" class="form-control" id="edit_purchase_price" name="purchase_price" step="0.01">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_supplier" class="form-label">تامین‌کننده</label>
+                                <input type="text" class="form-control" id="edit_supplier" name="supplier">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_location" class="form-label">مکان</label>
+                                <input type="text" class="form-control" id="edit_location" name="location">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_maintenance_date" class="form-label">تاریخ تعمیر</label>
+                                <input type="date" class="form-control" id="edit_maintenance_date" name="maintenance_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_next_maintenance_date" class="form-label">تاریخ تعمیر بعدی</label>
+                                <input type="date" class="form-control" id="edit_next_maintenance_date" name="next_maintenance_date">
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="edit_condition_notes" class="form-label">یادداشت‌های وضعیت</label>
+                                <textarea class="form-control" id="edit_condition_notes" name="condition_notes" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">ویرایش ابزار</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- مودال تحویل ابزار -->
     <div class="modal fade" id="issueToolModal" tabindex="-1" aria-labelledby="issueToolModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -579,6 +716,47 @@ try {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
                         <button type="submit" class="btn btn-success">تحویل ابزار</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال استرداد ابزار -->
+    <div class="modal fade" id="returnToolModal" tabindex="-1" aria-labelledby="returnToolModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="returnToolModalLabel">
+                        <i class="fas fa-undo me-2"></i>استرداد ابزار
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="return_tool">
+                        <input type="hidden" name="tool_issue_id" id="return_tool_issue_id">
+                        <input type="hidden" name="tool_id" id="return_tool_id">
+                        <div class="mb-3">
+                            <label class="form-label">ابزار</label>
+                            <input type="text" class="form-control" id="return_tool_name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">تحویل به</label>
+                            <input type="text" class="form-control" id="return_issued_to" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">تاریخ تحویل</label>
+                            <input type="text" class="form-control" id="return_issue_date" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="condition_after" class="form-label">وضعیت پس از استرداد *</label>
+                            <textarea class="form-control" id="condition_after" name="condition_after" rows="3" required placeholder="وضعیت ابزار پس از استرداد را شرح دهید..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-info">استرداد ابزار</button>
                     </div>
                 </form>
             </div>
@@ -775,27 +953,22 @@ try {
         // نمایش مودال ویرایش ابزار
         function showEditToolModal(tool) {
             // پر کردن فرم ویرایش
-            document.getElementById('name').value = tool.name;
-            document.getElementById('category').value = tool.category;
-            document.getElementById('brand').value = tool.brand || '';
-            document.getElementById('model').value = tool.model || '';
-            document.getElementById('serial_number').value = tool.serial_number || '';
-            document.getElementById('purchase_date').value = tool.purchase_date || '';
-            document.getElementById('purchase_price').value = tool.purchase_price || '';
-            document.getElementById('supplier').value = tool.supplier || '';
-            document.getElementById('location').value = tool.location || '';
-            document.getElementById('maintenance_date').value = tool.maintenance_date || '';
-            document.getElementById('next_maintenance_date').value = tool.next_maintenance_date || '';
-            document.getElementById('condition_notes').value = tool.condition_notes || '';
+            document.getElementById('edit_tool_id').value = tool.id;
+            document.getElementById('edit_name').value = tool.name;
+            document.getElementById('edit_category').value = tool.category;
+            document.getElementById('edit_brand').value = tool.brand || '';
+            document.getElementById('edit_model').value = tool.model || '';
+            document.getElementById('edit_serial_number').value = tool.serial_number || '';
+            document.getElementById('edit_purchase_date').value = tool.purchase_date || '';
+            document.getElementById('edit_purchase_price').value = tool.purchase_price || '';
+            document.getElementById('edit_supplier').value = tool.supplier || '';
+            document.getElementById('edit_location').value = tool.location || '';
+            document.getElementById('edit_maintenance_date').value = tool.maintenance_date || '';
+            document.getElementById('edit_next_maintenance_date').value = tool.next_maintenance_date || '';
+            document.getElementById('edit_condition_notes').value = tool.condition_notes || '';
             
-            // تغییر action فرم به ویرایش
-            const form = document.querySelector('#addToolModal form');
-            form.action = 'edit_tool.php';
-            form.innerHTML = form.innerHTML.replace('name="action" value="add_tool"', 'name="action" value="edit_tool"');
-            form.innerHTML = form.innerHTML.replace('name="tool_id"', 'name="tool_id" value="' + tool.id + '"');
-            
-            // نمایش مودال
-            new bootstrap.Modal(document.getElementById('addToolModal')).show();
+            // نمایش مودال ویرایش
+            new bootstrap.Modal(document.getElementById('editToolModal')).show();
         }
 
         // تحویل ابزار
@@ -804,33 +977,17 @@ try {
             new bootstrap.Modal(document.getElementById('issueToolModal')).show();
         }
 
-        // برگشت ابزار
-        function returnTool(id) {
-            if (confirm('آیا از برگشت این ابزار مطمئن هستید؟')) {
-                fetch('return_tool.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'tool_issue_id=' + id
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('ابزار با موفقیت برگشت داده شد');
-                        loadToolsData('all');
-                        loadToolsData('available');
-                        loadToolsData('issued');
-                        loadToolsData('overdue');
-                    } else {
-                        alert('خطا در برگشت ابزار: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('خطا در برگشت ابزار');
-                });
-            }
+        // استرداد ابزار
+        function returnTool(toolIssueId, toolId, toolName, issuedTo, issueDate) {
+            // پر کردن فرم استرداد
+            document.getElementById('return_tool_issue_id').value = toolIssueId;
+            document.getElementById('return_tool_id').value = toolId;
+            document.getElementById('return_tool_name').value = toolName;
+            document.getElementById('return_issued_to').value = issuedTo;
+            document.getElementById('return_issue_date').value = issueDate;
+            
+            // نمایش مودال استرداد
+            new bootstrap.Modal(document.getElementById('returnToolModal')).show();
         }
 
         // یادآوری برگشت ابزار
