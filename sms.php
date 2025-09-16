@@ -12,8 +12,8 @@ function send_sms($phone_number, $message) {
     // پیکربندی پنل پیامکی - این مقادیر باید با پنل شما تطبیق داده شوند
     $config = [
         'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=', // کلید API پنل پیامکی
-        'api_url' => 'https://ippanel.com/developers/api-keys', // آدرس API پنل پیامکی
-        'line_number' => '+985000125475', // شماره خط اختصاصی
+        'api_url' => 'https://api2.ippanel.com/api/v1/sms/send/webservice/single', // آدرس صحیح API پنل پیامکی
+        'line_number' => '5000125475', // شماره خط اختصاصی (بدون +)
     ];
     
     try {
@@ -27,13 +27,11 @@ function send_sms($phone_number, $message) {
             ];
         }
         
-        // پارامترهای مورد نیاز برای پنل پیامکی
-        // این بخش باید با documentation پنل پیامکی شما سازگار شود
+        // پارامترهای مورد نیاز برای پنل پیامکی ippanel
         $params = [
-            'mobile' => $phone_number,
+            'recipient' => $phone_number,
             'message' => $message,
-            'lineNumber' => $config['line_number'],
-            // سایر پارامترهای مورد نیاز پنل شما
+            'sender' => $config['line_number'],
         ];
         
         // ارسال درخواست به پنل پیامکی
@@ -47,7 +45,7 @@ function send_sms($phone_number, $message) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Accept: application/json',
-            'X-API-KEY: ' . $config['api_key']
+            'Authorization: Bearer ' . $config['api_key']
         ]);
         
         $response = curl_exec($ch);
