@@ -1,178 +1,162 @@
 <?php
-// sms.php - سیستم ارسال پیامک
+// sms.php
 
 /**
- * ارسال پیامک
- * @param string $phone شماره تلفن
- * @param string $message متن پیام
- * @return array نتیجه ارسال
+ * تابع ارسال پیامک
+ * 
+ * @param string $phone_number شماره تلفن گیرنده
+ * @param string $message متن پیامک
+ * @return array نتیجه عملیات
  */
-function send_sms($phone, $message) {
-    // پاکسازی شماره تلفن
-    $phone = preg_replace('/[^0-9]/', '', $phone);
-    
-    // بررسی فرمت شماره
-    if (strlen($phone) < 10) {
-        return [
-            'success' => false,
-            'message' => 'شماره تلفن نامعتبر است'
-        ];
-    }
-    
-    // اگر شماره با 0 شروع می‌شود، 98 اضافه کن
-    if (substr($phone, 0, 1) === '0') {
-        $phone = '98' . substr($phone, 1);
-    }
-    
-    // اگر شماره با 98 شروع نمی‌شود، اضافه کن
-    if (substr($phone, 0, 2) !== '98') {
-        $phone = '98' . $phone;
-    }
+function send_sms($phone_number, $message) {
+    // پیکربندی پنل پیامکی - این مقادیر باید با پنل شما تطبیق داده شوند
+    $config = [
+        'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=', // کلید API پنل پیامکی
+        'api_url' => 'https://ippanel.com/developers/api-keys', // آدرس API پنل پیامکی
+        'line_number' => '+985000125475', // شماره خط اختصاصی
+    ];
     
     try {
-        // در اینجا باید API واقعی پیامک را پیاده‌سازی کنید
-        // برای مثال از Kavenegar، پیامک، یا سایر سرویس‌ها
+        // شماره تلفن را پاکسازی و فرمت‌دهی کنید
+        $phone_number = normalize_phone_number($phone_number);
         
-        // شبیه‌سازی ارسال پیامک (برای تست)
-        $result = simulate_sms_sending($phone, $message);
-        
-        if ($result) {
-            // ثبت در لاگ
-            error_log("SMS sent successfully to {$phone}: {$message}");
-            
+        if (!$phone_number) {
             return [
-                'success' => true,
-                'message' => 'پیامک با موفقیت ارسال شد',
-                'phone' => $phone,
-                'message_id' => uniqid()
+                'success' => false,
+                'error' => 'شماره تلفن معتبر نیست'
             ];
+        }
+        
+        // پارامترهای مورد نیاز برای پنل پیامکی
+        // این بخش باید با documentation پنل پیامکی شما سازگار شود
+        $params = [
+            'mobile' => $phone_number,
+            'message' => $message,
+            'lineNumber' => $config['line_number'],
+            // سایر پارامترهای مورد نیاز پنل شما
+        ];
+        
+        // ارسال درخواست به پنل پیامکی
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $config['api_url']);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'X-API-KEY: ' . $config['api_key']
+        ]);
+        
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+        
+        // بررسی پاسخ
+        if ($http_code == 200) {
+            $response_data = json_decode($response, true);
+            
+            // این شرط بستگی به ساختار پاسخ پنل پیامکی شما دارد
+            if ($response_data && isset($response_data['status']) && $response_data['status'] == 'success') {
+                return [
+                    'success' => true,
+                    'response' => $response_data,
+                    'message_id' => $response_data['messageId'] ?? null
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => $response_data['message'] ?? 'خطا در ارسال پیامک',
+                    'response' => $response_data
+                ];
+            }
         } else {
             return [
                 'success' => false,
-                'message' => 'خطا در ارسال پیامک'
+                'error' => "خطای HTTP: $http_code - $curl_error",
+                'response' => $response
             ];
         }
         
     } catch (Exception $e) {
-        error_log("SMS sending error: " . $e->getMessage());
         return [
             'success' => false,
-            'message' => 'خطا در ارسال پیامک: ' . $e->getMessage()
+            'error' => 'خطای سیستمی: ' . $e->getMessage()
         ];
     }
 }
 
 /**
- * شبیه‌سازی ارسال پیامک (برای تست)
- * در محیط تولید باید با API واقعی جایگزین شود
+ * تابع نرمال‌سازی شماره تلفن
  */
-function simulate_sms_sending($phone, $message) {
-    // شبیه‌سازی تاخیر شبکه
-    usleep(500000); // 0.5 ثانیه
-    
-    // شبیه‌سازی موفقیت (90% موفقیت)
-    return rand(1, 10) <= 9;
-}
-
-/**
- * اعتبارسنجی شماره تلفن
- */
-function validate_phone_number($phone) {
-    $phone = preg_replace('/[^0-9]/', '', $phone);
-    
-    // بررسی طول شماره
-    if (strlen($phone) < 10 || strlen($phone) > 15) {
+function normalize_phone_number($phone) {
+    if (empty($phone)) {
         return false;
     }
     
-    // بررسی فرمت شماره ایرانی
-    if (strlen($phone) === 11 && substr($phone, 0, 1) === '0') {
-        return true;
+    // حذف همه کاراکترهای غیر عددی
+    $phone = preg_replace('/[^0-9]/', '', $phone);
+    
+    // اگر شماره با 0 شروع می‌شود ولی 98 ندارد
+    if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+        $phone = '98' . substr($phone, 1);
+    }
+    // اگر شماره با 9 شروع می‌شود (بدون 0)
+    elseif (strlen($phone) == 10 && substr($phone, 0, 1) == '9') {
+        $phone = '98' . $phone;
+    }
+    // اگر شماره با 09 شروع می‌شود و طول مناسب دارد
+    elseif (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+        $phone = '98' . substr($phone, 1);
     }
     
-    if (strlen($phone) === 13 && substr($phone, 0, 2) === '98') {
-        return true;
+    // بررسی نهایی که شماره معتبر است
+    if (strlen($phone) === 12 && substr($phone, 0, 2) === '98') {
+        return $phone;
     }
     
     return false;
 }
 
 /**
- * فرمت کردن شماره تلفن برای نمایش
+ * تابع شبیه‌سازی ارسال پیامک برای محیط تست
+ * در محیط production باید غیرفعال شود
  */
-function format_phone_number($phone) {
-    $phone = preg_replace('/[^0-9]/', '', $phone);
+function send_sms_mock($phone_number, $message) {
+    // این تابع فقط برای تست استفاده می‌شود
+    // در محیط واقعی باید از تابع اصلی send_sms استفاده کنید
     
-    if (strlen($phone) === 11 && substr($phone, 0, 1) === '0') {
-        return $phone;
-    }
+    sleep(1); // شبیه‌سازی تاخیر در ارسال
     
-    if (strlen($phone) === 13 && substr($phone, 0, 2) === '98') {
-        return '0' . substr($phone, 2);
-    }
+    // شبیه‌سازی موفقیت آمیز بودن ارسال
+    $success = rand(0, 100) > 20; // 80% احتمال موفقیت
     
-    return $phone;
-}
-
-/**
- * بررسی وضعیت ارسال پیامک
- */
-function check_sms_status($message_id) {
-    // در اینجا باید API سرویس پیامک را فراخوانی کنید
-    // برای شبیه‌سازی:
-    return [
-        'status' => 'delivered',
-        'delivery_time' => date('Y-m-d H:i:s')
-    ];
-}
-
-/**
- * دریافت گزارش ارسال پیامک‌ها
- */
-function get_sms_report($start_date = null, $end_date = null) {
-    global $pdo;
-    
-    $where_conditions = [];
-    $params = [];
-    
-    if ($start_date) {
-        $where_conditions[] = "created_at >= ?";
-        $params[] = $start_date;
-    }
-    
-    if ($end_date) {
-        $where_conditions[] = "created_at <= ?";
-        $params[] = $end_date;
-    }
-    
-    $where_clause = $where_conditions ? "WHERE " . implode(" AND ", $where_conditions) : "";
-    
-    $sql = "SELECT * FROM sms_logs {$where_clause} ORDER BY created_at DESC";
-    
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    } catch (PDOException $e) {
-        error_log("SMS report error: " . $e->getMessage());
-        return [];
+    if ($success) {
+        return [
+            'success' => true,
+            'response' => [
+                'status' => 'success',
+                'message' => 'پیامک با موفقیت ارسال شد',
+                'messageId' => 'MSG_' . time() . '_' . rand(1000, 9999)
+            ]
+        ];
+    } else {
+        return [
+            'success' => false,
+            'error' => 'خطا در ارسال پیامک به دلیل مشکل شبکه',
+            'response' => [
+                'status' => 'failed',
+                'message' => 'ارتباط با سرویس پیامک برقرار نشد'
+            ]
+        ];
     }
 }
 
-/**
- * ثبت لاگ ارسال پیامک
- */
-function log_sms($phone, $message, $status, $message_id = null) {
-    global $pdo;
-    
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO sms_logs (phone, message, status, message_id, created_at) 
-            VALUES (?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([$phone, $message, $status, $message_id]);
-    } catch (PDOException $e) {
-        error_log("SMS log error: " . $e->getMessage());
-    }
-}
+// برای تست می‌توانید موقتاً از تابع mock استفاده کنید:
+// function send_sms($phone_number, $message) {
+//     return send_sms_mock($phone_number, $message);
+// }
 ?>
