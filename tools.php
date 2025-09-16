@@ -63,8 +63,44 @@ try {
         INDEX idx_issue_date (issue_date),
         FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول تاریخچه ابزارها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tool_id INT NOT NULL,
+        action_type ENUM('ایجاد', 'ویرایش', 'تحویل', 'استرداد', 'حذف', 'تعمیر', 'سایر') NOT NULL,
+        action_description TEXT NOT NULL,
+        performed_by INT NOT NULL,
+        performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        old_values JSON,
+        new_values JSON,
+        notes TEXT,
+        INDEX idx_tool_id (tool_id),
+        INDEX idx_action_type (action_type),
+        INDEX idx_performed_by (performed_by),
+        INDEX idx_performed_at (performed_at),
+        FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Exception $e) {
     error_log("Error creating tools tables: " . $e->getMessage());
+}
+
+// تابع ثبت تاریخچه ابزار
+function logToolHistory($pdo, $tool_id, $action_type, $action_description, $performed_by, $old_values = null, $new_values = null, $notes = null) {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO tool_history (tool_id, action_type, action_description, performed_by, old_values, new_values, notes) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $tool_id,
+            $action_type,
+            $action_description,
+            $performed_by,
+            $old_values ? json_encode($old_values) : null,
+            $new_values ? json_encode($new_values) : null,
+            $notes
+        ]);
+    } catch (Exception $e) {
+        error_log("Error logging tool history: " . $e->getMessage());
+    }
 }
 
 // پردازش فرم‌ها
@@ -95,6 +131,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $_POST['maintenance_date'] ?: null,
                         $_POST['next_maintenance_date'] ?: null
                     ]);
+                    
+                    $tool_id = $pdo->lastInsertId();
+                    
+                    // ثبت تاریخچه
+                    logToolHistory($pdo, $tool_id, 'ایجاد', "ایجاد ابزار جدید: " . $_POST['name'] . " (کد: $tool_code)", $_SESSION['user_id'], null, [
+                        'name' => $_POST['name'],
+                        'category' => $_POST['category'],
+                        'brand' => $_POST['brand'] ?? null,
+                        'model' => $_POST['model'] ?? null,
+                        'serial_number' => $_POST['serial_number'] ?? null,
+                        'purchase_date' => $_POST['purchase_date'] ?? null,
+                        'purchase_price' => $_POST['purchase_price'] ?? null,
+                        'supplier' => $_POST['supplier'] ?? null,
+                        'location' => $_POST['location'] ?? null,
+                        'status' => 'موجود'
+                    ], "ابزار جدید به سیستم اضافه شد");
                     
                     $pdo->commit();
                     $_SESSION['success'] = "ابزار با موفقیت اضافه شد";
@@ -127,6 +179,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $_POST['tool_id']
                     ]);
                     
+                    // ثبت تاریخچه ویرایش
+                    logToolHistory($pdo, $_POST['tool_id'], 'ویرایش', "ویرایش ابزار: " . $_POST['name'], $_SESSION['user_id'], null, [
+                        'name' => $_POST['name'],
+                        'category' => $_POST['category'],
+                        'brand' => $_POST['brand'] ?? null,
+                        'model' => $_POST['model'] ?? null,
+                        'serial_number' => $_POST['serial_number'] ?? null,
+                        'purchase_date' => $_POST['purchase_date'] ?? null,
+                        'purchase_price' => $_POST['purchase_price'] ?? null,
+                        'supplier' => $_POST['supplier'] ?? null,
+                        'location' => $_POST['location'] ?? null,
+                        'condition_notes' => $_POST['condition_notes'] ?? null,
+                        'maintenance_date' => $_POST['maintenance_date'] ?? null,
+                        'next_maintenance_date' => $_POST['next_maintenance_date'] ?? null
+                    ], "اطلاعات ابزار به‌روزرسانی شد");
+                    
                     $pdo->commit();
                     $_SESSION['success'] = "ابزار با موفقیت ویرایش شد";
                     logAction($pdo, 'EDIT_TOOL', "ویرایش ابزار: " . $_POST['name'] . " (ID: " . $_POST['tool_id'] . ")");
@@ -156,6 +224,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     // به‌روزرسانی وضعیت ابزار
                     $stmt = $pdo->prepare("UPDATE tools SET status = 'تحویل_داده_شده' WHERE id = ?");
                     $stmt->execute([$_POST['tool_id']]);
+                    
+                    // ثبت تاریخچه تحویل
+                    logToolHistory($pdo, $_POST['tool_id'], 'تحویل', "تحویل ابزار به " . $_POST['issued_to'], $_SESSION['user_id'], null, [
+                        'issued_to' => $_POST['issued_to'],
+                        'issue_date' => $_POST['issue_date'],
+                        'expected_return_date' => $_POST['expected_return_date'] ?? null,
+                        'purpose' => $_POST['purpose'] ?? null,
+                        'condition_before' => $_POST['condition_before'] ?? null,
+                        'notes' => $_POST['notes'] ?? null
+                    ], "ابزار به " . $_POST['issued_to'] . " تحویل داده شد");
                     
                     $pdo->commit();
                     $_SESSION['success'] = "ابزار با موفقیت تحویل داده شد";
@@ -191,6 +269,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $stmt = $pdo->prepare("UPDATE tools SET status = 'موجود' WHERE id = ?");
                     $stmt->execute([$tool_issue['tool_id']]);
                     
+                    // ثبت تاریخچه استرداد
+                    logToolHistory($pdo, $tool_issue['tool_id'], 'استرداد', "استرداد ابزار", $_SESSION['user_id'], null, [
+                        'condition_after' => $_POST['condition_after'] ?? null,
+                        'actual_return_date' => date('Y-m-d'),
+                        'status_change' => 'موجود'
+                    ], "ابزار برگشت داده شد و وضعیت به موجود تغییر یافت");
+                    
                     $pdo->commit();
                     $_SESSION['success'] = "ابزار با موفقیت برگشت داده شد و وضعیت آن به 'موجود' تغییر یافت";
                     logAction($pdo, 'RETURN_TOOL', "برگشت ابزار: " . $tool_issue['tool_id'] . " - وضعیت به موجود تغییر یافت");
@@ -198,6 +283,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $pdo->rollBack();
                     $_SESSION['error'] = "خطا در برگشت ابزار: " . $e->getMessage();
                     logAction($pdo, 'RETURN_TOOL_ERROR', "خطا در برگشت ابزار: " . $e->getMessage());
+                }
+                break;
+                
+            case 'delete_tool':
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // دریافت اطلاعات ابزار قبل از حذف
+                    $stmt = $pdo->prepare("SELECT * FROM tools WHERE id = ?");
+                    $stmt->execute([$_POST['tool_id']]);
+                    $tool = $stmt->fetch();
+                    
+                    if (!$tool) {
+                        throw new Exception('ابزار یافت نشد');
+                    }
+                    
+                    // بررسی اینکه ابزار تحویل داده نشده باشد
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tool_issues WHERE tool_id = ? AND status = 'تحویل_داده_شده'");
+                    $stmt->execute([$_POST['tool_id']]);
+                    $issued_count = $stmt->fetchColumn();
+                    
+                    if ($issued_count > 0) {
+                        throw new Exception('نمی‌توان ابزاری که در حال استفاده است را حذف کرد');
+                    }
+                    
+                    // ثبت تاریخچه قبل از حذف
+                    logToolHistory($pdo, $_POST['tool_id'], 'حذف', "حذف ابزار: " . $tool['name'] . " (کد: " . $tool['tool_code'] . ")", $_SESSION['user_id'], $tool, null, "ابزار به طور کامل از سیستم حذف شد");
+                    
+                    // حذف ابزار
+                    $stmt = $pdo->prepare("DELETE FROM tools WHERE id = ?");
+                    $stmt->execute([$_POST['tool_id']]);
+                    
+                    $pdo->commit();
+                    $_SESSION['success'] = "ابزار با موفقیت حذف شد";
+                    logAction($pdo, 'DELETE_TOOL', "حذف ابزار: " . $tool['name'] . " (ID: " . $_POST['tool_id'] . ")");
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $_SESSION['error'] = "خطا در حذف ابزار: " . $e->getMessage();
+                    logAction($pdo, 'DELETE_TOOL_ERROR', "خطا در حذف ابزار: " . $e->getMessage());
                 }
                 break;
         }
@@ -322,6 +446,23 @@ try {
         .status-badge {
             font-size: 0.75rem;
             padding: 0.25rem 0.5rem;
+        }
+        
+        .btn-sm {
+            margin: 2px;
+        }
+        
+        .history-modal .modal-dialog {
+            max-width: 90%;
+        }
+        
+        .history-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .action-badge {
+            font-size: 0.75em;
         }
         
         .table th {
@@ -820,6 +961,49 @@ try {
         </div>
     </div>
 
+    <!-- مودال تاریخچه ابزار -->
+    <div class="modal fade history-modal" id="toolHistoryModal" tabindex="-1" aria-labelledby="toolHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="toolHistoryModalLabel">
+                        <i class="fas fa-history me-2"></i>تاریخچه ابزار
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>نام ابزار: <span id="history_tool_name" class="text-primary"></span></h6>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>کد ابزار: <span id="history_tool_code" class="text-muted"></span></h6>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover history-table">
+                            <thead>
+                                <tr>
+                                    <th>تاریخ و زمان</th>
+                                    <th>عملیات</th>
+                                    <th>شرح</th>
+                                    <th>انجام دهنده</th>
+                                    <th>جزئیات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tool-history-table">
+                                <!-- تاریخچه با JavaScript بارگذاری می‌شود -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // بارگذاری داده‌های ابزارها
@@ -886,6 +1070,12 @@ try {
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="editTool(${item.id})" title="ویرایش">
                                 <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="showToolHistory(${item.id}, '${item.name}', '${item.tool_code}')" title="تاریخچه">
+                                <i class="fas fa-history"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteTool(${item.id}, '${item.name}', '${item.tool_code}')" title="حذف">
+                                <i class="fas fa-trash"></i>
                             </button>
                         </td>
                     `;
@@ -1093,6 +1283,89 @@ try {
         // یادآوری برگشت ابزار
         function remindReturn(id) {
             alert('یادآوری برگشت ابزار ارسال شد');
+        }
+
+        // حذف ابزار
+        function deleteTool(id, name, code) {
+            if (confirm(`آیا از حذف ابزار "${name}" (${code}) مطمئن هستید؟\n\nتوجه: این عمل قابل بازگشت نیست!`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = `
+                    <input type="hidden" name="action" value="delete_tool">
+                    <input type="hidden" name="tool_id" value="${id}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // نمایش تاریخچه ابزار
+        function showToolHistory(id, name, code) {
+            document.getElementById('history_tool_name').textContent = name;
+            document.getElementById('history_tool_code').textContent = code;
+            
+            // بارگذاری تاریخچه
+            fetch(`get_tool_history.php?id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('tool-history-table');
+                    tbody.innerHTML = '';
+                    
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">هیچ تاریخچه‌ای یافت نشد</td></tr>';
+                        return;
+                    }
+                    
+                    data.forEach(history => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${formatDateTime(history.performed_at)}</td>
+                            <td><span class="badge ${getActionBadgeColor(history.action_type)}">${history.action_type}</span></td>
+                            <td>${history.action_description}</td>
+                            <td>${history.performer_name || 'نامشخص'}</td>
+                            <td>
+                                ${history.notes ? `<small class="text-muted">${history.notes}</small>` : ''}
+                                ${history.old_values || history.new_values ? 
+                                    `<button class="btn btn-sm btn-outline-info ms-2" onclick="showHistoryDetails(${history.id})" title="جزئیات">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>` : ''
+                                }
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading tool history:', error);
+                    document.getElementById('tool-history-table').innerHTML = '<tr><td colspan="5" class="text-center text-danger">خطا در بارگذاری تاریخچه</td></tr>';
+                });
+            
+            new bootstrap.Modal(document.getElementById('toolHistoryModal')).show();
+        }
+
+        // فرمت تاریخ و زمان
+        function formatDateTime(dateTime) {
+            const date = new Date(dateTime);
+            return date.toLocaleString('fa-IR');
+        }
+
+        // رنگ بج عملیات
+        function getActionBadgeColor(actionType) {
+            switch(actionType) {
+                case 'ایجاد': return 'bg-success';
+                case 'ویرایش': return 'bg-warning';
+                case 'تحویل': return 'bg-info';
+                case 'استرداد': return 'bg-primary';
+                case 'حذف': return 'bg-danger';
+                case 'تعمیر': return 'bg-secondary';
+                default: return 'bg-light text-dark';
+            }
+        }
+
+        // نمایش جزئیات تاریخچه
+        function showHistoryDetails(historyId) {
+            // پیاده‌سازی نمایش جزئیات تغییرات
+            alert('جزئیات تغییرات برای تاریخچه ID: ' + historyId);
         }
 
         // بارگذاری اولیه
