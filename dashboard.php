@@ -1,11 +1,26 @@
 <?php
 session_start();
-require_once 'config.php';
+
+// بررسی وجود فایل config
+if (!file_exists('config.php')) {
+    if (file_exists('config_new.php')) {
+        require_once 'config_new.php';
+    } else {
+        die('فایل تنظیمات یافت نشد!');
+    }
+} else {
+    require_once 'config.php';
+}
 
 // بررسی احراز هویت
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
+}
+
+// بررسی اتصال دیتابیس
+if (!$pdo) {
+    die('خطا در اتصال به دیتابیس');
 }
 ?>
 <!DOCTYPE html>
@@ -51,6 +66,14 @@ if (!isset($_SESSION['user_id'])) {
         .logout-btn:hover {
             background: #c0392b;
         }
+        .success-message {
+            background: #d5f4e6;
+            color: #27ae60;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
         .cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -88,13 +111,12 @@ if (!isset($_SESSION['user_id'])) {
         .card-btn:hover {
             background: #2980b9;
         }
-        .success-message {
-            background: #d5f4e6;
-            color: #27ae60;
+        .status-info {
+            background: #e8f4fd;
+            color: #2980b9;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            text-align: center;
         }
     </style>
 </head>
@@ -110,6 +132,27 @@ if (!isset($_SESSION['user_id'])) {
     
     <div class="success-message">
         ✅ سیستم با موفقیت راه‌اندازی شد! دیتابیس و جداول ایجاد شدند.
+    </div>
+    
+    <div class="status-info">
+        <strong>وضعیت سیستم:</strong>
+        <?php
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) as count FROM users");
+            $user_count = $stmt->fetch()['count'];
+            echo "کاربران: $user_count | ";
+            
+            $stmt = $pdo->query("SELECT COUNT(*) as count FROM customers");
+            $customer_count = $stmt->fetch()['count'];
+            echo "مشتریان: $customer_count | ";
+            
+            $stmt = $pdo->query("SELECT COUNT(*) as count FROM assets");
+            $asset_count = $stmt->fetch()['count'];
+            echo "دارایی‌ها: $asset_count";
+        } catch (Exception $e) {
+            echo "خطا در دریافت آمار";
+        }
+        ?>
     </div>
     
     <div class="cards">
