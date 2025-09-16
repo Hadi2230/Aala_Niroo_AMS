@@ -174,46 +174,84 @@ try {
         html, body { font-family: Vazirmatn, Tahoma, Arial, sans-serif; }
         .form-select, .form-control, .form-label, .btn, .card, option { font-family: inherit; }
         .form-select, .form-control { direction: rtl; text-align: right; } option { direction: rtl; text-align: right; }
-        .card { border: none; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .card-header { border-radius: 10px 10px 0 0 !important; font-weight: 600; }
+        .card { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+            margin-bottom: 20px; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .card:hover { 
+            transform: translateY(-4px) scale(1.02); 
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15); 
+            border-color: rgba(13, 110, 253, 0.2);
+        }
+        .card-header { 
+            border-radius: 12px 12px 0 0 !important; 
+            font-weight: 600; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
         
         /* بهبود ظاهر تب‌های ابزارها */
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 1.5rem;
+        }
+        
         .nav-tabs .nav-link {
-            border: 1px solid transparent;
-            border-radius: 0.375rem 0.375rem 0 0;
+            border: 2px solid transparent;
+            border-radius: 8px 8px 0 0;
             font-weight: 600;
             transition: all 0.3s ease;
-            color: #6c757d !important;
+            color: #495057 !important;
             background-color: #f8f9fa;
+            margin-right: 0.25rem;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
         }
         
         .nav-tabs .nav-link:hover {
-            border-color: #e9ecef #e9ecef #dee2e6;
+            border-color: #dee2e6 #dee2e6 #e9ecef;
             background-color: #e9ecef;
-            color: #495057 !important;
+            color: #212529 !important;
+            transform: translateY(-2px);
         }
         
         .nav-tabs .nav-link.active {
             color: #fff !important;
-            background-color: #ffc107;
-            border-color: #ffc107 #ffc107 #fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea #667eea #fff;
             font-weight: 700;
-            box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
         }
         
         .nav-tabs .nav-link i {
             font-size: 0.9em;
-            margin-right: 0.25rem;
+            margin-right: 0.5rem;
         }
         
         /* بهبود رنگ‌بندی تب‌های خاص */
+        #all-tools-tab {
+            color: #6c757d !important;
+        }
+        
+        #all-tools-tab:hover {
+            color: #fff !important;
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        
         #available-tools-tab {
             color: #28a745 !important;
         }
         
         #available-tools-tab:hover {
             color: #fff !important;
-            background-color: #28a745;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
         
         #issued-tools-tab {
@@ -222,7 +260,7 @@ try {
         
         #issued-tools-tab:hover {
             color: #fff !important;
-            background-color: #17a2b8;
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
         }
         
         #overdue-tools-tab {
@@ -231,7 +269,7 @@ try {
         
         #overdue-tools-tab:hover {
             color: #fff !important;
-            background-color: #dc3545;
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
         }
         
         .status-badge {

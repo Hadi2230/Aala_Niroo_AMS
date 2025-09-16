@@ -590,20 +590,90 @@ $filtered_count = count($assets);
         html, body { font-family: Vazirmatn, Tahoma, Arial, sans-serif; }
         .form-select, .form-control, .form-label, .btn, .card, option { font-family: inherit; }
         .form-select, .form-control { direction: rtl; text-align: right; } option { direction: rtl; text-align: right; }
-        .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; transition: all 0.3s ease; }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-        .card-header { border-radius: 8px 8px 0 0 !important; font-weight: 600; }
+        .card { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+            margin-bottom: 15px; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .card:hover { 
+            transform: translateY(-4px) scale(1.02); 
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15); 
+            border-color: rgba(13, 110, 253, 0.2);
+        }
+        .card-header { 
+            border-radius: 12px 12px 0 0 !important; 
+            font-weight: 600; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
         
         /* استایل کارت‌های کوچک */
-        .card .card-body { padding: 1rem; }
-        .card .card-title { font-size: 0.95rem; font-weight: 600; }
-        .card .text-muted.small { font-size: 0.8rem; }
-        .card .btn-sm { font-size: 0.75rem; padding: 0.375rem 0.75rem; }
-        .card .display-6 { font-size: 2rem; }
+        .card .card-body { 
+            padding: 1.25rem; 
+            background: transparent;
+        }
+        .card .card-title { 
+            font-size: 0.95rem; 
+            font-weight: 700; 
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        .card .text-muted.small { 
+            font-size: 0.8rem; 
+            color: #6c757d !important;
+            line-height: 1.4;
+        }
+        .card .btn-sm { 
+            font-size: 0.75rem; 
+            padding: 0.5rem 1rem; 
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .card .btn-sm:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .card .display-6 { 
+            font-size: 2.5rem; 
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+        .card:hover .display-6 {
+            opacity: 1;
+            transform: scale(1.1);
+        }
         
         /* بهبود فاصله‌گذاری */
-        .row.g-2 > * { padding: 0.5rem; }
-        .mb-3 { margin-bottom: 1rem !important; }
+        .row.g-2 > * { padding: 0.75rem; }
+        .mb-3 { margin-bottom: 1.5rem !important; }
+        
+        /* بهبود رنگ‌بندی دکمه‌ها */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-outline-primary {
+            border: 2px solid #667eea;
+            color: #667eea;
+            background: transparent;
+        }
+        .btn-outline-primary:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
         .search-box { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -824,13 +894,13 @@ $filtered_count = count($assets);
                                 <h6 class="card-title mb-1">مدیریت ابزارها</h6>
                                 <p class="text-muted small mb-2">ثبت، تحویل و پیگیری ابزارهای نصب و تعمیر</p>
                                 <div class="d-flex gap-1">
-                                    <a class="btn btn-outline-warning btn-sm" data-bs-toggle="collapse" href="#toolsEmbed" role="button" aria-expanded="false" aria-controls="toolsEmbed">
+                                    <a class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" href="#toolsEmbed" role="button" aria-expanded="false" aria-controls="toolsEmbed">
                                         باز کردن داخل همین صفحه
                                     </a>
-                                    <a class="btn btn-warning btn-sm" href="tools.php" target="_blank">صفحه کامل</a>
+                                    <a class="btn btn-primary btn-sm" href="tools.php" target="_blank">صفحه کامل</a>
                                 </div>
                             </div>
-                            <div class="display-6 text-warning"><i class="fas fa-tools"></i></div>
+                            <div class="display-6 text-primary"><i class="fas fa-tools"></i></div>
                         </div>
                     </div>
                 </div>
@@ -2526,7 +2596,7 @@ document.addEventListener('click', function(e) {
 
 // Lazy-load iframes when collapse opens
 document.addEventListener('DOMContentLoaded', function(){
-    ['customersEmbed','assignmentsEmbed','suppliersEmbed'].forEach(id => {
+    ['customersEmbed','assignmentsEmbed','suppliersEmbed','toolsEmbed'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         
