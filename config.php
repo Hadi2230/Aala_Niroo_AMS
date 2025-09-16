@@ -87,35 +87,34 @@ function createDatabaseTables($pdo) {
     $tables = [
         // جدول انواع دارایی‌ها
         "CREATE TABLE IF NOT EXISTS asset_types (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(50) NOT NULL UNIQUE,
             display_name VARCHAR(100) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
         
         // جدول فیلدهای سفارشی برای هر نوع دارایی
         "CREATE TABLE IF NOT EXISTS asset_fields (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            type_id INT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type_id INTEGER,
             field_name VARCHAR(100),
-            field_type ENUM('text', 'number', 'date', 'select', 'file'),
-            is_required BOOLEAN DEFAULT false,
+            field_type VARCHAR(20) DEFAULT 'text',
+            is_required BOOLEAN DEFAULT 0,
             options TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
-            INDEX idx_type_id (type_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE
+        )",
         
         // جدول اصلی دارایی‌ها
         "CREATE TABLE IF NOT EXISTS assets (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(255) NOT NULL,
-            type_id INT NOT NULL,
-            serial_number VARCHAR(255) UNIQUE NULL,
+            type_id INTEGER NOT NULL,
+            serial_number VARCHAR(255) UNIQUE,
             purchase_date DATE,
-            status ENUM('فعال', 'غیرفعال', 'در حال تعمیر', 'آماده بهره‌برداری') DEFAULT 'فعال',
+            status VARCHAR(50) DEFAULT 'فعال',
             
             -- فیلدهای عمومی
             brand VARCHAR(255),
