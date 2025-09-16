@@ -11,52 +11,44 @@ include 'config.php';
 try {
     // جدول تیکت‌ها
     $pdo->exec("CREATE TABLE IF NOT EXISTS tickets (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        customer_id INT NOT NULL,
-        asset_id INT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER NOT NULL,
+        asset_id INTEGER,
         title VARCHAR(255) NOT NULL,
         description TEXT NOT NULL,
-        priority ENUM('فوری', 'بالا', 'متوسط', 'کم') DEFAULT 'متوسط',
-        status ENUM('جدید', 'در انتظار', 'در حال بررسی', 'در انتظار قطعه', 'تکمیل شده', 'لغو شده') DEFAULT 'جدید',
+        priority VARCHAR(20) DEFAULT 'متوسط',
+        status VARCHAR(20) DEFAULT 'جدید',
         ticket_number VARCHAR(50) UNIQUE NOT NULL,
-        created_by INT NOT NULL,
-        assigned_to INT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_customer_id (customer_id),
-        INDEX idx_asset_id (asset_id),
-        INDEX idx_status (status),
-        INDEX idx_priority (priority),
-        INDEX idx_created_by (created_by),
-        INDEX idx_assigned_to (assigned_to),
+        created_by INTEGER NOT NULL,
+        assigned_to INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        resolved_at DATETIME,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    )");
     
     // جدول تاریخچه تیکت‌ها
     $pdo->exec("CREATE TABLE IF NOT EXISTS ticket_history (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        ticket_id INT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id INTEGER NOT NULL,
         action VARCHAR(100) NOT NULL,
         old_value TEXT,
         new_value TEXT,
-        performed_by INT NOT NULL,
-        performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        performed_by INTEGER NOT NULL,
+        performed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         notes TEXT,
-        INDEX idx_ticket_id (ticket_id),
-        INDEX idx_performed_by (performed_by),
-        INDEX idx_performed_at (performed_at),
         FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
         FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    )");
 } catch (Exception $e) {
     error_log("Error creating tickets tables: " . $e->getMessage());
 }
 
-// تابع ایجاد تیکت
-function createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority, $created_by) {
+// تابع ایجاد تیکت (محلی)
+function createTicketLocal($pdo, $customer_id, $asset_id, $title, $description, $priority, $created_by) {
     try {
         // تولید شماره تیکت
         $ticket_number = 'TKT-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
@@ -168,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         switch ($_POST['action']) {
             case 'create_ticket':
                 try {
-                    $ticket_id = createTicket($pdo, 
+                    $ticket_id = createTicketLocal($pdo, 
                         (int)$_POST['customer_id'],
                         !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null,
                         sanitizeInput($_POST['title']),

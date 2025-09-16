@@ -1,5 +1,5 @@
 <?php
-// config.php - نسخه کامل و اصلاح شده
+// config.php - نسخه کامل و اصلاح شده برای SQLite
 
 // شروع session اگر شروع نشده
 if (session_status() === PHP_SESSION_NONE) {
@@ -159,88 +159,75 @@ function createDatabaseTables($pdo) {
             device_identifier VARCHAR(255),
             supply_method VARCHAR(255),
             location VARCHAR(255),
-            quantity INT DEFAULT 0,
+            quantity INTEGER DEFAULT 0,
             supplier_name VARCHAR(255),
             supplier_contact VARCHAR(255),
             
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
-            INDEX idx_type_id (type_id),
-            INDEX idx_status (status),
-            INDEX idx_serial (serial_number),
-            INDEX idx_name (name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE
+        )",
         
         // جدول تصاویر دارایی‌ها
         "CREATE TABLE IF NOT EXISTS asset_images (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
             field_name VARCHAR(100) NOT NULL,
             image_path VARCHAR(500) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_field_name (field_name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        )",
         
         // جدول مشتریان
         "CREATE TABLE IF NOT EXISTS customers (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             full_name VARCHAR(255) NOT NULL,
             phone VARCHAR(20) NOT NULL UNIQUE,
             company VARCHAR(255),
-            customer_type ENUM('حقیقی', 'حقوقی') DEFAULT 'حقیقی',
+            customer_type VARCHAR(20) DEFAULT 'حقیقی',
             company_phone VARCHAR(20),
             responsible_phone VARCHAR(20),
             address TEXT,
             city VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_phone (phone),
-            INDEX idx_company (company),
-            INDEX idx_city (city),
-            INDEX idx_customer_type (customer_type)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            email VARCHAR(255),
+            company_email VARCHAR(255),
+            notification_type VARCHAR(20) DEFAULT 'none',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
         
         // جدول کاربران
         "CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
             full_name VARCHAR(255),
-            role ENUM('ادمین', 'کاربر عادی', 'اپراتور') DEFAULT 'کاربر عادی',
-            is_active BOOLEAN DEFAULT true,
-            last_login TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_username (username),
-            INDEX idx_role (role)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            role VARCHAR(20) DEFAULT 'کاربر عادی',
+            is_active BOOLEAN DEFAULT 1,
+            last_login DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
         
         // جدول انتساب‌ها
         "CREATE TABLE IF NOT EXISTS asset_assignments (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            customer_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL,
             assignment_date DATE,
             notes TEXT,
-            assignment_status ENUM('فعال', 'خاتمه یافته', 'موقت') DEFAULT 'فعال',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            assignment_status VARCHAR(20) DEFAULT 'فعال',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_customer_id (customer_id),
-            INDEX idx_assignment_date (assignment_date),
-            INDEX idx_status (assignment_status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )",
         
         // جدول جزئیات انتساب
         "CREATE TABLE IF NOT EXISTS assignment_details (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            assignment_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assignment_id INTEGER NOT NULL,
             installation_date DATE,
             delivery_person VARCHAR(255),
             installation_address TEXT,
@@ -260,144 +247,136 @@ function createDatabaseTables($pdo) {
             post_installation_commitments TEXT,
             notes TEXT,
             installation_photo VARCHAR(500),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE CASCADE,
-            INDEX idx_assignment_id (assignment_id),
-            INDEX idx_installation_date (installation_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE CASCADE
+        )",
         
         // جدول سرویس‌های دارایی
         "CREATE TABLE IF NOT EXISTS asset_services (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
             service_date DATE,
             service_type VARCHAR(255),
             performed_by VARCHAR(255),
             summary TEXT,
             cost DECIMAL(10,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_service_date (service_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        )",
         
         // جدول تسک‌های نگهداری
         "CREATE TABLE IF NOT EXISTS maintenance_tasks (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
             title VARCHAR(255) NOT NULL,
             assigned_to VARCHAR(255),
             planned_date DATE,
-            status ENUM('pending', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+            status VARCHAR(20) DEFAULT 'pending',
             description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_status (status),
-            INDEX idx_planned_date (planned_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        )",
         
         // جدول مکاتبات دارایی
         "CREATE TABLE IF NOT EXISTS asset_correspondence (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
             letter_date DATE,
             subject VARCHAR(500),
             notes TEXT,
             file_path VARCHAR(500),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_letter_date (letter_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+        )",
         
         // جدول گزارشات و لاگ‌ها
         "CREATE TABLE IF NOT EXISTS system_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             action VARCHAR(100) NOT NULL,
             description TEXT,
             ip_address VARCHAR(45),
             user_agent TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_user_id (user_id),
-            INDEX idx_action (action),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            request_data TEXT,
+            response_data TEXT,
+            severity VARCHAR(20) DEFAULT 'info',
+            module VARCHAR(50),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
         
         // جدول تیکت‌های مشتری
         "CREATE TABLE IF NOT EXISTS tickets (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticket_number VARCHAR(20) UNIQUE NOT NULL,
-            customer_id INT NOT NULL,
-            asset_id INT,
+            customer_id INTEGER NOT NULL,
+            asset_id INTEGER,
             title VARCHAR(255) NOT NULL,
             description TEXT NOT NULL,
-            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
-            status ENUM('جدید', 'در انتظار', 'در حال بررسی', 'در انتظار قطعه', 'تکمیل شده', 'لغو شده') DEFAULT 'جدید',
-            assigned_to INT,
-            created_by INT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            resolved_at TIMESTAMP NULL,
+            priority VARCHAR(20) DEFAULT 'متوسط',
+            status VARCHAR(20) DEFAULT 'جدید',
+            assigned_to INTEGER,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            resolved_at DATETIME,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
             FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
             FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
-            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-            INDEX idx_customer_id (customer_id),
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_assigned_to (assigned_to),
-            INDEX idx_status (status),
-            INDEX idx_priority (priority),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )",
+        
+        // جدول تاریخچه تیکت‌ها
+        "CREATE TABLE IF NOT EXISTS ticket_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER NOT NULL,
+            action VARCHAR(100) NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            performed_by INTEGER NOT NULL,
+            performed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT,
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+            FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE CASCADE
+        )",
         
         // جدول برنامه تعمیرات دوره‌ای
         "CREATE TABLE IF NOT EXISTS maintenance_schedules (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            assignment_id INT,
-            maintenance_type ENUM('تعمیر دوره‌ای', 'سرویس', 'بازرسی', 'کالیبراسیون') DEFAULT 'تعمیر دوره‌ای',
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            asset_id INTEGER NOT NULL,
+            assignment_id INTEGER,
+            maintenance_type VARCHAR(50) DEFAULT 'تعمیر دوره‌ای',
             schedule_date DATE NOT NULL,
-            interval_days INT DEFAULT 90,
-            status ENUM('برنامه‌ریزی شده', 'در انتظار', 'در حال انجام', 'تکمیل شده', 'لغو شده') DEFAULT 'برنامه‌ریزی شده',
-            assigned_to INT,
+            interval_days INTEGER DEFAULT 90,
+            status VARCHAR(50) DEFAULT 'برنامه‌ریزی شده',
+            assigned_to INTEGER,
             notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            completed_at TIMESTAMP NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
             FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
             FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE SET NULL,
-            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_schedule_date (schedule_date),
-            INDEX idx_status (status),
-            INDEX idx_assigned_to (assigned_to)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+        )",
         
         // جدول اعلان‌ها
         "CREATE TABLE IF NOT EXISTS notifications (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             title VARCHAR(255) NOT NULL,
             message TEXT NOT NULL,
-            type ENUM('تیکت', 'تعمیرات', 'سیستم', 'پیام') DEFAULT 'سیستم',
-            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
-            is_read BOOLEAN DEFAULT false,
-            related_id INT,
+            type VARCHAR(20) DEFAULT 'سیستم',
+            priority VARCHAR(20) DEFAULT 'متوسط',
+            is_read BOOLEAN DEFAULT 0,
+            related_id INTEGER,
             related_type VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            read_at TIMESTAMP NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_user_id (user_id),
-            INDEX idx_is_read (is_read),
-            INDEX idx_type (type),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            read_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )",
         
         // جدول پیام‌های داخلی
         "CREATE TABLE IF NOT EXISTS messages (
@@ -413,133 +392,274 @@ function createDatabaseTables($pdo) {
             related_ticket_id INTEGER,
             related_maintenance_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            read_at DATETIME NULL,
+            read_at DATETIME,
             FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
             FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL
         )",
         
-        // جدول تاریخچه وضعیت تیکت‌ها
-        "CREATE TABLE IF NOT EXISTS ticket_status_history (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            ticket_id INT NOT NULL,
-            old_status VARCHAR(50),
-            new_status VARCHAR(50) NOT NULL,
-            changed_by INT,
-            change_reason TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-            FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
-            INDEX idx_ticket_id (ticket_id),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
-        
         // جدول تنظیمات اعلان‌ها
         "CREATE TABLE IF NOT EXISTS notification_settings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            email_notifications BOOLEAN DEFAULT true,
-            sms_notifications BOOLEAN DEFAULT false,
-            in_app_notifications BOOLEAN DEFAULT true,
-            ticket_notifications BOOLEAN DEFAULT true,
-            maintenance_notifications BOOLEAN DEFAULT true,
-            system_notifications BOOLEAN DEFAULT true,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            UNIQUE KEY unique_user_settings (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            email_notifications BOOLEAN DEFAULT 1,
+            sms_notifications BOOLEAN DEFAULT 0,
+            in_app_notifications BOOLEAN DEFAULT 1,
+            ticket_notifications BOOLEAN DEFAULT 1,
+            maintenance_notifications BOOLEAN DEFAULT 1,
+            system_notifications BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )",
         
         // جدول نظرسنجی‌ها
         "CREATE TABLE IF NOT EXISTS surveys (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             title VARCHAR(255) NOT NULL,
             description TEXT,
-            is_active BOOLEAN DEFAULT true,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_is_active (is_active),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            is_active BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
         
         // جدول سوالات نظرسنجی
         "CREATE TABLE IF NOT EXISTS survey_questions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            survey_id INT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            survey_id INTEGER NOT NULL,
             question_text TEXT NOT NULL,
-            question_type ENUM('text', 'yes_no', 'rating', 'multiple_choice') DEFAULT 'text',
-            is_required BOOLEAN DEFAULT true,
+            question_type VARCHAR(20) DEFAULT 'text',
+            is_required BOOLEAN DEFAULT 1,
             options TEXT,
-            order_index INT DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
-            INDEX idx_survey_id (survey_id),
-            INDEX idx_order (order_index)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            order_index INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
+        )",
         
         // جدول ارسال‌های نظرسنجی
         "CREATE TABLE IF NOT EXISTS survey_submissions (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            survey_id INT NOT NULL,
-            customer_id INT NOT NULL,
-            asset_id INT,
-            started_by INT NOT NULL,
-            status ENUM('در حال تکمیل', 'تکمیل شده', 'لغو شده') DEFAULT 'در حال تکمیل',
-            sms_sent BOOLEAN DEFAULT false,
-            sms_sent_at TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            survey_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL,
+            asset_id INTEGER,
+            started_by INTEGER NOT NULL,
+            submitted_by INTEGER,
+            status VARCHAR(20) DEFAULT 'در حال تکمیل',
+            sms_sent BOOLEAN DEFAULT 0,
+            sms_sent_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
             FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
             FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_survey_id (survey_id),
-            INDEX idx_customer_id (customer_id),
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_started_by (started_by),
-            INDEX idx_status (status),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE
+        )",
         
         // جدول پاسخ‌های نظرسنجی
         "CREATE TABLE IF NOT EXISTS survey_responses (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            survey_id INT NOT NULL,
-            question_id INT NOT NULL,
-            customer_id INT NOT NULL,
-            asset_id INT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            survey_id INTEGER NOT NULL,
+            question_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL,
+            asset_id INTEGER,
             response_text TEXT,
-            responded_by INT NOT NULL,
-            submission_id INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            responded_by INTEGER NOT NULL,
+            submission_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
             FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
             FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
             FOREIGN KEY (responded_by) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
-            INDEX idx_survey_id (survey_id),
-            INDEX idx_question_id (question_id),
-            INDEX idx_customer_id (customer_id),
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_submission_id (submission_id),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+            FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE
+        )",
         
         // جدول لاگ پیامک‌ها
         "CREATE TABLE IF NOT EXISTS sms_logs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             phone VARCHAR(20) NOT NULL,
             message TEXT NOT NULL,
-            status ENUM('sent', 'delivered', 'failed') DEFAULT 'sent',
+            status VARCHAR(20) DEFAULT 'sent',
             message_id VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_phone (phone),
-            INDEX idx_status (status),
-            INDEX idx_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        
+        // جدول تامین‌کنندگان
+        "CREATE TABLE IF NOT EXISTS suppliers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supplier_code VARCHAR(50) UNIQUE NOT NULL,
+            company_name VARCHAR(255) NOT NULL,
+            person_name VARCHAR(255),
+            supplier_type VARCHAR(20) NOT NULL,
+            activity_field VARCHAR(255),
+            logo_path VARCHAR(500),
+            address TEXT,
+            city VARCHAR(100),
+            province VARCHAR(100),
+            country VARCHAR(100),
+            postal_code VARCHAR(20),
+            landline VARCHAR(20),
+            mobile VARCHAR(20),
+            fax VARCHAR(20),
+            email VARCHAR(255),
+            website VARCHAR(255),
+            linkedin VARCHAR(255),
+            whatsapp VARCHAR(20),
+            instagram VARCHAR(255),
+            contact_person_name VARCHAR(255),
+            contact_person_title VARCHAR(100),
+            contact_person_phone VARCHAR(20),
+            bank_account VARCHAR(50),
+            iban VARCHAR(50),
+            bank_name VARCHAR(255),
+            bank_branch VARCHAR(255),
+            economic_code VARCHAR(50),
+            national_id VARCHAR(50),
+            registration_number VARCHAR(50),
+            vat_number VARCHAR(50),
+            payment_terms VARCHAR(50),
+            main_products TEXT,
+            brands_offered TEXT,
+            moq VARCHAR(100),
+            lead_time VARCHAR(100),
+            shipping_conditions TEXT,
+            quality_score INTEGER DEFAULT 0,
+            cooperation_since INTEGER,
+            satisfaction_level INTEGER DEFAULT 0,
+            complaints_count INTEGER DEFAULT 0,
+            importance_level VARCHAR(20) DEFAULT 'Normal',
+            internal_notes TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        
+        // جدول مدارک تامین‌کنندگان
+        "CREATE TABLE IF NOT EXISTS supplier_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supplier_id INTEGER NOT NULL,
+            document_type VARCHAR(50) NOT NULL,
+            document_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INTEGER,
+            file_type VARCHAR(100),
+            upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            description TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+        )",
+        
+        // جدول مکاتبات تامین‌کنندگان
+        "CREATE TABLE IF NOT EXISTS supplier_correspondences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supplier_id INTEGER NOT NULL,
+            correspondence_type VARCHAR(50) NOT NULL,
+            subject VARCHAR(500) NOT NULL,
+            content TEXT,
+            correspondence_date DATE NOT NULL,
+            file_path VARCHAR(500),
+            file_name VARCHAR(255),
+            file_size INTEGER,
+            file_type VARCHAR(100),
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_important BOOLEAN DEFAULT 0,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+        )",
+        
+        // جدول ابزارها
+        "CREATE TABLE IF NOT EXISTS tools (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_code VARCHAR(50) UNIQUE NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            category VARCHAR(50) NOT NULL,
+            brand VARCHAR(100),
+            model VARCHAR(100),
+            serial_number VARCHAR(100),
+            purchase_date DATE,
+            purchase_price DECIMAL(10,2),
+            supplier VARCHAR(255),
+            location VARCHAR(255),
+            status VARCHAR(50) DEFAULT 'موجود',
+            condition_notes TEXT,
+            maintenance_date DATE,
+            next_maintenance_date DATE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        
+        // جدول تحویل ابزارها
+        "CREATE TABLE IF NOT EXISTS tool_issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_id INTEGER NOT NULL,
+            issued_to VARCHAR(255) NOT NULL,
+            issued_by INTEGER NOT NULL,
+            issue_date DATE NOT NULL,
+            expected_return_date DATE,
+            actual_return_date DATE,
+            purpose TEXT,
+            condition_before TEXT,
+            condition_after TEXT,
+            notes TEXT,
+            status VARCHAR(50) DEFAULT 'تحویل_داده_شده',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+        )",
+        
+        // جدول تاریخچه ابزارها
+        "CREATE TABLE IF NOT EXISTS tool_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_id INTEGER NOT NULL,
+            action_type VARCHAR(50) NOT NULL,
+            action_description TEXT NOT NULL,
+            performed_by INTEGER NOT NULL,
+            performed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            old_values TEXT,
+            new_values TEXT,
+            notes TEXT,
+            FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+        )",
+        
+        // جدول مکاتبات مشتریان
+        "CREATE TABLE IF NOT EXISTS correspondences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            correspondence_type VARCHAR(50) NOT NULL,
+            subject VARCHAR(500) NOT NULL,
+            content TEXT,
+            correspondence_date DATE NOT NULL,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )",
+        
+        // جدول فایل‌های مکاتبات
+        "CREATE TABLE IF NOT EXISTS correspondence_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            correspondence_id INTEGER NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INTEGER,
+            file_type VARCHAR(100),
+            upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (correspondence_id) REFERENCES correspondences(id) ON DELETE CASCADE
+        )",
+        
+        // جدول قالب‌های اطلاع‌رسانی
+        "CREATE TABLE IF NOT EXISTS notification_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            template_type VARCHAR(20) NOT NULL,
+            template_name VARCHAR(255) NOT NULL,
+            subject VARCHAR(500),
+            content TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )"
     ];
     
     foreach ($tables as $table) {
@@ -548,25 +668,6 @@ function createDatabaseTables($pdo) {
         } catch (PDOException $e) {
             error_log("[" . date('Y-m-d H:i:s') . "] خطا در ایجاد جدول: " . $e->getMessage());
         }
-    }
-    
-    // اضافه کردن ستون‌های فایل ضمیمه به جدول messages اگر وجود نداشته باشند
-    try {
-        // بررسی وجود ستون‌های فایل ضمیمه
-        $stmt = $pdo->query("PRAGMA table_info(messages)");
-        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        if (!in_array('attachment_path', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_path TEXT");
-        }
-        if (!in_array('attachment_name', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_name TEXT");
-        }
-        if (!in_array('attachment_type', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_type TEXT");
-        }
-    } catch (PDOException $e) {
-        error_log("[" . date('Y-m-d H:i:s') . "] خطا در اضافه کردن ستون‌های فایل ضمیمه: " . $e->getMessage());
     }
     
     // درج داده‌های اولیه اگر وجود ندارند
@@ -585,21 +686,28 @@ function createDatabaseTables($pdo) {
             
             // درج فیلدهای سفارشی برای ژنراتور
             "INSERT INTO asset_fields (type_id, field_name, field_type, is_required) VALUES
-            (1, 'ظرفیت توان (کیلووات)', 'number', true),
-            (1, 'نوع سوخت', 'select', true),
-            (1, 'تعداد فاز', 'select', true)",
+            (1, 'ظرفیت توان (کیلووات)', 'number', 1),
+            (1, 'نوع سوخت', 'select', 1),
+            (1, 'تعداد فاز', 'select', 1)",
             
             // درج فیلدهای سفارشی برای موتور برق
             "INSERT INTO asset_fields (type_id, field_name, field_type, is_required) VALUES
-            (2, 'قدرت (اسب بخار)', 'number', true),
-            (2, 'ولتاژ کاری', 'select', true),
-            (2, 'نوع خنک‌کننده', 'select', true)",
+            (2, 'قدرت (اسب بخار)', 'number', 1),
+            (2, 'ولتاژ کاری', 'select', 1),
+            (2, 'نوع خنک‌کننده', 'select', 1)",
             
             // درج فیلدهای سفارشی برای اقلام مصرفی
             "INSERT INTO asset_fields (type_id, field_name, field_type, is_required) VALUES
-            (3, 'نوع کالا', 'select', true),
-            (3, 'تعداد/مقدار', 'number', true),
-            (3, 'واحد اندازه‌گیری', 'select', true)"
+            (3, 'نوع کالا', 'select', 1),
+            (3, 'تعداد/مقدار', 'number', 1),
+            (3, 'واحد اندازه‌گیری', 'select', 1)",
+            
+            // درج قالب‌های پیش‌فرض اطلاع‌رسانی
+            "INSERT INTO notification_templates (template_type, template_name, subject, content) VALUES
+            ('email', 'خوش‌آمدگویی مشتری', 'خوش‌آمدید به شرکت اعلا نیرو', 'سلام {customer_name}،\n\nخوش‌آمدید به سیستم مدیریت دارایی‌های شرکت اعلا نیرو.\n\nنام کاربری: {username}\nایمیل: {email}\n\nلینک ورود: {app_link}\n\nبا تشکر'),
+            ('sms', 'خوش‌آمدگویی مشتری', '', 'سلام {customer_name}، خوش‌آمدید به شرکت اعلا نیرو. نام کاربری: {username}'),
+            ('email', 'اطلاع‌رسانی مدیر', 'ثبت مشتری جدید', 'مشتری جدیدی در سیستم ثبت شد:\nنام: {customer_name}\nنوع: {customer_type}\nتاریخ: {date}'),
+            ('sms', 'اطلاع‌رسانی مدیر', '', 'مشتری جدید: {customer_name} ({customer_type}) در تاریخ {date} ثبت شد')"
         ];
         
         foreach ($initial_data as $query) {
@@ -801,9 +909,6 @@ function gregorian_to_jalali($gy, $gm, $gd) {
 /**
  * توابع مدیریت Workflow و اعلان‌ها
  */
-
-
-
 
 // ارسال اعلان
 function sendNotification($pdo, $user_id, $title, $message, $type = 'سیستم', $priority = 'متوسط', $related_id = null, $related_type = null) {
