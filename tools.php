@@ -197,23 +197,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // دریافت داده‌ها
 try {
+    // همه ابزارها
     $tools = $pdo->query("SELECT * FROM tools ORDER BY created_at DESC")->fetchAll();
+    
+    // ابزارهای موجود (فقط آنهایی که تحویل داده نشده‌اند)
+    $available_tools = $pdo->query("SELECT * FROM tools WHERE status = 'موجود' ORDER BY name")->fetchAll();
+    
+    // ابزارهای تحویل داده شده (در حال استفاده)
     $tools_issued = $pdo->query("SELECT ti.*, t.name as tool_name, t.tool_code FROM tool_issues ti JOIN tools t ON ti.tool_id = t.id WHERE ti.status = 'تحویل_داده_شده' ORDER BY ti.issue_date DESC")->fetchAll();
+    
+    // ابزارهای برگشت داده شده (تاریخی)
     $tools_returned = $pdo->query("SELECT ti.*, t.name as tool_name, t.tool_code FROM tool_issues ti JOIN tools t ON ti.tool_id = t.id WHERE ti.status = 'برگشت_داده_شده' ORDER BY ti.actual_return_date DESC")->fetchAll();
+    
+    // ابزارهای با تاخیر در برگشت
     $tools_overdue = $pdo->query("SELECT ti.*, t.name as tool_name, t.tool_code FROM tool_issues ti JOIN tools t ON ti.tool_id = t.id WHERE ti.status = 'تحویل_داده_شده' AND ti.expected_return_date < CURDATE() ORDER BY ti.expected_return_date ASC")->fetchAll();
 } catch (Exception $e) {
     $tools = [];
+    $available_tools = [];
     $tools_issued = [];
     $tools_returned = [];
     $tools_overdue = [];
-}
-
-// دریافت ابزارهای موجود برای تحویل
-$available_tools = [];
-try {
-    $available_tools = $pdo->query("SELECT * FROM tools WHERE status = 'موجود' ORDER BY name")->fetchAll();
-} catch (Exception $e) {
-    $available_tools = [];
 }
 ?>
 
@@ -376,9 +379,49 @@ try {
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#issueToolModal">
                         <i class="fas fa-hand-holding me-1"></i>تحویل ابزار
                     </button>
-                    <button type="button" class="btn btn-info" onclick="loadToolsData('all')">
+                    <button type="button" class="btn btn-info" onclick="loadToolsData('all'); loadToolsData('available'); loadToolsData('issued'); loadToolsData('overdue');">
                         <i class="fas fa-sync me-1"></i>بروزرسانی
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- آمار سریع -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">ابزارهای موجود</h5>
+                        <h3 class="text-primary available-count"><?php echo count($available_tools); ?></h3>
+                        <small class="text-muted">قابل تحویل</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">تحویل داده شده</h5>
+                        <h3 class="text-info issued-count"><?php echo count($tools_issued); ?></h3>
+                        <small class="text-muted">در حال استفاده</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">برگشت داده شده</h5>
+                        <h3 class="text-success"><?php echo count($tools_returned); ?></h3>
+                        <small class="text-muted">تاریخی</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">تاخیر در برگشت</h5>
+                        <h3 class="text-danger overdue-count"><?php echo count($tools_overdue); ?></h3>
+                        <small class="text-muted">نیاز به پیگیری</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -511,7 +554,7 @@ try {
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" onsubmit="setTimeout(refreshAllData, 1000);">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="add_tool">
                         <div class="row">
@@ -591,7 +634,7 @@ try {
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" onsubmit="setTimeout(refreshAllData, 1000);">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="edit_tool">
                         <input type="hidden" name="tool_id" id="edit_tool_id">
@@ -672,7 +715,7 @@ try {
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" onsubmit="setTimeout(refreshAllData, 1000);">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="issue_tool">
                         <div class="mb-3">
@@ -732,7 +775,7 @@ try {
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" onsubmit="setTimeout(refreshAllData, 1000);">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="return_tool">
                         <input type="hidden" name="tool_issue_id" id="return_tool_issue_id">
@@ -771,9 +814,32 @@ try {
                 .then(response => response.json())
                 .then(data => {
                     loadToolsTable(type, data);
+                    // به‌روزرسانی آمار
+                    updateStats();
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                });
+        }
+        
+        // به‌روزرسانی آمار
+        function updateStats() {
+            fetch('get_tools_data.php?type=available')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('.available-count').textContent = data.length;
+                });
+            
+            fetch('get_tools_data.php?type=issued')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('.issued-count').textContent = data.length;
+                });
+            
+            fetch('get_tools_data.php?type=overdue')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('.overdue-count').textContent = data.length;
                 });
         }
 
@@ -1005,7 +1071,18 @@ try {
             // تنظیم تاریخ امروز در فرم تحویل ابزار
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('issue_date').value = today;
+            
+            // به‌روزرسانی خودکار آمار هر 30 ثانیه
+            setInterval(updateStats, 30000);
         });
+        
+        // به‌روزرسانی آمار پس از عملیات
+        function refreshAllData() {
+            loadToolsData('all');
+            loadToolsData('available');
+            loadToolsData('issued');
+            loadToolsData('overdue');
+        }
     </script>
 </body>
 </html>
