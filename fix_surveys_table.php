@@ -7,16 +7,8 @@ echo "<h2>اصلاح جدول surveys</h2>";
 
 try {
     // بررسی وجود ستون is_active
-    $stmt = $pdo->query("PRAGMA table_info(surveys)");
-    $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $has_is_active = false;
-    foreach ($columns as $column) {
-        if ($column['name'] === 'is_active') {
-            $has_is_active = true;
-            break;
-        }
-    }
+    $stmt = $pdo->query("SHOW COLUMNS FROM surveys LIKE 'is_active'");
+    $has_is_active = $stmt->rowCount() > 0;
     
     if (!$has_is_active) {
         echo "<p>ستون is_active وجود ندارد. در حال اضافه کردن...</p>";
@@ -35,14 +27,17 @@ try {
     // بررسی ساختار جدول
     echo "<h3>ساختار جدول surveys:</h3>";
     echo "<table border='1' style='border-collapse: collapse;'>";
-    echo "<tr><th>Column</th><th>Type</th><th>Not Null</th><th>Default</th></tr>";
+    echo "<tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th></tr>";
+    
+    $stmt = $pdo->query("SHOW COLUMNS FROM surveys");
+    $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     foreach ($columns as $column) {
         echo "<tr>";
-        echo "<td>" . htmlspecialchars($column['name']) . "</td>";
-        echo "<td>" . htmlspecialchars($column['type']) . "</td>";
-        echo "<td>" . ($column['notnull'] ? 'Yes' : 'No') . "</td>";
-        echo "<td>" . htmlspecialchars($column['dflt_value'] ?? 'NULL') . "</td>";
+        echo "<td>" . htmlspecialchars($column['Field']) . "</td>";
+        echo "<td>" . htmlspecialchars($column['Type']) . "</td>";
+        echo "<td>" . ($column['Null'] === 'YES' ? 'Yes' : 'No') . "</td>";
+        echo "<td>" . htmlspecialchars($column['Default'] ?? 'NULL') . "</td>";
         echo "</tr>";
     }
     echo "</table>";

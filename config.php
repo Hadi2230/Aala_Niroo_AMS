@@ -13,13 +13,16 @@ ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
-$db_path = __DIR__ . '/aala_niroo_ams.db';
+$db_host = 'localhost';
+$db_name = 'aala_niroo_ams';
+$db_user = 'root';
+$db_pass = '';
 
 // تنظیمات زمانzone
 date_default_timezone_set('Asia/Tehran');
 
 try {
-    $pdo = new PDO("sqlite:$db_path", null, null, [
+    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false
@@ -87,12 +90,12 @@ function createDatabaseTables($pdo) {
     $tables = [
         // جدول انواع دارایی‌ها
         "CREATE TABLE IF NOT EXISTS asset_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(50) NOT NULL UNIQUE,
             display_name VARCHAR(100) NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )",
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         
         // جدول فیلدهای سفارشی برای هر نوع دارایی
         "CREATE TABLE IF NOT EXISTS asset_fields (
