@@ -55,6 +55,93 @@ try {
     error_log("Error creating tickets tables: " . $e->getMessage());
 }
 
+// تابع ایجاد تیکت
+function createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority, $created_by) {
+    try {
+        // تولید شماره تیکت
+        $ticket_number = 'TKT-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO tickets (customer_id, asset_id, title, description, priority, created_by, ticket_number, status, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'جدید', CURRENT_TIMESTAMP)
+        ");
+        
+        $result = $stmt->execute([$customer_id, $asset_id, $title, $description, $priority, $created_by, $ticket_number]);
+        
+        if ($result) {
+            return $pdo->lastInsertId();
+        }
+        return false;
+    } catch (Exception $e) {
+        error_log("Error creating ticket: " . $e->getMessage());
+        return false;
+    }
+}
+
+// تابع به‌روزرسانی وضعیت تیکت
+function updateTicketStatus($pdo, $ticket_id, $new_status, $updated_by, $reason = '') {
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE tickets 
+            SET status = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ");
+        
+        $result = $stmt->execute([$new_status, $ticket_id]);
+        
+        if ($result) {
+            // ثبت تاریخچه تغییر وضعیت
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO ticket_history (ticket_id, action, old_value, new_value, performed_by, performed_at, notes) 
+                    VALUES (?, 'تغییر وضعیت', (SELECT status FROM tickets WHERE id = ?), ?, ?, CURRENT_TIMESTAMP, ?)
+                ");
+                $stmt->execute([$ticket_id, $ticket_id, $new_status, $updated_by, $reason]);
+            } catch (Exception $e) {
+                // اگر جدول تاریخچه وجود نداشت، خطا را نادیده بگیر
+                error_log("Error logging ticket history: " . $e->getMessage());
+            }
+        }
+        
+        return $result;
+    } catch (Exception $e) {
+        error_log("Error updating ticket status: " . $e->getMessage());
+        return false;
+    }
+}
+
+// تابع تخصیص تیکت
+function assignTicket($pdo, $ticket_id, $assigned_to, $assigned_by) {
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE tickets 
+            SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ");
+        
+        $result = $stmt->execute([$assigned_to, $ticket_id]);
+        
+        if ($result) {
+            // ثبت تاریخچه تخصیص
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO ticket_history (ticket_id, action, new_value, performed_by, performed_at) 
+                    VALUES (?, 'تخصیص', ?, ?, CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$ticket_id, $assigned_to, $assigned_by]);
+            } catch (Exception $e) {
+                // اگر جدول تاریخچه وجود نداشت، خطا را نادیده بگیر
+                error_log("Error logging ticket assignment: " . $e->getMessage());
+            }
+        }
+        
+        return $result;
+    } catch (Exception $e) {
+        error_log("Error assigning ticket: " . $e->getMessage());
+        return false;
+    }
+}
+
 
 
 
