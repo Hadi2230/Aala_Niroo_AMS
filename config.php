@@ -957,8 +957,44 @@ function sendEmailNotification($user_id, $title, $message) {
 
 // ارسال SMS (پیاده‌سازی ساده)
 function sendSMSNotification($user_id, $title, $message) {
-    // اینجا می‌توانید از API های SMS استفاده کنید
-    error_log("SMS notification to user {$user_id}: {$title} - {$message}");
+    try {
+        // دریافت شماره تلفن کاربر
+        global $pdo;
+        $stmt = $pdo->prepare("SELECT phone FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
+        
+        if ($user && !empty($user['phone'])) {
+            // بارگذاری فایل SMS
+            require_once __DIR__ . '/sms.php';
+            
+            // ارسال پیامک
+            $result = send_sms($user['phone'], $title . "\n" . $message);
+            
+            // ثبت در لاگ
+            if ($result['success']) {
+                logAction($pdo, 'SMS_SENT', "پیامک به کاربر $user_id ارسال شد", 'info', 'sms', [
+                    'user_id' => $user_id,
+                    'phone' => $user['phone'],
+                    'message_id' => $result['message_id'] ?? null
+                ]);
+            } else {
+                logAction($pdo, 'SMS_ERROR', "خطا در ارسال پیامک به کاربر $user_id: " . $result['error'], 'error', 'sms', [
+                    'user_id' => $user_id,
+                    'phone' => $user['phone'],
+                    'error' => $result['error']
+                ]);
+            }
+            
+            return $result;
+        } else {
+            error_log("SMS notification failed: No phone number for user {$user_id}");
+            return ['success' => false, 'error' => 'شماره تلفن کاربر یافت نشد'];
+        }
+    } catch (Exception $e) {
+        error_log("SMS notification error: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 // ایجاد برنامه تعمیرات دوره‌ای
