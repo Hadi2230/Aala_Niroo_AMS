@@ -34,7 +34,7 @@ try {
         is_active BOOLEAN DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_questions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -45,7 +45,7 @@ try {
         order_index INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_submissions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -60,7 +60,7 @@ try {
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
         FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_responses (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -71,7 +71,7 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
         FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
 
 } catch (Exception $e) {
     $error_message = "خطا در ایجاد جداول: " . $e->getMessage();
