@@ -142,21 +142,7 @@ function assignTicket($pdo, $ticket_id, $assigned_to, $assigned_by) {
     }
 }
 
-// تابع بررسی CSRF Token
-function verifyCsrfToken() {
-    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
-        throw new Exception('CSRF token missing');
-    }
-    
-    if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        throw new Exception('Invalid CSRF token');
-    }
-}
 
-// تابع پاکسازی ورودی
-function sanitizeInput($input) {
-    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
-}
 
 // تولید CSRF Token
 if (!isset($_SESSION['csrf_token'])) {
@@ -174,7 +160,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'مدیر') {
 
 // پردازش درخواست‌ها
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    verifyCsrfToken();
+    // بررسی CSRF Token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $error_message = 'درخواست نامعتبر است - CSRF Token validation failed';
+    } else {
     
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
@@ -225,6 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 break;
         }
+    }
     }
 }
 
