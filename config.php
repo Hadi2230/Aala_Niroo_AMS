@@ -38,6 +38,25 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+// تابع بررسی دسترسی‌ها
+function hasPermission($permission) {
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+    
+    // مدیران همه دسترسی‌ها را دارند
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'مدیر') {
+        return true;
+    }
+    
+    // بررسی دسترسی‌های سفارشی
+    if (isset($_SESSION['permissions']) && is_array($_SESSION['permissions'])) {
+        return in_array($permission, $_SESSION['permissions']) || in_array('*', $_SESSION['permissions']);
+    }
+    
+    return false;
+}
+
 // ایجاد جداول فقط یک بار در طول session
 if (!isset($_SESSION['tables_created'])) {
     createDatabaseTables($pdo);

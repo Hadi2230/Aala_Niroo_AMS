@@ -7,10 +7,159 @@ if (!isset($_SESSION['user_id'])) {
 
 include 'config.php';
 
+// ایجاد جدول‌های مورد نیاز
+try {
+    // جدول تیکت‌ها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tickets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        asset_id INT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        priority ENUM('فوری', 'بالا', 'متوسط', 'کم') DEFAULT 'متوسط',
+        status ENUM('جدید', 'در انتظار', 'در حال بررسی', 'در انتظار قطعه', 'تکمیل شده', 'لغو شده') DEFAULT 'جدید',
+        ticket_number VARCHAR(50) UNIQUE NOT NULL,
+        created_by INT NOT NULL,
+        assigned_to INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_customer_id (customer_id),
+        INDEX idx_asset_id (asset_id),
+        INDEX idx_status (status),
+        INDEX idx_priority (priority),
+        INDEX idx_created_by (created_by),
+        INDEX idx_assigned_to (assigned_to),
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول تاریخچه تیکت‌ها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS ticket_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ticket_id INT NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        old_value TEXT,
+        new_value TEXT,
+        performed_by INT NOT NULL,
+        performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT,
+        INDEX idx_ticket_id (ticket_id),
+        INDEX idx_performed_by (performed_by),
+        INDEX idx_performed_at (performed_at),
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+        FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {
+    error_log("Error creating tickets tables: " . $e->getMessage());
+}
+
+// تابع ایجاد تیکت
+function createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority, $created_by) {
+    try {
+        // تولید شماره تیکت
+        $ticket_number = 'TKT-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO tickets (customer_id, asset_id, title, description, priority, created_by, ticket_number, status, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'جدید', NOW())
+        ");
+        
+        $result = $stmt->execute([$customer_id, $asset_id, $title, $description, $priority, $created_by, $ticket_number]);
+        
+        if ($result) {
+            return $pdo->lastInsertId();
+        }
+        return false;
+    } catch (Exception $e) {
+        error_log("Error creating ticket: " . $e->getMessage());
+        return false;
+    }
+}
+
+// تابع به‌روزرسانی وضعیت تیکت
+function updateTicketStatus($pdo, $ticket_id, $new_status, $updated_by, $reason = '') {
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE tickets 
+            SET status = ?, updated_at = NOW() 
+            WHERE id = ?
+        ");
+        
+        $result = $stmt->execute([$new_status, $ticket_id]);
+        
+        if ($result) {
+            // ثبت تاریخچه تغییر وضعیت
+            $stmt = $pdo->prepare("
+                INSERT INTO ticket_history (ticket_id, action, old_value, new_value, performed_by, performed_at, notes) 
+                VALUES (?, 'تغییر وضعیت', (SELECT status FROM tickets WHERE id = ?), ?, ?, NOW(), ?)
+            ");
+            $stmt->execute([$ticket_id, $ticket_id, $new_status, $updated_by, $reason]);
+        }
+        
+        return $result;
+    } catch (Exception $e) {
+        error_log("Error updating ticket status: " . $e->getMessage());
+        return false;
+    }
+}
+
+// تابع تخصیص تیکت
+function assignTicket($pdo, $ticket_id, $assigned_to, $assigned_by) {
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE tickets 
+            SET assigned_to = ?, updated_at = NOW() 
+            WHERE id = ?
+        ");
+        
+        $result = $stmt->execute([$assigned_to, $ticket_id]);
+        
+        if ($result) {
+            // ثبت تاریخچه تخصیص
+            $stmt = $pdo->prepare("
+                INSERT INTO ticket_history (ticket_id, action, new_value, performed_by, performed_at) 
+                VALUES (?, 'تخصیص', ?, ?, NOW())
+            ");
+            $stmt->execute([$ticket_id, $assigned_to, $assigned_by]);
+        }
+        
+        return $result;
+    } catch (Exception $e) {
+        error_log("Error assigning ticket: " . $e->getMessage());
+        return false;
+    }
+}
+
+// تابع بررسی CSRF Token
+function verifyCsrfToken() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
+        throw new Exception('CSRF token missing');
+    }
+    
+    if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        throw new Exception('Invalid CSRF token');
+    }
+}
+
+// تابع پاکسازی ورودی
+function sanitizeInput($input) {
+    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+// تولید CSRF Token
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // بررسی دسترسی
-if (!hasPermission('tickets.view')) {
-    header('Location: dashboard.php');
-    exit();
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'مدیر') {
+    // برای کاربران غیر مدیر، بررسی دسترسی‌های سفارشی
+    if (!hasPermission('tickets.view')) {
+        header('Location: dashboard.php');
+        exit();
+    }
 }
 
 // پردازش درخواست‌ها
@@ -369,7 +518,7 @@ try {
                                                         <div class="col-md-6">
                                                             <small class="text-muted">
                                                                 <i class="fa fa-hashtag"></i> شماره تیکت: <?php echo htmlspecialchars($ticket['ticket_number']); ?><br>
-                                                                <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo jalali_format($ticket['created_at']); ?><br>
+                                                                <i class="fa fa-calendar"></i> تاریخ ایجاد: <?php echo date('Y/m/d H:i', strtotime($ticket['created_at'])); ?><br>
                                                                 <i class="fa fa-user-plus"></i> ایجاد کننده: <?php echo htmlspecialchars($ticket['created_by_name']); ?>
                                                             </small>
                                                         </div>
