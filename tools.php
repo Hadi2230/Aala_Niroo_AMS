@@ -171,6 +171,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 try {
                     $pdo->beginTransaction();
                     
+                    // دریافت اطلاعات ابزار قبل از استرداد
+                    $stmt = $pdo->prepare("SELECT tool_id FROM tool_issues WHERE id = ?");
+                    $stmt->execute([$_POST['tool_issue_id']]);
+                    $tool_issue = $stmt->fetch();
+                    
+                    if (!$tool_issue) {
+                        throw new Exception('تحویل ابزار یافت نشد');
+                    }
+                    
                     // به‌روزرسانی وضعیت تحویل ابزار
                     $stmt = $pdo->prepare("UPDATE tool_issues SET status = 'برگشت_داده_شده', actual_return_date = CURDATE(), condition_after = ? WHERE id = ?");
                     $stmt->execute([
@@ -178,13 +187,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $_POST['tool_issue_id']
                     ]);
                     
-                    // به‌روزرسانی وضعیت ابزار
+                    // به‌روزرسانی وضعیت ابزار به موجود
                     $stmt = $pdo->prepare("UPDATE tools SET status = 'موجود' WHERE id = ?");
-                    $stmt->execute([$_POST['tool_id']]);
+                    $stmt->execute([$tool_issue['tool_id']]);
                     
                     $pdo->commit();
-                    $_SESSION['success'] = "ابزار با موفقیت برگشت داده شد";
-                    logAction($pdo, 'RETURN_TOOL', "برگشت ابزار: " . $_POST['tool_id']);
+                    $_SESSION['success'] = "ابزار با موفقیت برگشت داده شد و وضعیت آن به 'موجود' تغییر یافت";
+                    logAction($pdo, 'RETURN_TOOL', "برگشت ابزار: " . $tool_issue['tool_id'] . " - وضعیت به موجود تغییر یافت");
                 } catch (Exception $e) {
                     $pdo->rollBack();
                     $_SESSION['error'] = "خطا در برگشت ابزار: " . $e->getMessage();
@@ -376,7 +385,7 @@ try {
                     <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addToolModal">
                         <i class="fas fa-plus me-1"></i>افزودن ابزار جدید
                     </button>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#issueToolModal">
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#issueToolModal" onclick="updateAvailableToolsList()">
                         <i class="fas fa-hand-holding me-1"></i>تحویل ابزار
                     </button>
                     <button type="button" class="btn btn-info" onclick="loadToolsData('all'); loadToolsData('available'); loadToolsData('issued'); loadToolsData('overdue');">
@@ -722,12 +731,17 @@ try {
                             <label for="tool_id" class="form-label">انتخاب ابزار *</label>
                             <select class="form-select" id="tool_id" name="tool_id" required>
                                 <option value="">انتخاب کنید</option>
-                                <?php foreach ($available_tools as $tool): ?>
+                                <?php 
+                                // دریافت ابزارهای موجود از دیتابیس
+                                $available_tools_for_issue = $pdo->query("SELECT * FROM tools WHERE status = 'موجود' ORDER BY name")->fetchAll();
+                                foreach ($available_tools_for_issue as $tool): 
+                                ?>
                                     <option value="<?php echo $tool['id']; ?>">
-                                        <?php echo $tool['tool_code']; ?> - <?php echo $tool['name']; ?>
+                                        <?php echo $tool['tool_code']; ?> - <?php echo $tool['name']; ?> (<?php echo $tool['category']; ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text">فقط ابزارهای موجود (تحویل داده نشده) در این لیست نمایش داده می‌شوند</div>
                         </div>
                         <div class="mb-3">
                             <label for="issued_to" class="form-label">تحویل به *</label>
@@ -1042,6 +1056,26 @@ try {
             document.getElementById('tool_id').value = id;
             new bootstrap.Modal(document.getElementById('issueToolModal')).show();
         }
+        
+        // به‌روزرسانی لیست ابزارهای موجود برای تحویل
+        function updateAvailableToolsList() {
+            fetch('get_tools_data.php?type=available')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('tool_id');
+                    select.innerHTML = '<option value="">انتخاب کنید</option>';
+                    
+                    data.forEach(tool => {
+                        const option = document.createElement('option');
+                        option.value = tool.id;
+                        option.textContent = `${tool.tool_code} - ${tool.name} (${tool.category})`;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error updating available tools:', error);
+                });
+        }
 
         // استرداد ابزار
         function returnTool(toolIssueId, toolId, toolName, issuedTo, issueDate) {
@@ -1082,6 +1116,7 @@ try {
             loadToolsData('available');
             loadToolsData('issued');
             loadToolsData('overdue');
+            updateAvailableToolsList(); // به‌روزرسانی لیست ابزارهای موجود برای تحویل
         }
     </script>
 </body>
