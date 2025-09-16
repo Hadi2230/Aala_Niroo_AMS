@@ -28,50 +28,50 @@ function csrf_field() {
 // ایجاد جداول اگر وجود ندارند
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS surveys (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         title VARCHAR(255) NOT NULL,
         description TEXT,
         is_active BOOLEAN DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_questions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        survey_id INT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        survey_id INTEGER NOT NULL,
         question_text TEXT NOT NULL,
-        question_type ENUM('text', 'textarea', 'radio', 'checkbox', 'select', 'number', 'date', 'yes_no', 'rating') DEFAULT 'text',
+        question_type VARCHAR(20) DEFAULT 'text',
         is_required BOOLEAN DEFAULT 1,
-        order_index INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        order_index INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_submissions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        survey_id INT NOT NULL,
-        customer_id INT NULL,
-        asset_id INT NULL,
-        status ENUM('draft', 'completed', 'pending') DEFAULT 'draft',
-        submitted_by INT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        survey_id INTEGER NOT NULL,
+        customer_id INTEGER,
+        asset_id INTEGER,
+        status VARCHAR(20) DEFAULT 'draft',
+        submitted_by INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
         FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS survey_responses (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        submission_id INT NOT NULL,
-        question_id INT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        submission_id INTEGER NOT NULL,
+        question_id INTEGER NOT NULL,
         response_text TEXT,
-        response_data JSON NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        response_data TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
         FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    )");
 
 } catch (Exception $e) {
     $error_message = "خطا در ایجاد جداول: " . $e->getMessage();
