@@ -803,71 +803,8 @@ function gregorian_to_jalali($gy, $gm, $gd) {
  * توابع مدیریت Workflow و اعلان‌ها
  */
 
-// تولید شماره تیکت
-function generateTicketNumber($pdo) {
-    $year = date('Y');
-    $prefix = "TK" . $year;
-    
-    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM tickets WHERE ticket_number LIKE ?");
-    $stmt->execute([$prefix . "%"]);
-    $count = $stmt->fetch()['count'] + 1;
-    
-    return $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
-}
 
-// ایجاد تیکت جدید
-function createTicket($pdo, $customer_id, $asset_id, $title, $description, $priority = 'متوسط', $created_by = null) {
-    $ticket_number = generateTicketNumber($pdo);
-    
-    $stmt = $pdo->prepare("INSERT INTO tickets (ticket_number, customer_id, asset_id, title, description, priority, created_by) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$ticket_number, $customer_id, $asset_id, $title, $description, $priority, $created_by]);
-    
-    $ticket_id = $pdo->lastInsertId();
-    
-    // ثبت در تاریخچه
-    logTicketStatusChange($pdo, $ticket_id, null, 'جدید', $created_by, 'تیکت جدید ایجاد شد');
-    
-    // ارسال اعلان
-    sendNotification($pdo, null, 'تیکت جدید', "تیکت جدید با شماره {$ticket_number} ایجاد شد", 'تیکت', 'متوسط', $ticket_id, 'ticket');
-    
-    return $ticket_id;
-}
 
-// تغییر وضعیت تیکت
-function updateTicketStatus($pdo, $ticket_id, $new_status, $changed_by, $reason = '') {
-    // دریافت وضعیت فعلی
-    $stmt = $pdo->prepare("SELECT status, assigned_to FROM tickets WHERE id = ?");
-    $stmt->execute([$ticket_id]);
-    $ticket = $stmt->fetch();
-    
-    if (!$ticket) return false;
-    
-    $old_status = $ticket['status'];
-    
-    // به‌روزرسانی وضعیت
-    $stmt = $pdo->prepare("UPDATE tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-    $stmt->execute([$new_status, $ticket_id]);
-    
-    // ثبت در تاریخچه
-    logTicketStatusChange($pdo, $ticket_id, $old_status, $new_status, $changed_by, $reason);
-    
-    // ارسال اعلان به کارمند تخصیص یافته
-    if ($ticket['assigned_to']) {
-        sendNotification($pdo, $ticket['assigned_to'], 'تغییر وضعیت تیکت', 
-                        "وضعیت تیکت از '{$old_status}' به '{$new_status}' تغییر یافت", 
-                        'تیکت', 'متوسط', $ticket_id, 'ticket');
-    }
-    
-    return true;
-}
-
-// ثبت تغییر وضعیت تیکت
-function logTicketStatusChange($pdo, $ticket_id, $old_status, $new_status, $changed_by, $reason = '') {
-    $stmt = $pdo->prepare("INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by, change_reason) 
-                          VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$ticket_id, $old_status, $new_status, $changed_by, $reason]);
-}
 
 // ارسال اعلان
 function sendNotification($pdo, $user_id, $title, $message, $type = 'سیستم', $priority = 'متوسط', $related_id = null, $related_type = null) {
@@ -994,18 +931,4 @@ function getUnreadMessages($pdo, $user_id) {
     return $stmt->fetchAll();
 }
 
-// تخصیص تیکت به کارمند
-function assignTicket($pdo, $ticket_id, $assigned_to, $assigned_by) {
-    $stmt = $pdo->prepare("UPDATE tickets SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-    $stmt->execute([$assigned_to, $ticket_id]);
-    
-    // ثبت در تاریخچه
-    logTicketStatusChange($pdo, $ticket_id, null, 'تخصیص یافته', $assigned_by, 'تیکت به کارمند تخصیص یافت');
-    
-    // ارسال اعلان
-    sendNotification($pdo, $assigned_to, 'تیکت جدید تخصیص یافت', 
-                    "تیکت جدید به شما تخصیص یافت", 'تیکت', 'بالا', $ticket_id, 'ticket');
-    
-    return true;
-}
 ?>
