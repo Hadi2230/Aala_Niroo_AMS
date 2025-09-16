@@ -832,7 +832,7 @@ try {
                         <td>${item.expected_return_date || '-'}</td>
                         ${type === 'overdue' ? `<td><span class="badge bg-danger">${delayDays} روز</span></td>` : ''}
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="returnTool(${item.id})" title="برگشت">
+                            <button class="btn btn-sm btn-info" onclick="returnTool(${item.id}, ${item.tool_id}, '${item.tool_name}', '${item.issued_to}', '${item.issue_date}')" title="استرداد">
                                 <i class="fas fa-undo"></i>
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="remindReturn(${item.id})" title="یادآوری">
@@ -1001,6 +1001,10 @@ try {
             loadToolsData('available');
             loadToolsData('issued');
             loadToolsData('overdue');
+            
+            // تنظیم تاریخ امروز در فرم تحویل ابزار
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('issue_date').value = today;
         });
     </script>
 </body>
