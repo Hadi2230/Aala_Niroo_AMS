@@ -235,41 +235,20 @@ try {
             margin-right: 0.5rem;
         }
         
-        /* بهبود رنگ‌بندی تب‌های خاص */
-        #all-tools-tab {
-            color: #6c757d !important;
+        /* یکسان کردن رنگ تمام تب‌ها */
+        .nav-tabs .nav-link {
+            color: #495057 !important;
+            background-color: #f8f9fa;
         }
         
-        #all-tools-tab:hover {
+        .nav-tabs .nav-link:hover {
+            color: #212529 !important;
+            background-color: #e9ecef;
+        }
+        
+        .nav-tabs .nav-link.active {
             color: #fff !important;
-            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-        }
-        
-        #available-tools-tab {
-            color: #28a745 !important;
-        }
-        
-        #available-tools-tab:hover {
-            color: #fff !important;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        }
-        
-        #issued-tools-tab {
-            color: #17a2b8 !important;
-        }
-        
-        #issued-tools-tab:hover {
-            color: #fff !important;
-            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
-        }
-        
-        #overdue-tools-tab {
-            color: #dc3545 !important;
-        }
-        
-        #overdue-tools-tab:hover {
-            color: #fff !important;
-            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         .status-badge {
@@ -703,14 +682,120 @@ try {
 
         // مشاهده ابزار
         function viewTool(id) {
-            // پیاده‌سازی مشاهده جزئیات ابزار
-            alert('مشاهده جزئیات ابزار: ' + id);
+            // دریافت اطلاعات ابزار
+            fetch('get_tool_details.php?id=' + id)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToolDetailsModal(data.tool);
+                    } else {
+                        alert('خطا در دریافت اطلاعات ابزار: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('خطا در دریافت اطلاعات ابزار');
+                });
         }
 
         // ویرایش ابزار
         function editTool(id) {
-            // پیاده‌سازی ویرایش ابزار
-            alert('ویرایش ابزار: ' + id);
+            // دریافت اطلاعات ابزار برای ویرایش
+            fetch('get_tool_details.php?id=' + id)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showEditToolModal(data.tool);
+                    } else {
+                        alert('خطا در دریافت اطلاعات ابزار: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('خطا در دریافت اطلاعات ابزار');
+                });
+        }
+
+        // نمایش مودال جزئیات ابزار
+        function showToolDetailsModal(tool) {
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-info text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-eye me-2"></i>جزئیات ابزار
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>اطلاعات پایه</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>کد ابزار:</strong></td><td>${tool.tool_code}</td></tr>
+                                        <tr><td><strong>نام:</strong></td><td>${tool.name}</td></tr>
+                                        <tr><td><strong>دسته‌بندی:</strong></td><td>${tool.category}</td></tr>
+                                        <tr><td><strong>برند:</strong></td><td>${tool.brand || '-'}</td></tr>
+                                        <tr><td><strong>مدل:</strong></td><td>${tool.model || '-'}</td></tr>
+                                        <tr><td><strong>شماره سریال:</strong></td><td>${tool.serial_number || '-'}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>اطلاعات تکمیلی</h6>
+                                    <table class="table table-sm">
+                                        <tr><td><strong>وضعیت:</strong></td><td><span class="badge ${getStatusColor(tool.status)}">${tool.status}</span></td></tr>
+                                        <tr><td><strong>مکان:</strong></td><td>${tool.location || '-'}</td></tr>
+                                        <tr><td><strong>تاریخ خرید:</strong></td><td>${tool.purchase_date || '-'}</td></tr>
+                                        <tr><td><strong>قیمت خرید:</strong></td><td>${tool.purchase_price ? tool.purchase_price + ' تومان' : '-'}</td></tr>
+                                        <tr><td><strong>تامین‌کننده:</strong></td><td>${tool.supplier || '-'}</td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            ${tool.condition_notes ? `
+                                <div class="mt-3">
+                                    <h6>یادداشت‌های وضعیت</h6>
+                                    <p class="text-muted">${tool.condition_notes}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                            <button type="button" class="btn btn-warning" onclick="editTool(${tool.id})" data-bs-dismiss="modal">ویرایش</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            new bootstrap.Modal(modal).show();
+            modal.addEventListener('hidden.bs.modal', () => modal.remove());
+        }
+
+        // نمایش مودال ویرایش ابزار
+        function showEditToolModal(tool) {
+            // پر کردن فرم ویرایش
+            document.getElementById('name').value = tool.name;
+            document.getElementById('category').value = tool.category;
+            document.getElementById('brand').value = tool.brand || '';
+            document.getElementById('model').value = tool.model || '';
+            document.getElementById('serial_number').value = tool.serial_number || '';
+            document.getElementById('purchase_date').value = tool.purchase_date || '';
+            document.getElementById('purchase_price').value = tool.purchase_price || '';
+            document.getElementById('supplier').value = tool.supplier || '';
+            document.getElementById('location').value = tool.location || '';
+            document.getElementById('maintenance_date').value = tool.maintenance_date || '';
+            document.getElementById('next_maintenance_date').value = tool.next_maintenance_date || '';
+            document.getElementById('condition_notes').value = tool.condition_notes || '';
+            
+            // تغییر action فرم به ویرایش
+            const form = document.querySelector('#addToolModal form');
+            form.action = 'edit_tool.php';
+            form.innerHTML = form.innerHTML.replace('name="action" value="add_tool"', 'name="action" value="edit_tool"');
+            form.innerHTML = form.innerHTML.replace('name="tool_id"', 'name="tool_id" value="' + tool.id + '"');
+            
+            // نمایش مودال
+            new bootstrap.Modal(document.getElementById('addToolModal')).show();
         }
 
         // تحویل ابزار
