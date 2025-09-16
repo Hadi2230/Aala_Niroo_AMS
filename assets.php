@@ -590,8 +590,20 @@ $filtered_count = count($assets);
         html, body { font-family: Vazirmatn, Tahoma, Arial, sans-serif; }
         .form-select, .form-control, .form-label, .btn, .card, option { font-family: inherit; }
         .form-select, .form-control { direction: rtl; text-align: right; } option { direction: rtl; text-align: right; }
-        .card { border: none; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .card-header { border-radius: 10px 10px 0 0 !important; font-weight: 600; }
+        .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .card-header { border-radius: 8px 8px 0 0 !important; font-weight: 600; }
+        
+        /* استایل کارت‌های کوچک */
+        .card .card-body { padding: 1rem; }
+        .card .card-title { font-size: 0.95rem; font-weight: 600; }
+        .card .text-muted.small { font-size: 0.8rem; }
+        .card .btn-sm { font-size: 0.75rem; padding: 0.375rem 0.75rem; }
+        .card .display-6 { font-size: 2rem; }
+        
+        /* بهبود فاصله‌گذاری */
+        .row.g-2 > * { padding: 0.5rem; }
+        .mb-3 { margin-bottom: 1rem !important; }
         .search-box { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -780,49 +792,78 @@ $filtered_count = count($assets);
             </div>
 
             <!-- کارت‌های عملیاتی اصلی -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
+            <div class="row g-2 mb-3">
+                <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="card-title mb-1">افزودن دارایی جدید</h5>
-                                <p class="text-muted mb-2">ثبت دستگاه با تمام مشخصات و تصاویر</p>
-                                <a href="javascript:void(0);" onclick="showAddAssetForm()" class="btn btn-primary">شروع ثبت</a>
+                                <h6 class="card-title mb-1">افزودن دارایی جدید</h6>
+                                <p class="text-muted small mb-2">ثبت دستگاه با تمام مشخصات و تصاویر</p>
+                                <a href="javascript:void(0);" onclick="showAddAssetForm()" class="btn btn-primary btn-sm">شروع ثبت</a>
                             </div>
-                            <div class="display-4 text-primary"><i class="fas fa-plus-circle"></i></div>
+                            <div class="display-6 text-primary"><i class="fas fa-plus-circle"></i></div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="card-title mb-1">پروفایل دستگاه‌ها</h5>
-                                <p class="text-muted mb-2">مدیریت سرویس و نگهداشت هر دستگاه</p>
-                                <a href="profiles_list.php" class="btn btn-outline-primary">مشاهده پروفایل‌ها</a>
+                                <h6 class="card-title mb-1">پروفایل دستگاه‌ها</h6>
+                                <p class="text-muted small mb-2">مدیریت سرویس و نگهداشت هر دستگاه</p>
+                                <a href="profiles_list.php" class="btn btn-outline-primary btn-sm">مشاهده پروفایل‌ها</a>
                             </div>
-                            <div class="display-4 text-info"><i class="fas fa-id-card"></i></div>
+                            <div class="display-6 text-info"><i class="fas fa-id-card"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title mb-1">مدیریت ابزارها</h6>
+                                <p class="text-muted small mb-2">ثبت، تحویل و پیگیری ابزارهای نصب و تعمیر</p>
+                                <div class="d-flex gap-1">
+                                    <a class="btn btn-outline-warning btn-sm" data-bs-toggle="collapse" href="#toolsEmbed" role="button" aria-expanded="false" aria-controls="toolsEmbed">
+                                        باز کردن داخل همین صفحه
+                                    </a>
+                                    <a class="btn btn-warning btn-sm" href="tools.php" target="_blank">صفحه کامل</a>
+                                </div>
+                            </div>
+                            <div class="display-6 text-warning"><i class="fas fa-tools"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title mb-1">گزارش‌ها</h6>
+                                <p class="text-muted small mb-2">گزارش‌های جامع و آمار سیستم</p>
+                                <a href="reports.php" class="btn btn-outline-secondary btn-sm">مشاهده گزارش‌ها</a>
+                            </div>
+                            <div class="display-6 text-secondary"><i class="fas fa-chart-bar"></i></div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- کارت‌های جدید: مشتریان، انتساب‌ها و تامین‌کنندگان -->
-            <div class="row g-3 mb-4">
+            <div class="row g-2 mb-3">
                 <div class="col-md-4">
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="card-title mb-1">مدیریت مشتریان</h5>
-                                <p class="text-muted mb-2">افزودن/حذف/ویرایش مشتریان با تمام امکانات فعلی</p>
-                                <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-primary" data-bs-toggle="collapse" href="#customersEmbed" role="button" aria-expanded="false" aria-controls="customersEmbed">
+                                <h6 class="card-title mb-1">مدیریت مشتریان</h6>
+                                <p class="text-muted small mb-2">افزودن/حذف/ویرایش مشتریان با تمام امکانات فعلی</p>
+                                <div class="d-flex gap-1">
+                                    <a class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" href="#customersEmbed" role="button" aria-expanded="false" aria-controls="customersEmbed">
                                         باز کردن داخل همین صفحه
                                     </a>
-                                    <a class="btn btn-primary" href="customers.php" target="_blank">صفحه کامل</a>
+                                    <a class="btn btn-primary btn-sm" href="customers.php" target="_blank">صفحه کامل</a>
                                 </div>
                             </div>
-                            <div class="display-4 text-primary"><i class="fas fa-users"></i></div>
+                            <div class="display-6 text-primary"><i class="fas fa-users"></i></div>
                         </div>
                     </div>
                 </div>
@@ -831,16 +872,16 @@ $filtered_count = count($assets);
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="card-title mb-1">مدیریت انتساب‌ها</h5>
-                                <p class="text-muted mb-2">انتساب دستگاه به مشتری + جزئیات نصب و گارانتی</p>
-                                <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-primary" data-bs-toggle="collapse" href="#assignmentsEmbed" role="button" aria-expanded="false" aria-controls="assignmentsEmbed">
+                                <h6 class="card-title mb-1">مدیریت انتساب‌ها</h6>
+                                <p class="text-muted small mb-2">انتساب دستگاه به مشتری + جزئیات نصب و گارانتی</p>
+                                <div class="d-flex gap-1">
+                                    <a class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" href="#assignmentsEmbed" role="button" aria-expanded="false" aria-controls="assignmentsEmbed">
                                         باز کردن داخل همین صفحه
                                     </a>
-                                    <a class="btn btn-primary" href="assignments.php" target="_blank">صفحه کامل</a>
+                                    <a class="btn btn-primary btn-sm" href="assignments.php" target="_blank">صفحه کامل</a>
                                 </div>
                             </div>
-                            <div class="display-4 text-info"><i class="fas fa-link"></i></div>
+                            <div class="display-6 text-info"><i class="fas fa-link"></i></div>
                         </div>
                     </div>
                 </div>
@@ -849,16 +890,16 @@ $filtered_count = count($assets);
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-between">
                             <div>
-                                <h5 class="card-title mb-1">مدیریت تامین‌کنندگان</h5>
-                                <p class="text-muted mb-2">مدیریت کامل تامین‌کنندگان، محصولات و خدمات</p>
-                                <div class="d-flex gap-2">
-                                    <a class="btn btn-outline-primary" data-bs-toggle="collapse" href="#suppliersEmbed" role="button" aria-expanded="false" aria-controls="suppliersEmbed">
+                                <h6 class="card-title mb-1">مدیریت تامین‌کنندگان</h6>
+                                <p class="text-muted small mb-2">مدیریت کامل تامین‌کنندگان، محصولات و خدمات</p>
+                                <div class="d-flex gap-1">
+                                    <a class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" href="#suppliersEmbed" role="button" aria-expanded="false" aria-controls="suppliersEmbed">
                                         باز کردن داخل همین صفحه
                                     </a>
-                                    <a class="btn btn-primary" href="suppliers.php" target="_blank">صفحه کامل</a>
+                                    <a class="btn btn-primary btn-sm" href="suppliers.php" target="_blank">صفحه کامل</a>
                                 </div>
                             </div>
-                            <div class="display-4 text-success"><i class="fas fa-truck"></i></div>
+                            <div class="display-6 text-success"><i class="fas fa-truck"></i></div>
                         </div>
                     </div>
                 </div>
@@ -880,6 +921,12 @@ $filtered_count = count($assets);
             <div class="collapse mb-4" id="suppliersEmbed">
                 <div class="embed-container p-2">
                     <iframe class="embed-frame" data-src="suppliers.php?embed=1" title="مدیریت تامین‌کنندگان (Embed)" loading="lazy" referrerpolicy="no-referrer"></iframe>
+                </div>
+            </div>
+
+            <div class="collapse mb-4" id="toolsEmbed">
+                <div class="embed-container p-2">
+                    <iframe class="embed-frame" data-src="tools.php?embed=1" title="مدیریت ابزارها (Embed)" loading="lazy" referrerpolicy="no-referrer"></iframe>
                 </div>
             </div>
 
@@ -1022,83 +1069,6 @@ $filtered_count = count($assets);
                 </div>
             <?php endif; ?>
             
-            <!-- کارت مدیریت ابزارها و تجهیزات نصب -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body d-flex align-items-center justify-content-between">
-                            <div>
-                                <h5 class="card-title mb-1">مدیریت ابزارها و تجهیزات نصب</h5>
-                                <p class="text-muted mb-2">ثبت، تحویل و پیگیری ابزارهای نصب و تعمیر</p>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#toolsModal">
-                                        <i class="fas fa-tools me-1"></i>مدیریت ابزارها
-                                    </button>
-                                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#issueToolModal">
-                                        <i class="fas fa-hand-holding me-1"></i>تحویل ابزار
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="display-4 text-warning"><i class="fas fa-tools"></i></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- آمار ابزارها -->
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted mb-3">آمار ابزارها</h6>
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <div class="d-flex align-items-center p-2 bg-light rounded">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-wrench text-warning fs-4"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-2">
-                                            <div class="fw-bold text-warning"><?php echo count($tools ?? []); ?></div>
-                                            <small class="text-muted">موجود</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="d-flex align-items-center p-2 bg-light rounded">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-hand-holding text-success fs-4"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-2">
-                                            <div class="fw-bold text-success"><?php echo count($tools_issued ?? []); ?></div>
-                                            <small class="text-muted">تحویل داده</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="d-flex align-items-center p-2 bg-light rounded">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-undo text-info fs-4"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-2">
-                                            <div class="fw-bold text-info"><?php echo count($tools_returned ?? []); ?></div>
-                                            <small class="text-muted">برگشت داده</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="d-flex align-items-center p-2 bg-light rounded">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-exclamation-triangle text-danger fs-4"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-2">
-                                            <div class="fw-bold text-danger"><?php echo count($tools_overdue ?? []); ?></div>
-                                            <small class="text-muted">تاخیر در برگشت</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <?php if (isset($_SESSION['error'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
