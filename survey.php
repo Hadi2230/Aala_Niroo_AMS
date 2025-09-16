@@ -8,22 +8,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// تعریف توابع مورد نیاز
-function verifyCsrfToken() {
-    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
-        throw new Exception('CSRF token mismatch');
-    }
-    if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        throw new Exception('CSRF token mismatch');
-    }
-}
-
-function csrf_field() {
-    if (!isset($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
-}
+// توابع مورد نیاز از config.php استفاده می‌شوند
 
 // ایجاد جداول اگر وجود ندارند
 try {
