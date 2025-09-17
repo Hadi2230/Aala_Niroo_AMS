@@ -8,6 +8,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// دریافت پارامترها
+$customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
+$asset_id = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : 0;
+$survey_id = isset($_GET['survey_id']) ? (int)$_GET['survey_id'] : 0;
+
 // ایجاد جداول اگر وجود ندارند
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS surveys (
@@ -59,11 +64,6 @@ try {
 } catch (Exception $e) {
     $error_message = "خطا در ایجاد جداول: " . $e->getMessage();
 }
-
-// دریافت customer_id و asset_id از URL
-$customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
-$asset_id = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : 0;
-$survey_id = isset($_GET['survey_id']) ? (int)$_GET['survey_id'] : 0;
 
 // دریافت نظرسنجی‌ها
 $surveys = [];
@@ -125,7 +125,12 @@ try {
 // پردازش ارسال فرم
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
     try {
-        verifyCsrfToken();
+        // بررسی CSRF
+        if (isset($_POST['csrf_token']) && isset($_SESSION['csrf_token'])) {
+            if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+                throw new Exception("خطا در اعتبارسنجی فرم");
+            }
+        }
         
         $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
         $asset_id = !empty($_POST['asset_id']) ? (int)$_POST['asset_id'] : null;
@@ -191,16 +196,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
                         'message_id' => 'MSG_' . time() . '_' . rand(1000, 9999)
                     ];
                     
-                    if ($success) {
-                        $sms_result['response'] = [
-                            'status' => 'success',
-                            'message' => 'پیامک با موفقیت ارسال شد',
-                            'messageId' => $sms_result['message_id']
-                        ];
-                    } else {
-                        $sms_result['error'] = 'خطا در ارسال پیامک به دلیل مشکل شبکه';
-                    }
-                    
                     // لاگ‌گیری SMS
                     if (function_exists('logAction')) {
                         $sms_status = $sms_result['success'] ? 'موفق' : 'ناموفق';
@@ -215,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
             logAction($pdo, 'survey_submission', 'ارسال نظرسنجی با شناسه: ' . $submission_id);
         }
         
-        $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد!";
+        $_SESSION['success_message'] = "نظرسنجی با موفقیت ثبت شد! شناسه: " . $submission_id;
         if ($send_sms && !empty($sms_message)) {
             $_SESSION['success_message'] .= " SMS نیز ارسال شد.";
         }
@@ -223,7 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
         exit();
         
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $_SESSION['error_message'] = "خطا در ثبت نظرسنجی: " . $e->getMessage();
     }
 }
@@ -293,7 +290,7 @@ try {
     <style>
         :root { --primary-color:#3498db; --secondary-color:#2c3e50; --accent-color:#e74c3c; --light-bg:#f8f9fa; --dark-bg:#343a40; }
         body { font-family: Vazirmatn, sans-serif; background-color:#f5f7f9; padding-top:80px; color:#333; }
-        .survey-container { max-width:800px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
+        .survey-container { max-width:900px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
         .survey-header { background:linear-gradient(135deg,var(--secondary-color) 0%,var(--primary-color) 100%); color:#fff; padding:25px; text-align:center; }
         .survey-body { padding:30px; }
         .question-card { background:#fff; border:1px solid #e0e0e0; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 2px 10px rgba(0,0,0,.05); transition:all .3s ease; }
@@ -364,7 +361,7 @@ try {
                     <?php endif; ?>
                     
                     <form method="POST" id="surveyForm">
-                        <?php csrf_field(); ?>
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
                         
                         <div class="row mb-4">
                             <div class="col-md-4">
