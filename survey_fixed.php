@@ -8,59 +8,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// ایجاد جداول اگر وجود ندارند
-try {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS surveys (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        is_active BOOLEAN DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_questions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        survey_id INT NOT NULL,
-        question_text TEXT NOT NULL,
-        question_type ENUM('text', 'textarea', 'radio', 'checkbox', 'select', 'number', 'date', 'yes_no', 'rating') DEFAULT 'text',
-        is_required BOOLEAN DEFAULT 1,
-        order_index INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_submissions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        survey_id INT NOT NULL,
-        customer_id INT,
-        asset_id INT,
-        status ENUM('draft', 'completed', 'pending') DEFAULT 'draft',
-        submitted_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE,
-        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
-        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
-        FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS survey_responses (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        submission_id INT NOT NULL,
-        question_id INT NOT NULL,
-        response_text TEXT,
-        response_data JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (submission_id) REFERENCES survey_submissions(id) ON DELETE CASCADE,
-        FOREIGN KEY (question_id) REFERENCES survey_questions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
-
-} catch (Exception $e) {
-    $error_message = "خطا در ایجاد جداول: " . $e->getMessage();
-}
-
-// دریافت customer_id و asset_id از URL
+// دریافت پارامترها
 $customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
 $asset_id = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : 0;
 $survey_id = isset($_GET['survey_id']) ? (int)$_GET['survey_id'] : 0;
@@ -135,13 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
         
         if (!$customer_id) {
             $_SESSION['error_message'] = "لطفاً یک مشتری انتخاب کنید.";
-            header("Location: survey.php");
+            header("Location: survey_fixed.php");
             exit();
         }
         
         if (!$survey_id) {
             $_SESSION['error_message'] = "لطفاً یک نظرسنجی انتخاب کنید.";
-            header("Location: survey.php");
+            header("Location: survey_fixed.php");
             exit();
         }
         
@@ -190,16 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
                         'success' => $success,
                         'message_id' => 'MSG_' . time() . '_' . rand(1000, 9999)
                     ];
-                    
-                    if ($success) {
-                        $sms_result['response'] = [
-                            'status' => 'success',
-                            'message' => 'پیامک با موفقیت ارسال شد',
-                            'messageId' => $sms_result['message_id']
-                        ];
-                    } else {
-                        $sms_result['error'] = 'خطا در ارسال پیامک به دلیل مشکل شبکه';
-                    }
                     
                     // لاگ‌گیری SMS
                     if (function_exists('logAction')) {
@@ -293,7 +231,7 @@ try {
     <style>
         :root { --primary-color:#3498db; --secondary-color:#2c3e50; --accent-color:#e74c3c; --light-bg:#f8f9fa; --dark-bg:#343a40; }
         body { font-family: Vazirmatn, sans-serif; background-color:#f5f7f9; padding-top:80px; color:#333; }
-        .survey-container { max-width:800px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
+        .survey-container { max-width:900px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
         .survey-header { background:linear-gradient(135deg,var(--secondary-color) 0%,var(--primary-color) 100%); color:#fff; padding:25px; text-align:center; }
         .survey-body { padding:30px; }
         .question-card { background:#fff; border:1px solid #e0e0e0; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 2px 10px rgba(0,0,0,.05); transition:all .3s ease; }
@@ -526,7 +464,7 @@ try {
         function loadSurvey() {
             const surveyId = document.getElementById('survey_id').value;
             if (surveyId) {
-                window.location.href = 'survey.php?survey_id=' + surveyId;
+                window.location.href = 'survey_fixed.php?survey_id=' + surveyId;
             }
         }
         
