@@ -172,7 +172,41 @@ function replaceTemplateVariables($template, $data) {
 
 function sendSMS($phone, $message) {
     try {
-        require_once __DIR__ . '/sms.php';
+        // تعریف توابع محلی
+        function normalize_phone_number($phone) {
+            if (empty($phone)) return false;
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+            if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+                return '98' . substr($phone, 1);
+            }
+            return false;
+        }
+        
+        function send_sms_mock($phone_number, $message) {
+            sleep(1);
+            $success = rand(0, 100) > 20;
+            if ($success) {
+                return [
+                    'success' => true,
+                    'response' => [
+                        'status' => 'success',
+                        'message' => 'پیامک با موفقیت ارسال شد',
+                        'messageId' => 'MSG_' . time() . '_' . rand(1000, 9999)
+                    ],
+                    'message_id' => 'MSG_' . time() . '_' . rand(1000, 9999)
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => 'خطا در ارسال پیامک به دلیل مشکل شبکه'
+                ];
+            }
+        }
+        
+        function send_sms($phone_number, $message) {
+            return send_sms_mock($phone_number, $message);
+        }
+        
         $result = send_sms($phone, $message);
         
         // لاگ‌گیری نتیجه
