@@ -154,7 +154,8 @@ function send_sms_mock($phone_number, $message) {
 }
 
 // برای تست می‌توانید موقتاً از تابع mock استفاده کنید:
-// function send_sms($phone_number, $message) {
-//     return send_sms_mock($phone_number, $message);
-// }
+function send_sms($phone_number, $message) {
+    // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
+    return send_sms_mock($phone_number, $message);
+}
 ?>

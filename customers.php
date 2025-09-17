@@ -174,9 +174,17 @@ function sendSMS($phone, $message) {
     try {
         require_once __DIR__ . '/sms.php';
         $result = send_sms($phone, $message);
+        
+        // لاگ‌گیری نتیجه
+        if ($result['success']) {
+            error_log("SMS Success: Phone=$phone, Message=" . substr($message, 0, 50) . "...");
+        } else {
+            error_log("SMS Failed: Phone=$phone, Error=" . ($result['error'] ?? 'Unknown error'));
+        }
+        
         return $result['success'] ?? false;
     } catch (Exception $e) {
-        error_log("SMS Error: " . $e->getMessage());
+        error_log("SMS Exception: " . $e->getMessage());
         return false;
     }
 }
