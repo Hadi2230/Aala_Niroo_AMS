@@ -20,11 +20,56 @@ $filters = [
 // دریافت درخواست‌های بازدید
 $visit_requests = [];
 try {
-    if (function_exists('getVisitRequests')) {
-        $visit_requests = getVisitRequests($pdo, $filters);
+    $where_conditions = [];
+    $params = [];
+    
+    if (!empty($filters['status'])) {
+        $where_conditions[] = "vr.status = ?";
+        $params[] = $filters['status'];
     }
+    
+    if (!empty($filters['visit_type'])) {
+        $where_conditions[] = "vr.visit_type = ?";
+        $params[] = $filters['visit_type'];
+    }
+    
+    if (!empty($filters['date_from'])) {
+        $where_conditions[] = "DATE(vr.created_at) >= ?";
+        $params[] = $filters['date_from'];
+    }
+    
+    if (!empty($filters['date_to'])) {
+        $where_conditions[] = "DATE(vr.created_at) <= ?";
+        $params[] = $filters['date_to'];
+    }
+    
+    if (!empty($filters['company_name'])) {
+        $where_conditions[] = "vr.company_name LIKE ?";
+        $params[] = '%' . $filters['company_name'] . '%';
+    }
+    
+    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    
+    $sql = "
+        SELECT vr.*, 
+               u1.full_name as created_by_name,
+               u2.full_name as assigned_to_name,
+               u3.full_name as host_name
+        FROM visit_requests vr
+        LEFT JOIN users u1 ON vr.created_by = u1.id
+        LEFT JOIN users u2 ON vr.assigned_to = u2.id
+        LEFT JOIN users u3 ON vr.host_id = u3.id
+        $where_clause
+        ORDER BY vr.created_at DESC
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $visit_requests = $stmt->fetchAll();
+    
 } catch (Exception $e) {
-    // جدول وجود ندارد
+    // جدول وجود ندارد یا خطا
+    $visit_requests = [];
 }
 
 // دریافت آمار
