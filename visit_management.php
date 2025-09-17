@@ -24,58 +24,90 @@ try {
     $stmt = $pdo->query("SHOW TABLES LIKE 'visit_requests'");
     $table_exists = $stmt->fetch();
     
-    if ($table_exists) {
-        $where_conditions = [];
-        $params = [];
-        
-        if (!empty($filters['status'])) {
-            $where_conditions[] = "vr.status = ?";
-            $params[] = $filters['status'];
-        }
-        
-        if (!empty($filters['visit_type'])) {
-            $where_conditions[] = "vr.visit_type = ?";
-            $params[] = $filters['visit_type'];
-        }
-        
-        if (!empty($filters['date_from'])) {
-            $where_conditions[] = "DATE(vr.created_at) >= ?";
-            $params[] = $filters['date_from'];
-        }
-        
-        if (!empty($filters['date_to'])) {
-            $where_conditions[] = "DATE(vr.created_at) <= ?";
-            $params[] = $filters['date_to'];
-        }
-        
-        if (!empty($filters['company_name'])) {
-            $where_conditions[] = "vr.company_name LIKE ?";
-            $params[] = '%' . $filters['company_name'] . '%';
-        }
-        
-        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-        
-        $sql = "
-            SELECT vr.*, 
-                   u1.full_name as created_by_name,
-                   u2.full_name as assigned_to_name,
-                   u3.full_name as host_name
-            FROM visit_requests vr
-            LEFT JOIN users u1 ON vr.created_by = u1.id
-            LEFT JOIN users u2 ON vr.assigned_to = u2.id
-            LEFT JOIN users u3 ON vr.host_id = u3.id
-            $where_clause
-            ORDER BY vr.created_at DESC
+    if (!$table_exists) {
+        // جدول وجود ندارد، آن را ایجاد کنیم
+        $create_table_sql = "
+            CREATE TABLE IF NOT EXISTS visit_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                request_number VARCHAR(50) UNIQUE NOT NULL,
+                company_name VARCHAR(255) NOT NULL,
+                contact_person VARCHAR(255) NOT NULL,
+                contact_phone VARCHAR(20) NOT NULL,
+                contact_email VARCHAR(255),
+                visitor_count INT NOT NULL DEFAULT 1,
+                visit_purpose TEXT NOT NULL,
+                visit_type ENUM('meeting', 'test', 'purchase', 'inspection') NOT NULL,
+                request_method ENUM('phone', 'email', 'in_person', 'website') DEFAULT 'phone',
+                preferred_dates JSON,
+                nda_required BOOLEAN DEFAULT FALSE,
+                special_requirements TEXT,
+                priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+                status ENUM('new', 'documents_required', 'reviewed', 'scheduled', 'reserved', 'ready_for_visit', 'checked_in', 'onsite', 'completed', 'cancelled', 'archived') DEFAULT 'new',
+                confirmed_date DATETIME NULL,
+                qr_code VARCHAR(100) NULL,
+                created_by INT NOT NULL,
+                assigned_to INT NULL,
+                host_id INT NULL,
+                security_officer_id INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_status (status),
+                INDEX idx_company (company_name),
+                INDEX idx_created_at (created_at),
+                INDEX idx_request_number (request_number)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci
         ";
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $visit_requests = $stmt->fetchAll();
-    } else {
-        // جدول وجود ندارد، آن را ایجاد کنیم
-        createDatabaseTables($pdo);
-        $visit_requests = [];
+        $pdo->exec($create_table_sql);
     }
+    
+    // حالا درخواست‌ها را دریافت کنیم
+    $where_conditions = [];
+    $params = [];
+    
+    if (!empty($filters['status'])) {
+        $where_conditions[] = "vr.status = ?";
+        $params[] = $filters['status'];
+    }
+    
+    if (!empty($filters['visit_type'])) {
+        $where_conditions[] = "vr.visit_type = ?";
+        $params[] = $filters['visit_type'];
+    }
+    
+    if (!empty($filters['date_from'])) {
+        $where_conditions[] = "DATE(vr.created_at) >= ?";
+        $params[] = $filters['date_from'];
+    }
+    
+    if (!empty($filters['date_to'])) {
+        $where_conditions[] = "DATE(vr.created_at) <= ?";
+        $params[] = $filters['date_to'];
+    }
+    
+    if (!empty($filters['company_name'])) {
+        $where_conditions[] = "vr.company_name LIKE ?";
+        $params[] = '%' . $filters['company_name'] . '%';
+    }
+    
+    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    
+    $sql = "
+        SELECT vr.*, 
+               u1.full_name as created_by_name,
+               u2.full_name as assigned_to_name,
+               u3.full_name as host_name
+        FROM visit_requests vr
+        LEFT JOIN users u1 ON vr.created_by = u1.id
+        LEFT JOIN users u2 ON vr.assigned_to = u2.id
+        LEFT JOIN users u3 ON vr.host_id = u3.id
+        $where_clause
+        ORDER BY vr.created_at DESC
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $visit_requests = $stmt->fetchAll();
     
 } catch (Exception $e) {
     // خطا در اجرای کوئری
