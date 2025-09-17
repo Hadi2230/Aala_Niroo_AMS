@@ -135,13 +135,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
         
         if (!$customer_id) {
             $_SESSION['error_message'] = "لطفاً یک مشتری انتخاب کنید.";
-            header("Location: survey.php");
+            header("Location: survey_new.php");
             exit();
         }
         
         if (!$survey_id) {
             $_SESSION['error_message'] = "لطفاً یک نظرسنجی انتخاب کنید.";
-            header("Location: survey.php");
+            header("Location: survey_new.php");
             exit();
         }
         
@@ -306,7 +306,7 @@ try {
     <style>
         :root { --primary-color:#3498db; --secondary-color:#2c3e50; --accent-color:#e74c3c; --light-bg:#f8f9fa; --dark-bg:#343a40; }
         body { font-family: Vazirmatn, sans-serif; background-color:#f5f7f9; padding-top:80px; color:#333; }
-        .survey-container { max-width:800px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
+        .survey-container { max-width:900px; margin:0 auto; background:#fff; border-radius:15px; box-shadow:0 5px 25px rgba(0,0,0,.1); overflow:hidden; }
         .survey-header { background:linear-gradient(135deg,var(--secondary-color) 0%,var(--primary-color) 100%); color:#fff; padding:25px; text-align:center; }
         .survey-body { padding:30px; }
         .question-card { background:#fff; border:1px solid #e0e0e0; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 2px 10px rgba(0,0,0,.05); transition:all .3s ease; }
@@ -539,7 +539,7 @@ try {
         function loadSurvey() {
             const surveyId = document.getElementById('survey_id').value;
             if (surveyId) {
-                window.location.href = 'survey.php?survey_id=' + surveyId;
+                window.location.href = 'survey_new.php?survey_id=' + surveyId;
             }
         }
         
