@@ -39,8 +39,20 @@ try {
     
     // تست تابع نرمال‌سازی
     echo "<h3>1. تست نرمال‌سازی شماره تلفن:</h3>";
-    $normalized = normalize_phone_number($test_phone);
-    echo "<div class='code'>شماره اصلی: $test_phone<br>شماره نرمال‌سازی شده: " . ($normalized ?: 'نامعتبر') . "</div>";
+    if (function_exists('normalize_phone_number')) {
+        $normalized = normalize_phone_number($test_phone);
+        echo "<div class='code'>شماره اصلی: $test_phone<br>شماره نرمال‌سازی شده: " . ($normalized ?: 'نامعتبر') . "</div>";
+    } else {
+        echo "<div class='error'>❌ تابع normalize_phone_number تعریف نشده است!</div>";
+        // نرمال‌سازی دستی
+        $phone = preg_replace('/[^0-9]/', '', $test_phone);
+        if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+            $normalized = '98' . substr($phone, 1);
+        } else {
+            $normalized = $phone;
+        }
+        echo "<div class='code'>شماره اصلی: $test_phone<br>شماره نرمال‌سازی شده (دستی): $normalized</div>";
+    }
     
     if (!$normalized) {
         echo "<div class='error'>❌ شماره تلفن نامعتبر است!</div>";

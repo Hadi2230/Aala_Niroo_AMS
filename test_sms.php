@@ -36,8 +36,20 @@ try {
     echo "<div class='info'>پیام: $test_message</div>";
     
     // تست تابع نرمال‌سازی
-    $normalized = normalize_phone_number($test_phone);
-    echo "<div class='info'>شماره نرمال‌سازی شده: $normalized</div>";
+    if (function_exists('normalize_phone_number')) {
+        $normalized = normalize_phone_number($test_phone);
+        echo "<div class='info'>شماره نرمال‌سازی شده: $normalized</div>";
+    } else {
+        echo "<div class='error'>❌ تابع normalize_phone_number تعریف نشده است!</div>";
+        // نرمال‌سازی دستی
+        $phone = preg_replace('/[^0-9]/', '', $test_phone);
+        if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+            $normalized = '98' . substr($phone, 1);
+        } else {
+            $normalized = $phone;
+        }
+        echo "<div class='info'>شماره نرمال‌سازی شده (دستی): $normalized</div>";
+    }
     
     // تست ارسال پیامک
     $result = send_sms($test_phone, $test_message);
