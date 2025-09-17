@@ -1,47 +1,18 @@
 <?php
-// visit_dashboard.php - نسخه ساده و بدون خطا
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// شروع session
 session_start();
+require_once 'config.php';
 
-// تنظیم session برای تست
+// بررسی احراز هویت
 if (!isset($_SESSION['user_id'])) {
-    $_SESSION['user_id'] = 1;
-    $_SESSION['username'] = 'admin';
-    $_SESSION['role'] = 'ادمین';
+    header("Location: login.php");
+    exit();
 }
 
-// تست config.php
+// دریافت آمار
 try {
-    require_once 'config.php';
+    $stats = getVisitStatistics($pdo);
 } catch (Exception $e) {
-    die("خطا در config.php: " . $e->getMessage());
-}
-
-// تست اتصال دیتابیس
-try {
-    $stmt = $pdo->query("SELECT 1");
-} catch (Exception $e) {
-    die("خطا در اتصال دیتابیس: " . $e->getMessage());
-}
-
-// ایجاد جداول
-try {
-    createDatabaseTables($pdo);
-} catch (Exception $e) {
-    // خطا در ایجاد جداول
-}
-
-// دریافت آمار ساده
-$stats = ['total_requests' => 0, 'by_status' => [], 'by_type' => []];
-try {
-    if (function_exists('getVisitStatistics')) {
-        $stats = getVisitStatistics($pdo);
-    }
-} catch (Exception $e) {
-    // خطا در دریافت آمار
+    $stats = ['total_requests' => 0, 'by_status' => [], 'by_type' => []];
 }
 
 // دریافت بازدیدهای امروز
@@ -101,10 +72,11 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>داشبورد بازدیدها - اعلا نیرو</title>
+    <title>داشبورد بازدید کارخانه - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -119,7 +91,7 @@ try {
         body {
             font-family: Vazirmatn, sans-serif;
             background: var(--light-bg);
-            padding-top: 20px;
+            padding-top: 80px;
         }
         
         .dashboard-container {
@@ -258,6 +230,12 @@ try {
         .device-reserved { border-left: 4px solid var(--warning-color); }
         .device-in-use { border-left: 4px solid var(--danger-color); }
         
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
         .quick-action {
             background: white;
             border-radius: 10px;
@@ -294,18 +272,20 @@ try {
     </style>
 </head>
 <body>
+    <?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
+    
     <div class="container-fluid">
         <div class="dashboard-container">
             <!-- هدر داشبورد -->
             <div class="dashboard-header">
                 <div class="row align-items-center">
                     <div class="col-md-8">
-                        <h1><i class="bi bi-speedometer2"></i> داشبورد بازدیدها</h1>
+                        <h1><i class="bi bi-building"></i> داشبورد بازدید کارخانه</h1>
                         <p class="mb-0">مدیریت جامع بازدیدهای کارخانه</p>
                     </div>
                     <div class="col-md-4 text-end">
                         <div class="text-light">
-                            <small>آخرین به‌روزرسانی: <?php echo date('Y-m-d H:i:s'); ?></small>
+                            <small>آخرین به‌روزرسانی: <?php echo function_exists('jalali_format') ? jalali_format(date('Y-m-d H:i:s')) : date('Y-m-d H:i:s'); ?></small>
                         </div>
                     </div>
                 </div>
@@ -436,7 +416,7 @@ try {
                                             <h6 class="mb-1"><?php echo htmlspecialchars($visit['request_number']); ?></h6>
                                             <p class="mb-1 text-muted"><?php echo htmlspecialchars($visit['company_name']); ?></p>
                                             <p class="mb-0 text-muted small">
-                                                ایجاد شده: <?php echo date('Y-m-d', strtotime($visit['created_at'])); ?>
+                                                ایجاد شده: <?php echo function_exists('jalali_format') ? jalali_format($visit['created_at']) : date('Y-m-d', strtotime($visit['created_at'])); ?>
                                             </p>
                                         </div>
                                         <div class="col-md-4 text-end">
@@ -533,13 +513,29 @@ try {
                 </div>
             </div>
             
-            <!-- پیام موفقیت -->
+            <!-- نمودار آمار -->
             <div class="row">
                 <div class="col-md-12">
                     <div class="widget-card">
-                        <div class="text-center">
-                            <h3 class="text-success">🎉 سیستم مدیریت بازدید کارخانه آماده است!</h3>
-                            <p class="text-muted">تمام ویژگی‌ها پیاده‌سازی شده و آماده استفاده است</p>
+                        <div class="widget-header">
+                            <h5 class="widget-title">
+                                <i class="bi bi-bar-chart"></i> آمار بازدیدها
+                            </h5>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>وضعیت بازدیدها</h6>
+                                <div class="chart-container">
+                                    <canvas id="statusChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>نوع بازدیدها</h6>
+                                <div class="chart-container">
+                                    <canvas id="typeChart"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -548,5 +544,70 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // نمودار وضعیت بازدیدها
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusData = <?php echo json_encode($stats['by_status']); ?>;
+        
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(item => item.status),
+                datasets: [{
+                    data: statusData.map(item => item.count),
+                    backgroundColor: [
+                        '#3498db', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6',
+                        '#1abc9c', '#34495e', '#e67e22', '#2ecc71', '#95a5a6'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+        
+        // نمودار نوع بازدیدها
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        const typeData = <?php echo json_encode($stats['by_type']); ?>;
+        
+        new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: typeData.map(item => item.visit_type),
+                datasets: [{
+                    label: 'تعداد',
+                    data: typeData.map(item => item.count),
+                    backgroundColor: '#3498db',
+                    borderColor: '#2980b9',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Auto-refresh هر 5 دقیقه
+        setInterval(function() {
+            window.location.reload();
+        }, 300000);
+    </script>
 </body>
 </html>
