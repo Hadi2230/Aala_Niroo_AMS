@@ -20,56 +20,67 @@ $filters = [
 // دریافت درخواست‌های بازدید
 $visit_requests = [];
 try {
-    $where_conditions = [];
-    $params = [];
+    // ابتدا بررسی کنیم که جدول وجود دارد یا نه
+    $stmt = $pdo->query("SHOW TABLES LIKE 'visit_requests'");
+    $table_exists = $stmt->fetch();
     
-    if (!empty($filters['status'])) {
-        $where_conditions[] = "vr.status = ?";
-        $params[] = $filters['status'];
+    if ($table_exists) {
+        $where_conditions = [];
+        $params = [];
+        
+        if (!empty($filters['status'])) {
+            $where_conditions[] = "vr.status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        if (!empty($filters['visit_type'])) {
+            $where_conditions[] = "vr.visit_type = ?";
+            $params[] = $filters['visit_type'];
+        }
+        
+        if (!empty($filters['date_from'])) {
+            $where_conditions[] = "DATE(vr.created_at) >= ?";
+            $params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $where_conditions[] = "DATE(vr.created_at) <= ?";
+            $params[] = $filters['date_to'];
+        }
+        
+        if (!empty($filters['company_name'])) {
+            $where_conditions[] = "vr.company_name LIKE ?";
+            $params[] = '%' . $filters['company_name'] . '%';
+        }
+        
+        $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+        
+        $sql = "
+            SELECT vr.*, 
+                   u1.full_name as created_by_name,
+                   u2.full_name as assigned_to_name,
+                   u3.full_name as host_name
+            FROM visit_requests vr
+            LEFT JOIN users u1 ON vr.created_by = u1.id
+            LEFT JOIN users u2 ON vr.assigned_to = u2.id
+            LEFT JOIN users u3 ON vr.host_id = u3.id
+            $where_clause
+            ORDER BY vr.created_at DESC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $visit_requests = $stmt->fetchAll();
+    } else {
+        // جدول وجود ندارد، آن را ایجاد کنیم
+        createDatabaseTables($pdo);
+        $visit_requests = [];
     }
-    
-    if (!empty($filters['visit_type'])) {
-        $where_conditions[] = "vr.visit_type = ?";
-        $params[] = $filters['visit_type'];
-    }
-    
-    if (!empty($filters['date_from'])) {
-        $where_conditions[] = "DATE(vr.created_at) >= ?";
-        $params[] = $filters['date_from'];
-    }
-    
-    if (!empty($filters['date_to'])) {
-        $where_conditions[] = "DATE(vr.created_at) <= ?";
-        $params[] = $filters['date_to'];
-    }
-    
-    if (!empty($filters['company_name'])) {
-        $where_conditions[] = "vr.company_name LIKE ?";
-        $params[] = '%' . $filters['company_name'] . '%';
-    }
-    
-    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-    
-    $sql = "
-        SELECT vr.*, 
-               u1.full_name as created_by_name,
-               u2.full_name as assigned_to_name,
-               u3.full_name as host_name
-        FROM visit_requests vr
-        LEFT JOIN users u1 ON vr.created_by = u1.id
-        LEFT JOIN users u2 ON vr.assigned_to = u2.id
-        LEFT JOIN users u3 ON vr.host_id = u3.id
-        $where_clause
-        ORDER BY vr.created_at DESC
-    ";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $visit_requests = $stmt->fetchAll();
     
 } catch (Exception $e) {
-    // جدول وجود ندارد یا خطا
+    // خطا در اجرای کوئری
     $visit_requests = [];
+    error_log("خطا در دریافت درخواست‌های بازدید: " . $e->getMessage());
 }
 
 // دریافت آمار
@@ -696,7 +707,7 @@ try {
                                                     <a href="visit_details.php?id=<?php echo $request['id']; ?>" class="btn btn-sm btn-outline-primary" title="مشاهده جزئیات">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <button class="btn btn-sm btn-outline-warning" title="ویرایش" onclick="openEditModal(<?php echo $request['id']; ?>, '<?php echo htmlspecialchars($request['company_name']); ?>', '<?php echo htmlspecialchars($request['contact_person']); ?>', '<?php echo htmlspecialchars($request['contact_phone']); ?>', '<?php echo htmlspecialchars($request['contact_email']); ?>', <?php echo $request['visitor_count']; ?>, '<?php echo htmlspecialchars($request['visit_purpose']); ?>', '<?php echo $request['visit_type']; ?>', '<?php echo $request['request_method']; ?>', '<?php echo $request['nda_required'] ? 'true' : 'false'; ?>', '<?php echo htmlspecialchars($request['special_requirements']); ?>')">
+                                                    <button class="btn btn-sm btn-outline-warning" title="ویرایش" onclick="openEditModal(<?php echo $request['id']; ?>, '<?php echo addslashes($request['company_name']); ?>', '<?php echo addslashes($request['contact_person']); ?>', '<?php echo addslashes($request['contact_phone']); ?>', '<?php echo addslashes($request['contact_email']); ?>', <?php echo $request['visitor_count']; ?>, '<?php echo addslashes($request['visit_purpose']); ?>', '<?php echo $request['visit_type']; ?>', '<?php echo $request['request_method']; ?>', '<?php echo $request['nda_required'] ? 'true' : 'false'; ?>', '<?php echo addslashes($request['special_requirements']); ?>')">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger" title="حذف" onclick="deleteVisit(<?php echo $request['id']; ?>)">
