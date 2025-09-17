@@ -64,12 +64,12 @@ function send_sms_mock($phone_number, $message) {
 /**
  * تابع ارسال پیامک واقعی
  */
-function send_sms_real($phone_number, $message) {
+function send_sms_real($phone_number, $message, $api_key = null, $line_number = null) {
     // پیکربندی پنل پیامکی
     $config = [
-        'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=',
+        'api_key' => $api_key ?: 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=',
         'api_url' => 'https://api2.ippanel.com/api/v1/sms/send/webservice/single',
-        'line_number' => '5000125475',
+        'line_number' => $line_number ?: '5000125475',
     ];
     
     try {
