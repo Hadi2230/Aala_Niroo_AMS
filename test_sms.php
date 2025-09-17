@@ -65,16 +65,6 @@ try {
         }
     }
     
-    // تست تابع mock
-    echo "<div class='info'>تست تابع mock...</div>";
-    $mock_result = send_sms_mock($test_phone, $test_message);
-    
-    if ($mock_result['success']) {
-        echo "<div class='success'>✅ تست mock موفق بود!</div>";
-    } else {
-        echo "<div class='error'>❌ تست mock ناموفق: " . $mock_result['error'] . "</div>";
-    }
-    
 } catch (Exception $e) {
     echo "<div class='error'>❌ خطا: " . $e->getMessage() . "</div>";
     echo "<div class='error'>فایل: " . $e->getFile() . "</div>";

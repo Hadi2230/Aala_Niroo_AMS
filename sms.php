@@ -9,6 +9,11 @@
  * @return array نتیجه عملیات
  */
 function send_sms($phone_number, $message) {
+    // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
+    return send_sms_mock($phone_number, $message);
+    
+    // کد API واقعی (غیرفعال):
+    /*
     // پیکربندی پنل پیامکی - این مقادیر باید با پنل شما تطبیق داده شوند
     $config = [
         'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=', // کلید API پنل پیامکی
@@ -85,6 +90,7 @@ function send_sms($phone_number, $message) {
             'error' => 'خطای سیستمی: ' . $e->getMessage()
         ];
     }
+    */
 }
 
 /**
@@ -154,8 +160,8 @@ function send_sms_mock($phone_number, $message) {
 }
 
 // برای تست می‌توانید موقتاً از تابع mock استفاده کنید:
-function send_sms($phone_number, $message) {
-    // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
-    return send_sms_mock($phone_number, $message);
-}
+// function send_sms($phone_number, $message) {
+//     // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
+//     return send_sms_mock($phone_number, $message);
+// }
 ?>
