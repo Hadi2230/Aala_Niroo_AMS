@@ -66,26 +66,6 @@ try {
 } catch (Exception $e) {
     // جدول وجود ندارد
 }
-
-// دریافت آمار هفتگی
-$weekly_stats = [];
-try {
-    $week_start = date('Y-m-d', strtotime('monday this week'));
-    $week_end = date('Y-m-d', strtotime('sunday this week'));
-    $weekly_stats = getVisitStatistics($pdo, $week_start, $week_end);
-} catch (Exception $e) {
-    // خطا در دریافت آمار هفتگی
-}
-
-// دریافت آمار ماهانه
-$monthly_stats = [];
-try {
-    $month_start = date('Y-m-01');
-    $month_end = date('Y-m-t');
-    $monthly_stats = getVisitStatistics($pdo, $month_start, $month_end);
-} catch (Exception $e) {
-    // خطا در دریافت آمار ماهانه
-}
 ?>
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
@@ -111,7 +91,7 @@ try {
         body {
             font-family: Vazirmatn, sans-serif;
             background: var(--light-bg);
-            padding-top: 80px;
+            padding-top: 20px;
         }
         
         .dashboard-container {
@@ -179,7 +159,7 @@ try {
         
         .widget-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
             padding-bottom: 15px;
@@ -243,7 +223,7 @@ try {
             padding: 12px;
             margin-bottom: 8px;
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
         }
         
@@ -292,8 +272,6 @@ try {
     </style>
 </head>
 <body>
-    <?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
-    
     <div class="container-fluid">
         <div class="dashboard-container">
             <!-- هدر داشبورد -->
@@ -305,7 +283,7 @@ try {
                     </div>
                     <div class="col-md-4 text-end">
                         <div class="text-light">
-                            <small>آخرین به‌روزرسانی: <?php echo function_exists('jalali_format') ? jalali_format(date('Y-m-d H:i:s')) : date('Y-m-d H:i:s'); ?></small>
+                            <small>آخرین به‌روزرسانی: <?php echo date('Y-m-d H:i:s'); ?></small>
                         </div>
                     </div>
                 </div>
@@ -403,7 +381,7 @@ try {
                                             </span>
                                             <br>
                                             <small class="text-muted">
-                                                <?php echo jalali_format($visit['confirmed_date'], 'H:i'); ?>
+                                                <?php echo date('H:i', strtotime($visit['confirmed_date'])); ?>
                                             </small>
                                         </div>
                                     </div>
@@ -436,7 +414,7 @@ try {
                                             <h6 class="mb-1"><?php echo htmlspecialchars($visit['request_number']); ?></h6>
                                             <p class="mb-1 text-muted"><?php echo htmlspecialchars($visit['company_name']); ?></p>
                                             <p class="mb-0 text-muted small">
-                                                ایجاد شده: <?php echo jalali_format($visit['created_at']); ?>
+                                                ایجاد شده: <?php echo date('Y-m-d', strtotime($visit['created_at'])); ?>
                                             </p>
                                         </div>
                                         <div class="col-md-4 text-end">
@@ -482,8 +460,8 @@ try {
                                     </div>
                                     <div class="text-end">
                                         <small class="text-muted">
-                                            <?php echo jalali_format($device['reserved_from'], 'H:i'); ?> - 
-                                            <?php echo jalali_format($device['reserved_to'], 'H:i'); ?>
+                                            <?php echo date('H:i', strtotime($device['reserved_from'])); ?> - 
+                                            <?php echo date('H:i', strtotime($device['reserved_to'])); ?>
                                         </small>
                                         <br>
                                         <small class="text-muted"><?php echo htmlspecialchars($device['company_name']); ?></small>
