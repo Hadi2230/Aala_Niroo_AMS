@@ -152,7 +152,49 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
           </div>
         </li>
 
-        <!-- Workflow Mega (moved after Assets, icon updated to project-diagram, submenu colors unified) -->
+        <!-- Factory Visit Management Mega -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $active(['visit_dashboard.php','visit_management.php','visit_details.php','visit_checkin.php']); ?>" href="#" id="visitMenuTrigger">
+            <i class="fas fa-building"></i><span class="lang" data-fa="بازدید کارخانه" data-en="Factory Visit"></span>
+            <span class="notification-badge" id="visitNotificationBadge" style="display:none;">0</span>
+          </a>
+          <div class="mega-menu" id="visitMegaMenu" aria-labelledby="visitMenuTrigger">
+            <div class="menu-grid">
+              <a href="visit_dashboard.php" class="menu-card">
+                <i class="fas fa-tachometer-alt"></i>
+                <h6 class="lang" data-fa="داشبورد بازدیدها" data-en="Visit Dashboard"></h6>
+                <p class="lang" data-fa="آمار کلی و عملیات سریع" data-en="Overview and quick actions"></p>
+              </a>
+              <a href="visit_management.php" class="menu-card">
+                <i class="fas fa-calendar-plus"></i>
+                <h6 class="lang" data-fa="مدیریت بازدیدها" data-en="Visit Management"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت درخواست‌ها" data-en="Create and manage requests"></p>
+              </a>
+              <a href="visit_checkin.php" class="menu-card">
+                <i class="fas fa-qr-code"></i>
+                <h6 class="lang" data-fa="Check-in موبایل" data-en="Mobile Check-in"></h6>
+                <p class="lang" data-fa="ورود و خروج بازدیدکنندگان" data-en="Visitor check-in/out"></p>
+              </a>
+              <a href="visit_details.php?id=1" class="menu-card">
+                <i class="fas fa-eye"></i>
+                <h6 class="lang" data-fa="جزئیات بازدید" data-en="Visit Details"></h6>
+                <p class="lang" data-fa="مشاهده کامل اطلاعات بازدید" data-en="View complete visit info"></p>
+              </a>
+              <a href="visit_management.php?status=scheduled" class="menu-card">
+                <i class="fas fa-calendar-alt"></i>
+                <h6 class="lang" data-fa="تقویم بازدیدها" data-en="Visit Calendar"></h6>
+                <p class="lang" data-fa="برنامه‌ریزی و زمان‌بندی" data-en="Schedule and planning"></p>
+              </a>
+              <a href="visit_management.php?status=documents_required" class="menu-card">
+                <i class="fas fa-file-check"></i>
+                <h6 class="lang" data-fa="بررسی مدارک" data-en="Document Review"></h6>
+                <p class="lang" data-fa="تایید و بررسی مدارک" data-en="Verify and review documents"></p>
+              </a>
+            </div>
+          </div>
+        </li>
+
+        <!-- Workflow Mega (moved after Factory Visit, icon updated to project-diagram, submenu colors unified) -->
         <li class="nav-item position-relative">
           <a class="nav-link<?php echo $workflowActive; ?>" href="#" id="workflowMenuTrigger">
             <i class="fas fa-project-diagram"></i><span class="lang" data-fa="گردش کار" data-en="Workflow"></span>
@@ -357,6 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
       menu.classList.toggle('show');
     });
   }
+  setupMega('visitMenuTrigger','visitMegaMenu');
   setupMega('workflowMenuTrigger','workflowMegaMenu');
   setupMega('assetsMenuTrigger','assetsMegaMenu');
   setupMega('warrantyMenuTrigger','warrantyMegaMenu');
