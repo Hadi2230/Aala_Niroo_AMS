@@ -171,10 +171,14 @@ function replaceTemplateVariables($template, $data) {
 }
 
 function sendSMS($phone, $message) {
-    // اینجا باید API SMS خود را پیاده‌سازی کنید
-    // برای تست، فقط true برمی‌گردانیم
-    error_log("SMS to $phone: $message");
-    return true;
+    try {
+        require_once __DIR__ . '/sms.php';
+        $result = send_sms($phone, $message);
+        return $result['success'] ?? false;
+    } catch (Exception $e) {
+        error_log("SMS Error: " . $e->getMessage());
+        return false;
+    }
 }
 
 // پردازش فرم‌ها
@@ -243,23 +247,55 @@ try {
         $customer_id = (int)$pdo->lastInsertId();
         
         // لاگ‌گیری افزودن مشتری
-        logAction($pdo, 'ADD_CUSTOMER', "افزودن مشتری جدید: " . ($isLegal ? $company : $full_name) . " (ID: $customer_id)", 'info', 'customers', [
+        $isLegal = ($ctype === 'حقوقی');
+        $customer_name = $isLegal ? ($company ?? '') : ($full_name ?? '');
+        logAction($pdo, 'ADD_CUSTOMER', "افزودن مشتری جدید: " . $customer_name . " (ID: $customer_id)", 'info', 'customers', [
             'customer_type' => $ctype,
             'notification_type' => $notification_type,
-            'has_correspondences' => count($dirs) > 0
+            'has_correspondences' => false
         ]);
         
         // ارسال اطلاع‌رسانی
         if ($notification_type !== 'none') {
-            $sent_notifications = sendCustomerNotification($customer_id, $customer_data, $notification_type);
+            // بررسی تأیید کاربر برای ارسال SMS
+            $send_sms = false;
+            $send_email = false;
+            
+            if (in_array($notification_type, ['sms', 'both'])) {
+                // نمایش پیام تأیید برای SMS
+                $phone = $isLegal ? ($customer_data['company_phone'] ?? '') : ($customer_data['phone'] ?? '');
+                if ($phone) {
+                    $send_sms = true; // در نسخه فعلی، SMS را بدون تأیید ارسال می‌کنیم
+                }
+            }
+            
+            if (in_array($notification_type, ['email', 'both'])) {
+                $email = $isLegal ? ($customer_data['company_email'] ?? '') : ($customer_data['email'] ?? '');
+                if ($email) {
+                    $send_email = true;
+                }
+            }
+            
+            $sent_notifications = [];
+            
+            if ($send_email) {
+                $sent_notifications[] = 'ایمیل';
+            }
+            
+            if ($send_sms) {
+                $sent_notifications[] = 'SMS';
+            }
+            
             $notification_message = !empty($sent_notifications) ? ' و ' . implode(' و ', $sent_notifications) . ' ارسال شد' : '';
             
             // لاگ‌گیری ارسال اطلاع‌رسانی
-            logAction($pdo, 'SEND_NOTIFICATION', "ارسال اطلاع‌رسانی برای مشتری $customer_id: " . implode(', ', $sent_notifications), 'info', 'customers', [
-                'customer_id' => $customer_id,
-                'notification_type' => $notification_type,
-                'sent_types' => $sent_notifications
-            ]);
+            if (!empty($sent_notifications)) {
+                logAction($pdo, 'SEND_NOTIFICATION', "ارسال اطلاع‌رسانی برای مشتری $customer_id: " . implode(', ', $sent_notifications), 'info', 'customers', [
+                    'customer_id' => $customer_id,
+                    'notification_type' => $notification_type,
+                    'sent_types' => $sent_notifications
+                ]);
+            }
         } else {
             $notification_message = '';
         }
@@ -643,6 +679,15 @@ if (!$embedded && file_exists('navbar.php')) {
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- پیش‌نمایش قالب اطلاع‌رسانی -->
+                            <div id="notification_preview" class="mt-3" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-eye me-2"></i>پیش‌نمایش قالب اطلاع‌رسانی:</h6>
+                                    <div id="preview_content"></div>
+                                </div>
+                            </div>
+                            
                             <div class="alert alert-info mt-3">
                                 <i class="fas fa-info-circle me-2"></i>
                                 <strong>نکته:</strong> برای ارسال ایمیل، آدرس ایمیل مشتری باید وارد شود. برای ارسال SMS، شماره تلفن مشتری باید وارد شود.
@@ -1078,6 +1123,110 @@ if (!$embedded && file_exists('navbar.php')) {
             corrCounter++;
         });
     }
+    
+    // پیش‌نمایش قالب اطلاع‌رسانی
+    function updateNotificationPreview() {
+        const notificationType = document.querySelector('input[name="notification_type"]:checked').value;
+        const previewDiv = document.getElementById('notification_preview');
+        const previewContent = document.getElementById('preview_content');
+        
+        if (notificationType === 'none') {
+            previewDiv.style.display = 'none';
+            return;
+        }
+        
+        // دریافت اطلاعات مشتری
+        const customerType = document.getElementById('customer_type').value;
+        let customerData = {};
+        
+        if (customerType === 'حقیقی') {
+            customerData = {
+                full_name: document.querySelector('input[name="full_name"]').value || '{نام مشتری}',
+                phone: document.querySelector('input[name="phone"]').value || '{شماره تلفن}',
+                email: document.querySelector('input[name="email"]').value || '{ایمیل}',
+                address: document.querySelector('input[name="address"]').value || '{آدرس}',
+                operator_name: document.querySelector('input[name="operator_name"]').value || '{نام اپراتور}',
+                operator_phone: document.querySelector('input[name="operator_phone"]').value || '{تلفن اپراتور}'
+            };
+        } else {
+            customerData = {
+                company: document.querySelector('input[name="company"]').value || '{نام شرکت}',
+                responsible_name: document.querySelector('input[name="responsible_name"]').value || '{نام مسئول}',
+                company_phone: document.querySelector('input[name="company_phone"]').value || '{تلفن شرکت}',
+                responsible_phone: document.querySelector('input[name="responsible_phone"]').value || '{تلفن مسئول}',
+                company_email: document.querySelector('input[name="company_email"]').value || '{ایمیل شرکت}',
+                address: document.querySelector('input[name="address"]').value || '{آدرس}',
+                operator_name: document.querySelector('input[name="operator_name"]').value || '{نام اپراتور}',
+                operator_phone: document.querySelector('input[name="operator_phone"]').value || '{تلفن اپراتور}',
+                notes: document.querySelector('textarea[name="notes"]').value || '{یادداشت}'
+            };
+        }
+        
+        // اضافه کردن متغیرهای تاریخ و زمان
+        customerData.date = new Date().toLocaleDateString('fa-IR');
+        customerData.time = new Date().toLocaleTimeString('fa-IR');
+        
+        // شبیه‌سازی قالب‌ها
+        let previewText = '';
+        
+        if (notificationType === 'email' || notificationType === 'both') {
+            previewText += '<div class="mb-2"><strong>📧 ایمیل:</strong><br>';
+            previewText += '<div class="bg-light p-2 rounded">';
+            previewText += '<strong>موضوع:</strong> خوش‌آمدید به سیستم مدیریت اعلا نیرو<br>';
+            previewText += '<strong>متن:</strong><br>';
+            if (customerType === 'حقیقی') {
+                previewText += 'سلام ' + customerData.full_name + ' عزیز،<br>';
+                previewText += 'به سیستم مدیریت اعلا نیرو خوش‌آمدید!<br><br>';
+                previewText += 'اطلاعات شما:<br>';
+                previewText += 'نام: ' + customerData.full_name + '<br>';
+                previewText += 'تلفن: ' + customerData.phone + '<br>';
+                previewText += 'آدرس: ' + customerData.address + '<br><br>';
+            } else {
+                previewText += 'سلام ' + customerData.responsible_name + ' عزیز،<br>';
+                previewText += 'شرکت ' + customerData.company + ' به سیستم مدیریت اعلا نیرو خوش‌آمدید!<br><br>';
+                previewText += 'اطلاعات شرکت:<br>';
+                previewText += 'نام شرکت: ' + customerData.company + '<br>';
+                previewText += 'مسئول: ' + customerData.responsible_name + '<br>';
+                previewText += 'تلفن شرکت: ' + customerData.company_phone + '<br>';
+                previewText += 'آدرس: ' + customerData.address + '<br><br>';
+            }
+            previewText += 'با تشکر<br>تیم اعلا نیرو';
+            previewText += '</div></div>';
+        }
+        
+        if (notificationType === 'sms' || notificationType === 'both') {
+            previewText += '<div class="mb-2"><strong>📱 SMS:</strong><br>';
+            previewText += '<div class="bg-light p-2 rounded">';
+            if (customerType === 'حقیقی') {
+                previewText += 'سلام ' + customerData.full_name + ' عزیز، به سیستم مدیریت اعلا نیرو خوش‌آمدید! تیم اعلا نیرو';
+            } else {
+                previewText += 'سلام ' + customerData.responsible_name + ' عزیز، شرکت ' + customerData.company + ' به سیستم مدیریت اعلا نیرو خوش‌آمدید! تیم اعلا نیرو';
+            }
+            previewText += '</div></div>';
+        }
+        
+        previewContent.innerHTML = previewText;
+        previewDiv.style.display = 'block';
+    }
+    
+    // اضافه کردن event listener برای پیش‌نمایش
+    document.querySelectorAll('input[name="notification_type"]').forEach(radio => {
+        radio.addEventListener('change', updateNotificationPreview);
+    });
+    
+    // اضافه کردن event listener برای تغییر نوع مشتری
+    document.getElementById('customer_type').addEventListener('change', function() {
+        setTimeout(updateNotificationPreview, 100);
+    });
+    
+    // اضافه کردن event listener برای فیلدهای مشتری
+    const customerFields = ['full_name', 'phone', 'email', 'company', 'responsible_name', 'company_phone', 'responsible_phone', 'company_email', 'address', 'operator_name', 'operator_phone', 'notes'];
+    customerFields.forEach(fieldName => {
+        const field = document.querySelector(`input[name="${fieldName}"], textarea[name="${fieldName}"]`);
+        if (field) {
+            field.addEventListener('input', updateNotificationPreview);
+        }
+    });
 })();
 </script>
 </body>

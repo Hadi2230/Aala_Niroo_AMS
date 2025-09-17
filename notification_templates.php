@@ -1,26 +1,31 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
+/**
+ * notification_templates.php - مدیریت قالب‌های اطلاع‌رسانی
+ * Notification Templates Management
+ */
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/config.php';
+
+// بررسی دسترسی
+if (empty($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
 }
 
-include 'config.php';
-
 // بررسی دسترسی ادمین
-$is_admin = ($_SESSION['role'] === 'ادمین' || $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'administrator');
-if (!$is_admin) {
-    die('دسترسی غیرمجاز - فقط ادمین می‌تواند قالب‌های اطلاع‌رسانی را مدیریت کند');
+if (!is_admin()) {
+    die('دسترسی غیرمجاز - فقط ادمین می‌تواند به این بخش دسترسی داشته باشد');
 }
+
+$success = $_GET['success'] ?? '';
+$error = '';
 
 // توابع کمکی
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function sanitize($s){ return trim(strip_tags($s ?? '')); }
 function generate_csrf(){ if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(24)); return $_SESSION['csrf_token']; }
 function require_csrf($t){ if (empty($t) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $t)) throw new RuntimeException('خطای CSRF — درخواست نامعتبر'); }
-
-$success = '';
-$error = '';
 
 // پردازش فرم‌ها
 try {
@@ -35,76 +40,70 @@ try {
         $is_active = isset($_POST['is_active']) ? 1 : 0;
         
         if (empty($type) || empty($name) || empty($content)) {
-            throw new RuntimeException('نوع، نام و محتوا الزامی هستند');
+            throw new RuntimeException('تمام فیلدهای الزامی باید پر شوند');
         }
         
         if (!in_array($type, ['email', 'sms'])) {
-            throw new RuntimeException('نوع قالب نامعتبر است');
+            throw new RuntimeException('نوع قالب باید ایمیل یا SMS باشد');
         }
         
         $stmt = $pdo->prepare("INSERT INTO notification_templates (type, name, subject, content, is_active) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$type, $name, $subject, $content, $is_active]);
         
-        $success = 'قالب با موفقیت اضافه شد';
+        header('Location: notification_templates.php?success=' . urlencode('قالب جدید با موفقیت اضافه شد'));
+        exit();
     }
     
     // ویرایش قالب
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_template'])) {
         require_csrf($_POST['csrf_token'] ?? '');
         
-        $id = (int)$_POST['template_id'];
+        $id = (int)($_POST['template_id'] ?? 0);
         $type = sanitize($_POST['type'] ?? '');
         $name = sanitize($_POST['name'] ?? '');
         $subject = sanitize($_POST['subject'] ?? '');
         $content = sanitize($_POST['content'] ?? '');
         $is_active = isset($_POST['is_active']) ? 1 : 0;
         
-        if ($id <= 0) {
-            throw new RuntimeException('شناسه قالب نامعتبر است');
-        }
-        
-        if (empty($type) || empty($name) || empty($content)) {
-            throw new RuntimeException('نوع، نام و محتوا الزامی هستند');
+        if ($id <= 0 || empty($type) || empty($name) || empty($content)) {
+            throw new RuntimeException('تمام فیلدهای الزامی باید پر شوند');
         }
         
         if (!in_array($type, ['email', 'sms'])) {
-            throw new RuntimeException('نوع قالب نامعتبر است');
+            throw new RuntimeException('نوع قالب باید ایمیل یا SMS باشد');
         }
         
-        $stmt = $pdo->prepare("UPDATE notification_templates SET type = ?, name = ?, subject = ?, content = ?, is_active = ? WHERE id = ?");
+        $stmt = $pdo->prepare("UPDATE notification_templates SET type=?, name=?, subject=?, content=?, is_active=? WHERE id=?");
         $stmt->execute([$type, $name, $subject, $content, $is_active, $id]);
         
-        $success = 'قالب با موفقیت به‌روزرسانی شد';
+        header('Location: notification_templates.php?success=' . urlencode('قالب با موفقیت ویرایش شد'));
+        exit();
     }
     
     // حذف قالب
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_template'])) {
         require_csrf($_POST['csrf_token'] ?? '');
         
-        $id = (int)$_POST['template_id'];
-        if ($id <= 0) {
-            throw new RuntimeException('شناسه قالب نامعتبر است');
+        $id = (int)($_POST['template_id'] ?? 0);
+        if ($id > 0) {
+            $stmt = $pdo->prepare("DELETE FROM notification_templates WHERE id = ?");
+            $stmt->execute([$id]);
+            header('Location: notification_templates.php?success=' . urlencode('قالب حذف شد'));
+            exit();
         }
-        
-        $stmt = $pdo->prepare("DELETE FROM notification_templates WHERE id = ?");
-        $stmt->execute([$id]);
-        
-        $success = 'قالب با موفقیت حذف شد';
     }
     
     // تغییر وضعیت فعال/غیرفعال
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status'])) {
         require_csrf($_POST['csrf_token'] ?? '');
         
-        $id = (int)$_POST['template_id'];
-        if ($id <= 0) {
-            throw new RuntimeException('شناسه قالب نامعتبر است');
+        $id = (int)($_POST['template_id'] ?? 0);
+        if ($id > 0) {
+            $stmt = $pdo->prepare("UPDATE notification_templates SET is_active = NOT is_active WHERE id = ?");
+            $stmt->execute([$id]);
+            header('Location: notification_templates.php?success=' . urlencode('وضعیت قالب تغییر کرد'));
+            exit();
         }
-        
-        $stmt = $pdo->prepare("UPDATE notification_templates SET is_active = NOT is_active WHERE id = ?");
-        $stmt->execute([$id]);
-        
-        $success = 'وضعیت قالب تغییر یافت';
     }
     
 } catch (Exception $e) {
@@ -112,7 +111,9 @@ try {
 }
 
 // دریافت قالب‌ها
-$templates = $pdo->query("SELECT * FROM notification_templates ORDER BY type, name")->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $pdo->prepare("SELECT * FROM notification_templates ORDER BY type, name");
+$stmt->execute();
+$templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $csrf = generate_csrf();
 ?>
@@ -132,63 +133,93 @@ $csrf = generate_csrf();
         .template-card { border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
         .template-email { border-left: 4px solid #28a745; }
         .template-sms { border-left: 4px solid #17a2b8; }
-        .template-inactive { opacity: 0.6; background: #f8f9fa; }
-        .variable-tag { background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin: 2px; display: inline-block; }
         .required::after { content: " *"; color:#dc3545; }
+        .fade-in { animation: fadeIn .28s ease; }
+        @keyframes fadeIn { from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
+        .preview-box { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; margin-top: 10px; }
+        .variable-tag { background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; margin: 0 2px; }
     </style>
 </head>
 <body>
-<?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
+<?php
+$embedded = isset($_GET['embed']) && $_GET['embed'] === '1';
+if (!$embedded && file_exists('navbar.php')) {
+    include 'navbar.php';
+}
+?>
 
 <div class="container center-card">
     <div class="card card-modern">
-        <div class="card-header bg-primary text-white">
-            <h4 class="m-0"><i class="fas fa-cog me-2"></i>مدیریت قالب‌های اطلاع‌رسانی</h4>
-        </div>
-        
-        <div class="card-body">
-            <?php if ($success): ?><div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?= h($success) ?></div><?php endif; ?>
-            <?php if ($error): ?><div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><?= h($error) ?></div><?php endif; ?>
-            
-            <!-- دکمه افزودن قالب جدید -->
-            <div class="mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="m-0"><i class="fas fa-envelope me-2"></i>مدیریت قالب‌های اطلاع‌رسانی</h4>
+            <div>
                 <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTemplateModal">
-                    <i class="fas fa-plus me-1"></i> افزودن قالب جدید
+                    <i class="fas fa-plus me-1"></i>افزودن قالب جدید
                 </button>
+                <a href="customers.php" class="btn btn-secondary">
+                    <i class="fas fa-arrow-right me-1"></i>بازگشت به مشتریان
+                </a>
             </div>
-            
+        </div>
+
+        <div class="card-body">
+            <?php if (!empty($success)): ?><div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?= h($success) ?></div><?php endif; ?>
+            <?php if (!empty($error)): ?><div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><?= h($error) ?></div><?php endif; ?>
+
+            <!-- راهنمای متغیرها -->
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>متغیرهای قابل استفاده در قالب‌ها:</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>اطلاعات مشتری:</strong><br>
+                        <span class="variable-tag">{full_name}</span> - نام و نام خانوادگی<br>
+                        <span class="variable-tag">{company}</span> - نام شرکت<br>
+                        <span class="variable-tag">{phone}</span> - شماره تلفن<br>
+                        <span class="variable-tag">{email}</span> - ایمیل<br>
+                        <span class="variable-tag">{address}</span> - آدرس
+                    </div>
+                    <div class="col-md-6">
+                        <strong>اطلاعات اضافی:</strong><br>
+                        <span class="variable-tag">{responsible_name}</span> - نام مسئول<br>
+                        <span class="variable-tag">{operator_name}</span> - نام اپراتور<br>
+                        <span class="variable-tag">{date}</span> - تاریخ امروز<br>
+                        <span class="variable-tag">{time}</span> - زمان فعلی
+                    </div>
+                </div>
+            </div>
+
             <!-- لیست قالب‌ها -->
             <div class="row">
                 <?php foreach ($templates as $template): ?>
                     <div class="col-md-6 mb-3">
-                        <div class="template-card template-<?= $template['type'] ?> <?= !$template['is_active'] ? 'template-inactive' : '' ?>">
+                        <div class="template-card template-<?= $template['type'] ?>">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-<?= $template['type'] === 'email' ? 'envelope' : 'sms' ?> me-1"></i>
-                                    <?= h($template['name']) ?>
-                                </h6>
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-<?= $template['type'] === 'email' ? 'envelope' : 'sms' ?> me-1"></i>
+                                        <?= h($template['name']) ?>
+                                    </h6>
+                                    <span class="badge bg-<?= $template['type'] === 'email' ? 'success' : 'info' ?>">
+                                        <?= $template['type'] === 'email' ? 'ایمیل' : 'SMS' ?>
+                                    </span>
+                                    <?php if ($template['is_active']): ?>
+                                        <span class="badge bg-success">فعال</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary">غیرفعال</span>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-warning" onclick="editTemplate(<?= htmlspecialchars(json_encode($template)) ?>)">
+                                    <button class="btn btn-outline-primary" onclick="editTemplate(<?= htmlspecialchars(json_encode($template)) ?>)">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <form method="post" style="display:inline;" onsubmit="return confirm('آیا مطمئن هستید؟');">
-                                        <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-                                        <input type="hidden" name="delete_template" value="1">
-                                        <input type="hidden" name="template_id" value="<?= $template['id'] ?>">
-                                        <button class="btn btn-outline-danger" type="submit">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                    <button class="btn btn-outline-<?= $template['is_active'] ? 'warning' : 'success' ?>" 
+                                            onclick="toggleStatus(<?= $template['id'] ?>)">
+                                        <i class="fas fa-<?= $template['is_active'] ? 'pause' : 'play' ?>"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteTemplate(<?= $template['id'] ?>)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 </div>
-                            </div>
-                            
-                            <div class="mb-2">
-                                <span class="badge bg-<?= $template['type'] === 'email' ? 'success' : 'info' ?>">
-                                    <?= $template['type'] === 'email' ? 'ایمیل' : 'SMS' ?>
-                                </span>
-                                <span class="badge bg-<?= $template['is_active'] ? 'success' : 'secondary' ?>">
-                                    <?= $template['is_active'] ? 'فعال' : 'غیرفعال' ?>
-                                </span>
                             </div>
                             
                             <?php if ($template['subject']): ?>
@@ -197,49 +228,22 @@ $csrf = generate_csrf();
                                 </div>
                             <?php endif; ?>
                             
-                            <div class="mb-2">
-                                <strong>محتوا:</strong>
-                                <div class="bg-light p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
-                                    <?= nl2br(h($template['content'])) ?>
-                                </div>
-                            </div>
-                            
-                            <div class="text-end">
-                                <form method="post" style="display:inline;">
-                                    <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-                                    <input type="hidden" name="toggle_status" value="1">
-                                    <input type="hidden" name="template_id" value="<?= $template['id'] ?>">
-                                    <button class="btn btn-sm btn-<?= $template['is_active'] ? 'warning' : 'success' ?>" type="submit">
-                                        <i class="fas fa-<?= $template['is_active'] ? 'pause' : 'play' ?> me-1"></i>
-                                        <?= $template['is_active'] ? 'غیرفعال' : 'فعال' ?>
-                                    </button>
-                                </form>
+                            <div class="preview-box">
+                                <strong>متن قالب:</strong><br>
+                                <?= nl2br(h($template['content'])) ?>
                             </div>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
-            
-            <!-- راهنمای متغیرها -->
-            <div class="mt-4">
-                <h6 class="text-primary">متغیرهای قابل استفاده در قالب‌ها:</h6>
-                <div class="bg-light p-3 rounded">
-                    <span class="variable-tag">{full_name}</span>
-                    <span class="variable-tag">{company}</span>
-                    <span class="variable-tag">{phone}</span>
-                    <span class="variable-tag">{company_phone}</span>
-                    <span class="variable-tag">{responsible_name}</span>
-                    <span class="variable-tag">{responsible_phone}</span>
-                    <span class="variable-tag">{email}</span>
-                    <span class="variable-tag">{company_email}</span>
-                    <span class="variable-tag">{address}</span>
-                    <span class="variable-tag">{operator_name}</span>
-                    <span class="variable-tag">{operator_phone}</span>
-                    <span class="variable-tag">{notes}</span>
-                    <span class="variable-tag">{date}</span>
-                    <span class="variable-tag">{time}</span>
+
+            <?php if (empty($templates)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-envelope fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">هیچ قالب اطلاع‌رسانی تعریف نشده است</h5>
+                    <p class="text-muted">برای شروع، قالب جدیدی اضافه کنید</p>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -275,20 +279,23 @@ $csrf = generate_csrf();
                             <input type="text" name="subject" class="form-control" placeholder="موضوع ایمیل">
                         </div>
                         <div class="col-12">
-                            <label class="form-label required">محتوا</label>
-                            <textarea name="content" class="form-control" rows="6" required placeholder="محتوای قالب..."></textarea>
+                            <label class="form-label required">متن قالب</label>
+                            <textarea name="content" class="form-control" rows="6" required placeholder="متن قالب..."></textarea>
+                            <div class="form-text">می‌توانید از متغیرهای بالا استفاده کنید</div>
                         </div>
                         <div class="col-12">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
-                                <label class="form-check-label" for="is_active">فعال</label>
+                                <label class="form-check-label" for="is_active">
+                                    قالب فعال است
+                                </label>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ذخیره</button>
+                    <button type="submit" class="btn btn-success">ذخیره قالب</button>
                 </div>
             </form>
         </div>
@@ -313,6 +320,7 @@ $csrf = generate_csrf();
                         <div class="col-md-6">
                             <label class="form-label required">نوع قالب</label>
                             <select name="type" id="edit_type" class="form-select" required>
+                                <option value="">انتخاب کنید</option>
                                 <option value="email">ایمیل</option>
                                 <option value="sms">SMS</option>
                             </select>
@@ -326,13 +334,15 @@ $csrf = generate_csrf();
                             <input type="text" name="subject" id="edit_subject" class="form-control">
                         </div>
                         <div class="col-12">
-                            <label class="form-label required">محتوا</label>
+                            <label class="form-label required">متن قالب</label>
                             <textarea name="content" id="edit_content" class="form-control" rows="6" required></textarea>
                         </div>
                         <div class="col-12">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="is_active" id="edit_is_active">
-                                <label class="form-check-label" for="edit_is_active">فعال</label>
+                                <label class="form-check-label" for="edit_is_active">
+                                    قالب فعال است
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -357,6 +367,34 @@ function editTemplate(template) {
     document.getElementById('edit_is_active').checked = template.is_active == 1;
     
     new bootstrap.Modal(document.getElementById('editTemplateModal')).show();
+}
+
+function toggleStatus(id) {
+    if (confirm('آیا از تغییر وضعیت این قالب اطمینان دارید؟')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+            <input type="hidden" name="toggle_status" value="1">
+            <input type="hidden" name="template_id" value="${id}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteTemplate(id) {
+    if (confirm('آیا از حذف این قالب اطمینان دارید؟ این عمل قابل بازگشت نیست.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+            <input type="hidden" name="delete_template" value="1">
+            <input type="hidden" name="template_id" value="${id}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 </script>
 </body>
