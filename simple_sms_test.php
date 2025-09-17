@@ -64,41 +64,21 @@ try {
     // تست API واقعی
     echo "<div class='info'>تست API واقعی...</div>";
     
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://api2.ippanel.com/api/v1/sms/send/webservice/single');
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-        'recipient' => $normalized,
-        'message' => $test_message,
-        'sender' => '5000125475'
-    ]));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Accept: application/json',
-        'Authorization: Bearer OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc='
-    ]);
-    
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($ch);
-    curl_close($ch);
-    
-    echo "<div class='info'>HTTP Code: $http_code</div>";
-    echo "<div class='info'>CURL Error: " . ($curl_error ?: 'بدون خطا') . "</div>";
-    echo "<div class='info'>Response: " . ($response ?: 'بدون پاسخ') . "</div>";
-    
-    if ($http_code == 200) {
-        $response_data = json_decode($response, true);
-        if ($response_data && isset($response_data['status']) && $response_data['status'] == 'success') {
+    try {
+        require_once 'sms.php';
+        $real_result = send_sms_real($test_phone, $test_message);
+        
+        if ($real_result['success']) {
             echo "<div class='success'>✅ SMS واقعی با موفقیت ارسال شد!</div>";
+            echo "<div class='info'>Message ID: " . ($real_result['message_id'] ?? 'نامشخص') . "</div>";
         } else {
-            echo "<div class='error'>❌ خطا در ارسال SMS واقعی: " . ($response_data['message'] ?? 'خطای نامشخص') . "</div>";
+            echo "<div class='error'>❌ خطا در ارسال SMS واقعی: " . $real_result['error'] . "</div>";
+            if (isset($real_result['response'])) {
+                echo "<div class='info'>پاسخ سرور: " . json_encode($real_result['response'], JSON_UNESCAPED_UNICODE) . "</div>";
+            }
         }
-    } else {
-        echo "<div class='error'>❌ خطای HTTP: $http_code</div>";
+    } catch (Exception $e) {
+        echo "<div class='error'>❌ خطا در تست API واقعی: " . $e->getMessage() . "</div>";
     }
     
 } catch (Exception $e) {

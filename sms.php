@@ -1,28 +1,79 @@
 <?php
-// sms.php
+// sms.php - سیستم ارسال پیامک
 
 /**
- * تابع ارسال پیامک
- * 
- * @param string $phone_number شماره تلفن گیرنده
- * @param string $message متن پیامک
- * @return array نتیجه عملیات
+ * تابع نرمال‌سازی شماره تلفن
  */
-function send_sms($phone_number, $message) {
-    // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
-    return send_sms_mock($phone_number, $message);
+function normalize_phone_number($phone) {
+    if (empty($phone)) {
+        return false;
+    }
     
-    // کد API واقعی (غیرفعال):
-    /*
-    // پیکربندی پنل پیامکی - این مقادیر باید با پنل شما تطبیق داده شوند
+    // حذف همه کاراکترهای غیر عددی
+    $phone = preg_replace('/[^0-9]/', '', $phone);
+    
+    // اگر شماره با 0 شروع می‌شود ولی 98 ندارد
+    if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
+        $phone = '98' . substr($phone, 1);
+    }
+    // اگر شماره با 9 شروع می‌شود (بدون 0)
+    elseif (strlen($phone) == 10 && substr($phone, 0, 1) == '9') {
+        $phone = '98' . $phone;
+    }
+    
+    // بررسی نهایی که شماره معتبر است
+    if (strlen($phone) === 12 && substr($phone, 0, 2) === '98') {
+        return $phone;
+    }
+    
+    return false;
+}
+
+/**
+ * تابع شبیه‌سازی ارسال پیامک برای محیط تست
+ */
+function send_sms_mock($phone_number, $message) {
+    // شبیه‌سازی تاخیر در ارسال
+    sleep(1);
+    
+    // شبیه‌سازی موفقیت آمیز بودن ارسال (80% احتمال موفقیت)
+    $success = rand(0, 100) > 20;
+    
+    if ($success) {
+        return [
+            'success' => true,
+            'response' => [
+                'status' => 'success',
+                'message' => 'پیامک با موفقیت ارسال شد',
+                'messageId' => 'MSG_' . time() . '_' . rand(1000, 9999)
+            ],
+            'message_id' => 'MSG_' . time() . '_' . rand(1000, 9999)
+        ];
+    } else {
+        return [
+            'success' => false,
+            'error' => 'خطا در ارسال پیامک به دلیل مشکل شبکه',
+            'response' => [
+                'status' => 'failed',
+                'message' => 'ارتباط با سرویس پیامک برقرار نشد'
+            ]
+        ];
+    }
+}
+
+/**
+ * تابع ارسال پیامک واقعی
+ */
+function send_sms_real($phone_number, $message) {
+    // پیکربندی پنل پیامکی
     $config = [
-        'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=', // کلید API پنل پیامکی
-        'api_url' => 'https://api2.ippanel.com/api/v1/sms/send/webservice/single', // آدرس صحیح API پنل پیامکی
-        'line_number' => '5000125475', // شماره خط اختصاصی (بدون +)
+        'api_key' => 'OWZlNDE1MjctZWViMi00ZjM2LThjMDItMTAyMTc3NTI3OGFiOWFlNjkzYzIzYTk0OTRhNzVjNzIzMWRlZTY4MTE1Yzc=',
+        'api_url' => 'https://api2.ippanel.com/api/v1/sms/send/webservice/single',
+        'line_number' => '5000125475',
     ];
     
     try {
-        // شماره تلفن را پاکسازی و فرمت‌دهی کنید
+        // نرمال‌سازی شماره تلفن
         $phone_number = normalize_phone_number($phone_number);
         
         if (!$phone_number) {
@@ -32,14 +83,14 @@ function send_sms($phone_number, $message) {
             ];
         }
         
-        // پارامترهای مورد نیاز برای پنل پیامکی ippanel
+        // پارامترهای API
         $params = [
             'recipient' => $phone_number,
             'message' => $message,
             'sender' => $config['line_number'],
         ];
         
-        // ارسال درخواست به پنل پیامکی
+        // ارسال درخواست
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $config['api_url']);
         curl_setopt($ch, CURLOPT_POST, true);
@@ -62,7 +113,6 @@ function send_sms($phone_number, $message) {
         if ($http_code == 200) {
             $response_data = json_decode($response, true);
             
-            // این شرط بستگی به ساختار پاسخ پنل پیامکی شما دارد
             if ($response_data && isset($response_data['status']) && $response_data['status'] == 'success') {
                 return [
                     'success' => true,
@@ -90,78 +140,17 @@ function send_sms($phone_number, $message) {
             'error' => 'خطای سیستمی: ' . $e->getMessage()
         ];
     }
-    */
 }
 
 /**
- * تابع نرمال‌سازی شماره تلفن
+ * تابع اصلی ارسال پیامک
+ * در حال حاضر از mock استفاده می‌کند
  */
-function normalize_phone_number($phone) {
-    if (empty($phone)) {
-        return false;
-    }
+function send_sms($phone_number, $message) {
+    // موقتاً از تابع mock استفاده می‌کنیم
+    return send_sms_mock($phone_number, $message);
     
-    // حذف همه کاراکترهای غیر عددی
-    $phone = preg_replace('/[^0-9]/', '', $phone);
-    
-    // اگر شماره با 0 شروع می‌شود ولی 98 ندارد
-    if (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
-        $phone = '98' . substr($phone, 1);
-    }
-    // اگر شماره با 9 شروع می‌شود (بدون 0)
-    elseif (strlen($phone) == 10 && substr($phone, 0, 1) == '9') {
-        $phone = '98' . $phone;
-    }
-    // اگر شماره با 09 شروع می‌شود و طول مناسب دارد
-    elseif (strlen($phone) == 11 && substr($phone, 0, 2) == '09') {
-        $phone = '98' . substr($phone, 1);
-    }
-    
-    // بررسی نهایی که شماره معتبر است
-    if (strlen($phone) === 12 && substr($phone, 0, 2) === '98') {
-        return $phone;
-    }
-    
-    return false;
+    // برای استفاده از API واقعی، خط زیر را uncomment کنید:
+    // return send_sms_real($phone_number, $message);
 }
-
-/**
- * تابع شبیه‌سازی ارسال پیامک برای محیط تست
- * در محیط production باید غیرفعال شود
- */
-function send_sms_mock($phone_number, $message) {
-    // این تابع فقط برای تست استفاده می‌شود
-    // در محیط واقعی باید از تابع اصلی send_sms استفاده کنید
-    
-    sleep(1); // شبیه‌سازی تاخیر در ارسال
-    
-    // شبیه‌سازی موفقیت آمیز بودن ارسال
-    $success = rand(0, 100) > 20; // 80% احتمال موفقیت
-    
-    if ($success) {
-        return [
-            'success' => true,
-            'response' => [
-                'status' => 'success',
-                'message' => 'پیامک با موفقیت ارسال شد',
-                'messageId' => 'MSG_' . time() . '_' . rand(1000, 9999)
-            ]
-        ];
-    } else {
-        return [
-            'success' => false,
-            'error' => 'خطا در ارسال پیامک به دلیل مشکل شبکه',
-            'response' => [
-                'status' => 'failed',
-                'message' => 'ارتباط با سرویس پیامک برقرار نشد'
-            ]
-        ];
-    }
-}
-
-// برای تست می‌توانید موقتاً از تابع mock استفاده کنید:
-// function send_sms($phone_number, $message) {
-//     // موقتاً از تابع mock استفاده می‌کنیم تا مشکل API حل شود
-//     return send_sms_mock($phone_number, $message);
-// }
 ?>
