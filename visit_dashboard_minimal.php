@@ -1,5 +1,5 @@
 <?php
-// visit_dashboard.php - نسخه ساده و بدون خطا
+// visit_dashboard_minimal.php - نسخه ساده و بدون خطا
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
