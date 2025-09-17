@@ -13,20 +13,26 @@ $visit = null;
 $qr_code = $_GET['qr'] ?? '';
 
 // جستجو بر اساس QR Code یا ID
-if ($qr_code) {
-    $stmt = $pdo->prepare("SELECT * FROM visit_requests WHERE qr_code = ?");
-    $stmt->execute([$qr_code]);
-    $visit = $stmt->fetch();
-    if ($visit) {
-        $visit_id = $visit['id'];
-    }
-} else {
-    $visit_id = (int)($_GET['id'] ?? 0);
-    if ($visit_id) {
-        $stmt = $pdo->prepare("SELECT * FROM visit_requests WHERE id = ?");
-        $stmt->execute([$visit_id]);
+try {
+    if ($qr_code) {
+        $stmt = $pdo->prepare("SELECT * FROM visit_requests WHERE qr_code = ?");
+        $stmt->execute([$qr_code]);
         $visit = $stmt->fetch();
+        if ($visit) {
+            $visit_id = $visit['id'];
+        }
+    } else {
+        $visit_id = (int)($_GET['id'] ?? 0);
+        if ($visit_id) {
+            $stmt = $pdo->prepare("SELECT * FROM visit_requests WHERE id = ?");
+            $stmt->execute([$visit_id]);
+            $visit = $stmt->fetch();
+        }
     }
+} catch (Exception $e) {
+    // جدول وجود ندارد
+    $visit = null;
+    $visit_id = null;
 }
 
 // پردازش Check-in

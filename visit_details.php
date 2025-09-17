@@ -14,21 +14,27 @@ if (!$visit_id) {
 }
 
 // دریافت اطلاعات بازدید
-$stmt = $pdo->prepare("
-    SELECT vr.*, 
-           u1.full_name as created_by_name,
-           u2.full_name as assigned_to_name,
-           u3.full_name as host_name,
-           u4.full_name as security_officer_name
-    FROM visit_requests vr
-    LEFT JOIN users u1 ON vr.created_by = u1.id
-    LEFT JOIN users u2 ON vr.assigned_to = u2.id
-    LEFT JOIN users u3 ON vr.host_id = u3.id
-    LEFT JOIN users u4 ON vr.security_officer_id = u4.id
-    WHERE vr.id = ?
-");
-$stmt->execute([$visit_id]);
-$visit = $stmt->fetch();
+$visit = null;
+try {
+    $stmt = $pdo->prepare("
+        SELECT vr.*, 
+               u1.full_name as created_by_name,
+               u2.full_name as assigned_to_name,
+               u3.full_name as host_name,
+               u4.full_name as security_officer_name
+        FROM visit_requests vr
+        LEFT JOIN users u1 ON vr.created_by = u1.id
+        LEFT JOIN users u2 ON vr.assigned_to = u2.id
+        LEFT JOIN users u3 ON vr.host_id = u3.id
+        LEFT JOIN users u4 ON vr.security_officer_id = u4.id
+        WHERE vr.id = ?
+    ");
+    $stmt->execute([$visit_id]);
+    $visit = $stmt->fetch();
+} catch (Exception $e) {
+    // جدول وجود ندارد
+    $visit = null;
+}
 
 if (!$visit) {
     header("Location: visit_management.php");
