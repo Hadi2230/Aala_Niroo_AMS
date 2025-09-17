@@ -71,14 +71,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_by' => $_SESSION['user_id']
             ];
             
-            if (function_exists('createVisitRequest')) {
-                $visit_id = createVisitRequest($pdo, $visit_data);
-                $message = 'درخواست بازدید با موفقیت ثبت شد. شماره درخواست: ' . $visit_id;
-                $message_type = 'success';
+            $visit_id = createVisitRequest($pdo, $visit_data);
+            $message = 'درخواست بازدید با موفقیت ثبت شد. شماره درخواست: ' . $visit_id;
+            $message_type = 'success';
+        }
+        
+        if (isset($_POST['edit_visit_request'])) {
+            $visit_id = (int)$_POST['visit_id'];
+            $update_data = [
+                'company_name' => sanitizeInput($_POST['company_name']),
+                'contact_person' => sanitizeInput($_POST['contact_person']),
+                'contact_phone' => sanitizeInput($_POST['contact_phone']),
+                'contact_email' => sanitizeInput($_POST['contact_email']),
+                'visitor_count' => (int)$_POST['visitor_count'],
+                'visit_purpose' => sanitizeInput($_POST['visit_purpose']),
+                'visit_type' => sanitizeInput($_POST['visit_type']),
+                'request_method' => sanitizeInput($_POST['request_method']),
+                'preferred_dates' => $_POST['preferred_dates'] ?? [],
+                'nda_required' => isset($_POST['nda_required']),
+                'special_requirements' => sanitizeInput($_POST['special_requirements'])
+            ];
+            
+            $stmt = $pdo->prepare("
+                UPDATE visit_requests SET 
+                    company_name = ?, contact_person = ?, contact_phone = ?, 
+                    contact_email = ?, visitor_count = ?, visit_purpose = ?, 
+                    visit_type = ?, request_method = ?, preferred_dates = ?, 
+                    nda_required = ?, special_requirements = ?, updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $update_data['company_name'], $update_data['contact_person'], 
+                $update_data['contact_phone'], $update_data['contact_email'], 
+                $update_data['visitor_count'], $update_data['visit_purpose'], 
+                $update_data['visit_type'], $update_data['request_method'], 
+                json_encode($update_data['preferred_dates']), 
+                $update_data['nda_required'] ? 1 : 0, 
+                $update_data['special_requirements'], $visit_id
+            ]);
+            
+            $message = 'درخواست بازدید با موفقیت ویرایش شد';
+            $message_type = 'success';
+        }
+        
+        if (isset($_POST['delete_visit_request'])) {
+            $visit_id = (int)$_POST['visit_id'];
+            
+            $stmt = $pdo->prepare("DELETE FROM visit_requests WHERE id = ?");
+            $stmt->execute([$visit_id]);
+            
+            $message = 'درخواست بازدید با موفقیت حذف شد';
+            $message_type = 'success';
+        }
+        
+        if (isset($_POST['upload_document'])) {
+            $visit_id = (int)$_POST['visit_id'];
+            $document_type = sanitizeInput($_POST['document_type']);
+            $document_name = sanitizeInput($_POST['document_name']);
+            
+            if (isset($_FILES['document_file']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = 'uploads/visit_documents/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['document_file']['name'], PATHINFO_EXTENSION);
+                $file_name = 'visit_' . $visit_id . '_' . time() . '.' . $file_extension;
+                $file_path = $upload_dir . $file_name;
+                
+                if (move_uploaded_file($_FILES['document_file']['tmp_name'], $file_path)) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO visit_documents (visit_request_id, document_type, document_name, file_path, uploaded_by, uploaded_at) 
+                        VALUES (?, ?, ?, ?, ?, NOW())
+                    ");
+                    $stmt->execute([$visit_id, $document_type, $document_name, $file_path, $_SESSION['user_id']]);
+                    
+                    $message = 'مدرک با موفقیت آپلود شد';
+                    $message_type = 'success';
+                } else {
+                    $message = 'خطا در آپلود فایل';
+                    $message_type = 'error';
+                }
             } else {
-                $message = 'تابع createVisitRequest در دسترس نیست';
+                $message = 'لطفاً فایل را انتخاب کنید';
                 $message_type = 'error';
             }
+        }
+        
+        if (isset($_POST['create_visit_result'])) {
+            $visit_id = (int)$_POST['visit_id'];
+            $result_data = [
+                'visit_duration' => (int)$_POST['visit_duration'],
+                'satisfaction_rating' => (int)$_POST['satisfaction_rating'],
+                'equipment_tested' => $_POST['equipment_tested'] ?? [],
+                'recommendations' => sanitizeInput($_POST['recommendations']),
+                'follow_up_required' => isset($_POST['follow_up_required']),
+                'next_visit_date' => $_POST['next_visit_date'] ?: null,
+                'conversion_probability' => (int)$_POST['conversion_probability'],
+                'notes' => sanitizeInput($_POST['notes'])
+            ];
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO visit_reports (visit_request_id, report_type, report_data, created_by, created_at) 
+                VALUES (?, 'visit_result', ?, ?, NOW())
+            ");
+            $stmt->execute([$visit_id, json_encode($result_data), $_SESSION['user_id']]);
+            
+            // تغییر وضعیت به تکمیل شده
+            updateVisitStatus($pdo, $visit_id, 'completed', 'نتیجه بازدید ثبت شد');
+            
+            $message = 'نتیجه بازدید با موفقیت ثبت شد';
+            $message_type = 'success';
         }
         
         if (isset($_POST['update_status'])) {
@@ -548,11 +651,20 @@ try {
                                                     <a href="visit_details.php?id=<?php echo $request['id']; ?>" class="btn btn-sm btn-outline-primary" title="مشاهده جزئیات">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <button class="btn btn-sm btn-outline-warning" title="تغییر وضعیت" onclick="openStatusModal(<?php echo $request['id']; ?>, '<?php echo $request['status']; ?>')">
-                                                        <i class="bi bi-arrow-repeat"></i>
+                                                    <button class="btn btn-sm btn-outline-warning" title="ویرایش" onclick="openEditModal(<?php echo $request['id']; ?>, '<?php echo htmlspecialchars($request['company_name']); ?>', '<?php echo htmlspecialchars($request['contact_person']); ?>', '<?php echo htmlspecialchars($request['contact_phone']); ?>', '<?php echo htmlspecialchars($request['contact_email']); ?>', <?php echo $request['visitor_count']; ?>, '<?php echo htmlspecialchars($request['visit_purpose']); ?>', '<?php echo $request['visit_type']; ?>', '<?php echo $request['request_method']; ?>', '<?php echo $request['nda_required'] ? 'true' : 'false'; ?>', '<?php echo htmlspecialchars($request['special_requirements']); ?>')">
+                                                        <i class="bi bi-pencil"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-outline-info" title="رزرو دستگاه" onclick="openReserveModal(<?php echo $request['id']; ?>)">
-                                                        <i class="bi bi-gear"></i>
+                                                    <button class="btn btn-sm btn-outline-danger" title="حذف" onclick="deleteVisit(<?php echo $request['id']; ?>)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-info" title="ارسال مدرک" onclick="openDocumentModal(<?php echo $request['id']; ?>)">
+                                                        <i class="bi bi-file-earmark-arrow-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-success" title="نتیجه بازدید" onclick="openResultModal(<?php echo $request['id']; ?>)">
+                                                        <i class="bi bi-clipboard-check"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary" title="تغییر وضعیت" onclick="openStatusModal(<?php echo $request['id']; ?>, '<?php echo $request['status']; ?>')">
+                                                        <i class="bi bi-arrow-repeat"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -691,6 +803,213 @@ try {
         </div>
     </div>
 
+    <!-- مودال ویرایش -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil"></i> ویرایش درخواست بازدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="edit_visit_request" value="1">
+                        <input type="hidden" name="visit_id" id="edit_visit_id">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">نام شرکت *</label>
+                                <input type="text" name="company_name" id="edit_company_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">شخص تماس *</label>
+                                <input type="text" name="contact_person" id="edit_contact_person" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">شماره تماس *</label>
+                                <input type="tel" name="contact_phone" id="edit_contact_phone" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">ایمیل</label>
+                                <input type="email" name="contact_email" id="edit_contact_email" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">تعداد بازدیدکنندگان *</label>
+                                <input type="number" name="visitor_count" id="edit_visitor_count" class="form-control" min="1" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">نوع بازدید *</label>
+                                <select name="visit_type" id="edit_visit_type" class="form-select" required>
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="meeting">جلسه</option>
+                                    <option value="test">تست</option>
+                                    <option value="purchase">خرید</option>
+                                    <option value="inspection">بازرسی</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">هدف بازدید *</label>
+                                <textarea name="visit_purpose" id="edit_visit_purpose" class="form-control" rows="3" required></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">روش درخواست</label>
+                                <select name="request_method" id="edit_request_method" class="form-select">
+                                    <option value="phone">تلفن</option>
+                                    <option value="email">ایمیل</option>
+                                    <option value="in_person">حضوری</option>
+                                    <option value="website">وب‌سایت</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">تاریخ‌های پیشنهادی</label>
+                                <input type="date" name="preferred_dates[]" class="form-control">
+                            </div>
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input type="checkbox" name="nda_required" id="edit_nda_required" class="form-check-input">
+                                    <label class="form-check-label" for="edit_nda_required">
+                                        نیاز به امضای قرارداد محرمانگی (NDA)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">نیازهای خاص</label>
+                                <textarea name="special_requirements" id="edit_special_requirements" class="form-control" rows="2" placeholder="در صورت وجود نیازهای خاص، اینجا ذکر کنید"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال آپلود مدرک -->
+    <div class="modal fade" id="documentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-arrow-up"></i> آپلود مدرک</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <input type="hidden" name="upload_document" value="1">
+                        <input type="hidden" name="visit_id" id="document_visit_id">
+                        <div class="mb-3">
+                            <label class="form-label">نوع مدرک</label>
+                            <select name="document_type" class="form-select" required>
+                                <option value="">انتخاب کنید</option>
+                                <option value="company_registration">ثبت شرکت</option>
+                                <option value="introduction_letter">نامه معرفی</option>
+                                <option value="permit">مجوز</option>
+                                <option value="nda">قرارداد محرمانگی</option>
+                                <option value="other">سایر</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">نام مدرک</label>
+                            <input type="text" name="document_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">فایل</label>
+                            <input type="file" name="document_file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+                            <small class="text-muted">فرمت‌های مجاز: PDF, DOC, DOCX, JPG, PNG (حداکثر 10MB)</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">آپلود مدرک</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال نتیجه بازدید -->
+    <div class="modal fade" id="resultModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-clipboard-check"></i> ثبت نتیجه بازدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="create_visit_result" value="1">
+                        <input type="hidden" name="visit_id" id="result_visit_id">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">مدت زمان بازدید (دقیقه) *</label>
+                                <input type="number" name="visit_duration" class="form-control" min="1" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">امتیاز رضایت (1-10) *</label>
+                                <select name="satisfaction_rating" class="form-select" required>
+                                    <option value="">انتخاب کنید</option>
+                                    <?php for($i = 1; $i <= 10; $i++): ?>
+                                        <option value="<?php echo $i; ?>"><?php echo $i; ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">تجهیزات تست شده</label>
+                                <div class="row">
+                                    <?php foreach ($assets as $asset): ?>
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" name="equipment_tested[]" value="<?php echo $asset['id']; ?>" class="form-check-input" id="equipment_<?php echo $asset['id']; ?>">
+                                                <label class="form-check-label" for="equipment_<?php echo $asset['id']; ?>">
+                                                    <?php echo htmlspecialchars($asset['name']); ?>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">توصیه‌ها</label>
+                                <textarea name="recommendations" class="form-control" rows="3" placeholder="توصیه‌های شما برای مشتری..."></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input type="checkbox" name="follow_up_required" class="form-check-input" id="follow_up_required">
+                                    <label class="form-check-label" for="follow_up_required">
+                                        نیاز به پیگیری دارد
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">تاریخ بازدید بعدی</label>
+                                <input type="date" name="next_visit_date" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">احتمال تبدیل (درصد)</label>
+                                <select name="conversion_probability" class="form-select">
+                                    <option value="0">0%</option>
+                                    <option value="25">25%</option>
+                                    <option value="50">50%</option>
+                                    <option value="75">75%</option>
+                                    <option value="100">100%</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">یادداشت‌های تکمیلی</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="یادداشت‌های اضافی..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-success">ثبت نتیجه</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- مودال رزرو دستگاه -->
     <div class="modal fade" id="reserveModal" tabindex="-1">
         <div class="modal-dialog">
@@ -741,6 +1060,44 @@ try {
         function openReserveModal(visitId) {
             document.getElementById('reserve_visit_id').value = visitId;
             new bootstrap.Modal(document.getElementById('reserveModal')).show();
+        }
+        
+        function openEditModal(visitId, companyName, contactPerson, contactPhone, contactEmail, visitorCount, visitPurpose, visitType, requestMethod, ndaRequired, specialRequirements) {
+            document.getElementById('edit_visit_id').value = visitId;
+            document.getElementById('edit_company_name').value = companyName;
+            document.getElementById('edit_contact_person').value = contactPerson;
+            document.getElementById('edit_contact_phone').value = contactPhone;
+            document.getElementById('edit_contact_email').value = contactEmail;
+            document.getElementById('edit_visitor_count').value = visitorCount;
+            document.getElementById('edit_visit_purpose').value = visitPurpose;
+            document.getElementById('edit_visit_type').value = visitType;
+            document.getElementById('edit_request_method').value = requestMethod;
+            document.getElementById('edit_nda_required').checked = ndaRequired === 'true';
+            document.getElementById('edit_special_requirements').value = specialRequirements;
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+        
+        function openDocumentModal(visitId) {
+            document.getElementById('document_visit_id').value = visitId;
+            new bootstrap.Modal(document.getElementById('documentModal')).show();
+        }
+        
+        function openResultModal(visitId) {
+            document.getElementById('result_visit_id').value = visitId;
+            new bootstrap.Modal(document.getElementById('resultModal')).show();
+        }
+        
+        function deleteVisit(visitId) {
+            if (confirm('آیا مطمئن هستید که می‌خواهید این درخواست بازدید را حذف کنید؟')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = `
+                    <input type="hidden" name="delete_visit_request" value="1">
+                    <input type="hidden" name="visit_id" value="${visitId}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
         }
         
         // Auto-refresh هر 5 دقیقه
