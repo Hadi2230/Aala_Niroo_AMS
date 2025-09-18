@@ -174,19 +174,29 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         }
 
         .camera-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: white;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #ffffff !important;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .camera-title i {
+            color: #10b981 !important;
+            font-size: 1.4rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .camera-status {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
         .status-indicator {
@@ -225,15 +235,19 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #9ca3af;
+            color: #ffffff !important;
             text-align: center;
             z-index: 10;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .camera-loading i {
             font-size: 3rem;
             margin-bottom: 10px;
             animation: spin 2s linear infinite;
+            color: #10b981 !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         @keyframes spin {
@@ -285,28 +299,44 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         }
 
         .control-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 0.9rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 10px 18px;
+            font-size: 0.95rem;
+            font-weight: 600;
             transition: all 0.3s ease;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .control-btn:hover {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            color: white !important;
+        }
+
+        .control-btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .control-btn.active {
-            background: var(--success-color);
-            border-color: var(--success-color);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: white !important;
+        }
+
+        .control-btn i {
+            color: white !important;
+            font-size: 1rem;
         }
 
         .fullscreen-overlay {
@@ -358,10 +388,17 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         }
 
         .controls-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: white;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #ffffff !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls-title i {
+            color: #10b981 !important;
+            margin-left: 8px;
+            font-size: 1.5rem;
         }
 
         .global-controls-grid {
@@ -371,22 +408,34 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         }
 
         .global-btn {
-            background: var(--gradient-primary);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 12px 20px;
-            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 14px 24px;
+            font-weight: 700;
+            font-size: 1rem;
             transition: all 0.3s ease;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            text-decoration: none;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .global-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            color: white !important;
+        }
+
+        .global-btn i {
+            color: white !important;
+            font-size: 1.1rem;
         }
 
         .global-btn.success {
