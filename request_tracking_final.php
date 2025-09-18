@@ -20,6 +20,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $request_id = (int)$_POST['request_id'];
             $status = sanitizeInput($_POST['status']);
             $comments = sanitizeInput($_POST['comments']);
+            $priority = sanitizeInput($_POST['priority'] ?? '');
+            
+            // بررسی دسترسی کاربر به این درخواست
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) FROM request_workflow 
+                WHERE request_id = ? AND assigned_to = ? AND status IN ('در انتظار', 'در حال بررسی')
+            ");
+            $stmt->execute([$request_id, $_SESSION['user_id']]);
+            $has_access = $stmt->fetchColumn() > 0;
+            
+            if (!$has_access) {
+                throw new Exception('شما دسترسی لازم برای این درخواست را ندارید');
+            }
             
             // به‌روزرسانی وضعیت گردش کار
             $stmt = $pdo->prepare("
@@ -37,9 +50,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ");
             $stmt->execute([$status, $request_id]);
             
+            // به‌روزرسانی اولویت اگر مشخص شده
+            if ($priority) {
+                $stmt = $pdo->prepare("
+                    UPDATE requests 
+                    SET priority = ?, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$priority, $request_id]);
+            }
+            
+            // دریافت اطلاعات درخواست برای اعلان
+            $stmt = $pdo->prepare("SELECT requester_id, request_number FROM requests WHERE id = ?");
+            $stmt->execute([$request_id]);
+            $request_info = $stmt->fetch();
+            
             // ایجاد اعلان برای درخواست‌دهنده
-            createRequestNotification($pdo, $_SESSION['user_id'], $request_id, 'workflow_update', 
-                "وضعیت درخواست شما به '{$status}' تغییر یافت");
+            if ($request_info) {
+                createRequestNotification($pdo, $request_info['requester_id'], $request_id, 'workflow_update', 
+                    "وضعیت درخواست {$request_info['request_number']} به '{$status}' تغییر یافت");
+            }
             
             $_SESSION['success_message'] = 'وضعیت درخواست با موفقیت به‌روزرسانی شد!';
             header('Location: request_tracking_final.php');
@@ -778,7 +808,7 @@ try {
                                     </div>
                                     
                                     <div class="request-actions">
-                                        <button class="btn btn-info" onclick="viewDetails(<?php echo $request['id']; ?>)">
+                                        <button class="btn btn-info" onclick="viewDetails(<?php echo $request['id']; ?>, <?php echo $is_assigned ? 'true' : 'false'; ?>)">
                                             <i class="fas fa-eye me-1"></i>
                                             جزئیات
                                         </button>
@@ -786,20 +816,6 @@ try {
                                             <i class="fas fa-route me-1"></i>
                                             گردش کار
                                         </button>
-                                        <?php if ($is_assigned): ?>
-                                            <button class="btn btn-success" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'تأیید شده')">
-                                                <i class="fas fa-check me-1"></i>
-                                                تأیید
-                                            </button>
-                                            <button class="btn btn-danger" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'رد شده')">
-                                                <i class="fas fa-times me-1"></i>
-                                                رد
-                                            </button>
-                                            <button class="btn btn-warning" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'در حال بررسی')">
-                                                <i class="fas fa-clock me-1"></i>
-                                                در حال بررسی
-                                            </button>
-                                        <?php endif; ?>
                                         <?php if ($request['file_count'] > 0): ?>
                                             <button class="btn btn-success" onclick="viewFiles(<?php echo $request['id']; ?>)">
                                                 <i class="fas fa-download me-1"></i>
@@ -918,9 +934,9 @@ try {
             filterRequests();
         }
 
-        function viewDetails(requestId) {
+        function viewDetails(requestId, isAssigned) {
             // بارگذاری جزئیات درخواست از طریق AJAX
-            fetch(`get_request_details.php?id=${requestId}`)
+            fetch(`get_request_details.php?id=${requestId}&assigned=${isAssigned}`)
                 .then(response => response.text())
                 .then(data => {
                     document.getElementById('detailsContent').innerHTML = data;

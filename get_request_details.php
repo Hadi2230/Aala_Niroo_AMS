@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id'])) {
 require_once 'config_simple.php';
 
 $request_id = (int)$_GET['id'];
+$is_assigned = isset($_GET['assigned']) && $_GET['assigned'] === 'true';
 
 try {
     // دریافت جزئیات درخواست
@@ -134,6 +135,63 @@ try {
         </div>
     <?php endif; ?>
     
+    <?php if ($is_assigned): ?>
+        <div class="mt-4">
+            <h6 class="text-primary mb-3">
+                <i class="fas fa-edit me-2"></i>
+                اقدام روی درخواست
+            </h6>
+            <div class="card">
+                <div class="card-body">
+                    <form id="workflowActionForm">
+                        <input type="hidden" name="request_id" value="<?php echo $request_id; ?>">
+                        <input type="hidden" name="action" value="update_workflow">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">وضعیت</label>
+                                <select class="form-control" name="status" required>
+                                    <option value="">انتخاب وضعیت...</option>
+                                    <option value="در حال بررسی">در حال بررسی</option>
+                                    <option value="تأیید شده">تأیید</option>
+                                    <option value="رد شده">رد</option>
+                                    <option value="تکمیل شده">تکمیل شده</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">اولویت</label>
+                                <select class="form-control" name="priority">
+                                    <option value="">تغییر اولویت (اختیاری)</option>
+                                    <option value="کم">کم</option>
+                                    <option value="متوسط">متوسط</option>
+                                    <option value="بالا">بالا</option>
+                                    <option value="فوری">فوری</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">توضیحات و یادداشت</label>
+                            <textarea class="form-control" name="comments" rows="4" 
+                                      placeholder="توضیحات خود را وارد کنید..."></textarea>
+                        </div>
+                        
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>
+                                ذخیره اقدام
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="clearWorkflowForm()">
+                                <i class="fas fa-times me-1"></i>
+                                پاک کردن
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+    
     <?php if ($workflow): ?>
         <div class="mt-4">
             <h6 class="text-primary mb-3">
@@ -173,6 +231,41 @@ try {
         </div>
     <?php endif; ?>
     
+    <script>
+        // مدیریت فرم اقدام
+        document.addEventListener('DOMContentLoaded', function() {
+            const workflowForm = document.getElementById('workflowActionForm');
+            if (workflowForm) {
+                workflowForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    
+                    fetch('request_tracking_final.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(data => {
+                        if (data.includes('success_message')) {
+                            alert('اقدام با موفقیت ثبت شد!');
+                            location.reload();
+                        } else {
+                            alert('خطا در ثبت اقدام');
+                        }
+                    })
+                    .catch(error => {
+                        alert('خطا در ثبت اقدام: ' + error);
+                    });
+                });
+            }
+        });
+        
+        function clearWorkflowForm() {
+            document.getElementById('workflowActionForm').reset();
+        }
+    </script>
+    
     <style>
         .priority-low { background: #d4edda; color: #155724; }
         .priority-medium { background: #fff3cd; color: #856404; }
@@ -184,6 +277,59 @@ try {
         .status-rejected { background: #f8d7da; color: #721c24; }
         .status-completed { background: #d1ecf1; color: #0c5460; }
         .status-in-progress { background: #cce5ff; color: #004085; }
+        
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: white;
+            color: #2c3e50 !important;
+        }
+        
+        .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            background: white;
+            color: #2c3e50 !important;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #2c3e50 !important;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .btn {
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #2ecc71 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #868e96 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+        }
     </style>
     <?php
     
