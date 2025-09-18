@@ -59,6 +59,26 @@ try {
         ";
         
         $pdo->exec($create_table_sql);
+        
+        // ایجاد جدول بازدیدکنندگان
+        $create_visitors_table_sql = "
+            CREATE TABLE IF NOT EXISTS visit_visitors (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                visit_request_id INT NOT NULL,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                national_id VARCHAR(20),
+                phone VARCHAR(20),
+                email VARCHAR(255),
+                position VARCHAR(100),
+                company VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+                INDEX idx_visit_request (visit_request_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci
+        ";
+        
+        $pdo->exec($create_visitors_table_sql);
     }
     
     // حالا درخواست‌ها را دریافت کنیم
@@ -160,6 +180,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             
             $visit_id = createVisitRequest($pdo, $visit_data);
+            
+            // ذخیره اطلاعات بازدیدکنندگان
+            if (isset($_POST['visitors']) && is_array($_POST['visitors'])) {
+                foreach ($_POST['visitors'] as $visitor) {
+                    if (!empty($visitor['name']) && !empty($visitor['lastname'])) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO visit_visitors (visit_request_id, first_name, last_name, national_id, phone, email, position, company) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([
+                            $visit_id,
+                            sanitizeInput($visitor['name']),
+                            sanitizeInput($visitor['lastname']),
+                            sanitizeInput($visitor['national_id']),
+                            sanitizeInput($visitor['phone']),
+                            sanitizeInput($visitor['email']),
+                            sanitizeInput($visitor['position']),
+                            sanitizeInput($visitor['company'])
+                        ]);
+                    }
+                }
+            }
+            
+            // آپلود کارت ملی بازدیدکنندگان
+            if (isset($_FILES['national_cards']) && is_array($_FILES['national_cards']['name'])) {
+                $upload_dir = 'uploads/visit_documents/national_cards/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                for ($i = 0; $i < count($_FILES['national_cards']['name']); $i++) {
+                    if ($_FILES['national_cards']['error'][$i] === UPLOAD_ERR_OK) {
+                        $file_extension = pathinfo($_FILES['national_cards']['name'][$i], PATHINFO_EXTENSION);
+                        $file_name = 'national_card_' . $visit_id . '_' . $i . '_' . time() . '.' . $file_extension;
+                        $file_path = $upload_dir . $file_name;
+                        
+                        if (move_uploaded_file($_FILES['national_cards']['tmp_name'][$i], $file_path)) {
+                            $stmt = $pdo->prepare("
+                                INSERT INTO visit_documents (visit_request_id, document_type, document_name, file_path, uploaded_by, uploaded_at) 
+                                VALUES (?, 'national_card', ?, ?, ?, NOW())
+                            ");
+                            $stmt->execute([$visit_id, 'کارت ملی بازدیدکننده ' . ($i + 1), $file_path, $_SESSION['user_id']]);
+                        }
+                    }
+                }
+            }
+            
+            // آپلود نامه درخواست
+            if ($_POST['request_method'] === 'letter' && isset($_FILES['request_letter']) && $_FILES['request_letter']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = 'uploads/visit_documents/request_letters/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['request_letter']['name'], PATHINFO_EXTENSION);
+                $file_name = 'request_letter_' . $visit_id . '_' . time() . '.' . $file_extension;
+                $file_path = $upload_dir . $file_name;
+                
+                if (move_uploaded_file($_FILES['request_letter']['tmp_name'], $file_path)) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO visit_documents (visit_request_id, document_type, document_name, file_path, uploaded_by, uploaded_at) 
+                        VALUES (?, 'request_letter', ?, ?, ?, NOW())
+                    ");
+                    $stmt->execute([$visit_id, 'نامه درخواست بازدید', $file_path, $_SESSION['user_id']]);
+                }
+            }
+            
             $message = 'درخواست بازدید با موفقیت ثبت شد. شماره درخواست: ' . $visit_id;
             $message_type = 'success';
         }
@@ -512,9 +599,71 @@ try {
             font-size: 0.9rem;
         }
         
+        .visitor-field {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .visitor-field:hover {
+            border-color: #3498db;
+            box-shadow: 0 2px 10px rgba(52, 152, 219, 0.1);
+        }
+        
+        .visitor-field h6 {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .visitor-field .badge {
+            font-size: 0.8rem;
+        }
+        
+        .letter-upload-field {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .letter-upload-field label {
+            color: #856404;
+            font-weight: bold;
+        }
+        
+        .national-cards-upload {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .national-cards-upload label {
+            color: #0c5460;
+            font-weight: bold;
+        }
+        
+        .visitors-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e9ecef;
+        }
+        
+        .visitors-section h6 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
         @media (max-width: 768px) {
             .page-header { padding: 20px; }
             .table-responsive { font-size: 0.8rem; }
+            .visitor-field { padding: 15px; }
         }
     </style>
 </head>
@@ -815,17 +964,41 @@ try {
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">روش درخواست</label>
-                                <select name="request_method" class="form-select">
+                                <select name="request_method" id="request_method" class="form-select" onchange="toggleLetterField()">
                                     <option value="phone">تلفن</option>
                                     <option value="email">ایمیل</option>
                                     <option value="in_person">حضوری</option>
                                     <option value="website">وب‌سایت</option>
+                                    <option value="letter">نامه</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">تاریخ‌های پیشنهادی</label>
                                 <input type="date" name="preferred_dates[]" class="form-control">
                             </div>
+                            
+                            <!-- فیلد آپلود نامه (مخفی) -->
+                            <div class="col-md-12 letter-upload-field" id="letter_upload_field" style="display: none;">
+                                <label class="form-label"><i class="bi bi-file-earmark-text"></i> آپلود نامه درخواست *</label>
+                                <input type="file" name="request_letter" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                                <small class="text-muted">فرمت‌های مجاز: PDF, DOC, DOCX, JPG, PNG (حداکثر 10MB)</small>
+                            </div>
+                            
+                            <!-- فیلدهای بازدیدکنندگان -->
+                            <div class="col-md-12 visitors-section">
+                                <h6 class="mt-4 mb-3"><i class="bi bi-people"></i> اطلاعات بازدیدکنندگان</h6>
+                                <div id="visitors_container">
+                                    <!-- فیلدهای بازدیدکنندگان به صورت پویا اضافه می‌شوند -->
+                                </div>
+                            </div>
+                            
+                            <!-- فیلد آپلود کارت ملی -->
+                            <div class="col-md-12 national-cards-upload">
+                                <label class="form-label"><i class="bi bi-credit-card"></i> آپلود کارت ملی بازدیدکنندگان</label>
+                                <input type="file" name="national_cards[]" class="form-control" multiple accept=".jpg,.jpeg,.png,.pdf">
+                                <small class="text-muted">کارت ملی هر بازدیدکننده را جداگانه آپلود کنید (فرمت‌های مجاز: JPG, PNG, PDF)</small>
+                            </div>
+                            
                             <div class="col-md-12">
                                 <div class="form-check">
                                     <input type="checkbox" name="nda_required" class="form-check-input" id="nda_required">
@@ -1187,6 +1360,83 @@ try {
                 form.submit();
             }
         }
+        
+        // تابع نمایش/مخفی کردن فیلد نامه
+        function toggleLetterField() {
+            const requestMethod = document.getElementById('request_method').value;
+            const letterField = document.getElementById('letter_upload_field');
+            
+            if (requestMethod === 'letter') {
+                letterField.style.display = 'block';
+                letterField.querySelector('input[type="file"]').required = true;
+            } else {
+                letterField.style.display = 'none';
+                letterField.querySelector('input[type="file"]').required = false;
+            }
+        }
+        
+        // تابع ایجاد فیلدهای بازدیدکنندگان
+        function generateVisitorFields() {
+            const visitorCount = parseInt(document.querySelector('input[name="visitor_count"]').value) || 1;
+            const container = document.getElementById('visitors_container');
+            
+            container.innerHTML = '';
+            
+            for (let i = 0; i < visitorCount; i++) {
+                const visitorDiv = document.createElement('div');
+                visitorDiv.className = 'visitor-field mb-4 p-3 border rounded';
+                visitorDiv.style.backgroundColor = '#f8f9fa';
+                
+                visitorDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0"><i class="bi bi-person"></i> بازدیدکننده ${i + 1}</h6>
+                        <span class="badge bg-primary">${i + 1}</span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">نام *</label>
+                            <input type="text" name="visitors[${i}][name]" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">نام خانوادگی *</label>
+                            <input type="text" name="visitors[${i}][lastname]" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">کد ملی</label>
+                            <input type="text" name="visitors[${i}][national_id]" class="form-control" maxlength="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">شماره تماس</label>
+                            <input type="tel" name="visitors[${i}][phone]" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ایمیل</label>
+                            <input type="email" name="visitors[${i}][email]" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">سمت/پست</label>
+                            <input type="text" name="visitors[${i}][position]" class="form-control" placeholder="مثل: مدیر فنی، مهندس">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">شرکت</label>
+                            <input type="text" name="visitors[${i}][company]" class="form-control" placeholder="نام شرکت (در صورت متفاوت بودن)">
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(visitorDiv);
+            }
+        }
+        
+        // رویداد تغییر تعداد بازدیدکنندگان
+        document.addEventListener('DOMContentLoaded', function() {
+            const visitorCountInput = document.querySelector('input[name="visitor_count"]');
+            if (visitorCountInput) {
+                visitorCountInput.addEventListener('change', generateVisitorFields);
+                // ایجاد فیلدهای اولیه
+                generateVisitorFields();
+            }
+        });
         
         // Auto-refresh هر 5 دقیقه
         setInterval(function() {
