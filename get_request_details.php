@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     exit('Unauthorized');
 }
 
-require_once 'config_simple.php';
+require_once 'config_simple_fixed.php';
 
 $request_id = (int)$_GET['id'];
 $is_assigned = isset($_GET['assigned']) && $_GET['assigned'] === 'true';

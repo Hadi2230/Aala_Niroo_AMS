@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-require_once 'config_simple.php';
+require_once 'config_simple_fixed.php';
 
 $page_title = 'پیگیری درخواست‌ها';
 

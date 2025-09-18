@@ -1,6 +1,6 @@
 <?php
 /**
- * config_simple.php - نسخه ساده config.php برای تست
+ * config_simple_fixed.php - نسخه اصلاح شده config.php
  */
 
 // شروع session اگر شروع نشده
@@ -242,6 +242,7 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
     
     $pdo->exec($sql_users);
+    
     $sql_requests = "
     CREATE TABLE IF NOT EXISTS requests (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -288,6 +289,7 @@ try {
         comments TEXT,
         action_date TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
     
