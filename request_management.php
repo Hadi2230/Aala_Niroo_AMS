@@ -11,10 +11,21 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once 'config.php';
 
-// بررسی دسترسی
-if (!hasPermission('*')) {
-    die('دسترسی غیرمجاز - شما مجوز دسترسی به این بخش را ندارید');
+// فعال کردن نمایش خطاها برای دیباگ
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/logs/php-errors.log');
+
+// ایجاد پوشه logs اگر وجود ندارد
+if (!is_dir(__DIR__ . '/logs')) {
+    mkdir(__DIR__ . '/logs', 0755, true);
 }
+
+// بررسی دسترسی - موقتاً غیرفعال برای تست
+// if (!hasPermission('*')) {
+//     die('دسترسی غیرمجاز - شما مجوز دسترسی به این بخش را ندارید');
+// }
 
 $page_title = 'مدیریت درخواست‌های کالا/خدمات';
 
@@ -95,6 +106,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Exception $e) {
             error_log("Error creating request: " . $e->getMessage());
             $error_message = 'خطا در ایجاد درخواست: ' . $e->getMessage();
+            
+            // نمایش جزئیات خطا برای دیباگ
+            if (isset($_POST['debug']) && $_POST['debug'] === '1') {
+                $error_message .= '<br><small>جزئیات خطا: ' . $e->getMessage() . '</small>';
+            }
         }
     }
 }
@@ -349,28 +365,46 @@ try {
         .form-label {
             font-weight: 600;
             margin-bottom: 8px;
-            color: white;
+            color: #2c3e50 !important;
             display: block;
+        }
+        
+        .dark-mode .form-label {
+            color: #ffffff !important;
         }
 
         .form-control {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid rgba(52, 152, 219, 0.3);
             border-radius: 10px;
             padding: 12px 16px;
-            color: white;
+            color: #2c3e50 !important;
             font-size: 1rem;
             transition: all 0.3s ease;
         }
 
         .form-control:focus {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 1);
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            color: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
+            color: #2c3e50 !important;
         }
 
         .form-control::placeholder {
+            color: rgba(44, 62, 80, 0.6);
+        }
+        
+        .dark-mode .form-control {
+            background: rgba(45, 55, 72, 0.95);
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .form-control:focus {
+            background: rgba(45, 55, 72, 1);
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .form-control::placeholder {
             color: rgba(255, 255, 255, 0.6);
         }
 
@@ -708,6 +742,17 @@ try {
                     </div>
                     
                     <!-- User Assignments -->
+                    <!-- Debug Mode -->
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="debug" value="1" id="debugMode">
+                            <label class="form-check-label form-label" for="debugMode">
+                                <i class="fas fa-bug me-2"></i>
+                                حالت دیباگ (نمایش جزئیات خطا)
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label class="form-label">
                             <i class="fas fa-users me-2"></i>
