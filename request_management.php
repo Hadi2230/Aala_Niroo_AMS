@@ -21,45 +21,80 @@ $page_title = 'مدیریت درخواست‌های کالا/خدمات';
 // پردازش فرم
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'create_request') {
-        $data = [
-            'requester_id' => $_SESSION['user_id'],
-            'requester_name' => $_SESSION['username'],
-            'item_name' => sanitizeInput($_POST['item_name']),
-            'quantity' => (int)$_POST['quantity'],
-            'price' => floatval($_POST['price']),
-            'description' => sanitizeInput($_POST['description']),
-            'priority' => sanitizeInput($_POST['priority'])
-        ];
-        
-        $request_id = createRequest($pdo, $data);
-        
-        if ($request_id) {
-            // آپلود فایل‌ها
-            if (!empty($_FILES['files']['name'][0])) {
-                foreach ($_FILES['files']['name'] as $key => $name) {
-                    if (!empty($name)) {
-                        $file = [
-                            'name' => $_FILES['files']['name'][$key],
-                            'type' => $_FILES['files']['type'][$key],
-                            'tmp_name' => $_FILES['files']['tmp_name'][$key],
-                            'size' => $_FILES['files']['size'][$key]
+        try {
+            // پردازش آیتم‌های متعدد
+            $items = [];
+            if (isset($_POST['items']) && is_array($_POST['items'])) {
+                foreach ($_POST['items'] as $item) {
+                    if (!empty($item['item_name'])) {
+                        $items[] = [
+                            'item_name' => sanitizeInput($item['item_name']),
+                            'quantity' => (int)$item['quantity'],
+                            'price' => floatval(str_replace(',', '', $item['price'])),
+                            'priority' => sanitizeInput($item['priority'])
                         ];
-                        uploadRequestFile($pdo, $request_id, $file);
                     }
                 }
             }
             
-            // ایجاد گردش کار
-            if (!empty($_POST['assignments'])) {
-                $assignments = json_decode($_POST['assignments'], true);
-                createRequestWorkflow($pdo, $request_id, $assignments);
+            if (empty($items)) {
+                throw new Exception('حداقل یک آیتم باید وارد شود');
             }
             
-            $_SESSION['success_message'] = 'درخواست با موفقیت ایجاد شد!';
-            header('Location: request_management.php');
-            exit();
-        } else {
-            $error_message = 'خطا در ایجاد درخواست!';
+            // ایجاد درخواست برای هر آیتم
+            $request_ids = [];
+            foreach ($items as $item) {
+                $data = [
+                    'requester_id' => $_SESSION['user_id'],
+                    'requester_name' => $_SESSION['username'],
+                    'item_name' => $item['item_name'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'description' => sanitizeInput($_POST['description'] ?? ''),
+                    'priority' => $item['priority']
+                ];
+                
+                $request_id = createRequest($pdo, $data);
+                if ($request_id) {
+                    $request_ids[] = $request_id;
+                }
+            }
+            
+            if (!empty($request_ids)) {
+                // آپلود فایل‌ها برای اولین درخواست
+                if (!empty($_FILES['files']['name'][0])) {
+                    foreach ($_FILES['files']['name'] as $key => $name) {
+                        if (!empty($name)) {
+                            $file = [
+                                'name' => $_FILES['files']['name'][$key],
+                                'type' => $_FILES['files']['type'][$key],
+                                'tmp_name' => $_FILES['files']['tmp_name'][$key],
+                                'size' => $_FILES['files']['size'][$key]
+                            ];
+                            uploadRequestFile($pdo, $request_ids[0], $file);
+                        }
+                    }
+                }
+                
+                // ایجاد گردش کار برای همه درخواست‌ها
+                if (!empty($_POST['assignments'])) {
+                    $assignments = json_decode($_POST['assignments'], true);
+                    if (is_array($assignments)) {
+                        foreach ($request_ids as $request_id) {
+                            createRequestWorkflow($pdo, $request_id, $assignments);
+                        }
+                    }
+                }
+                
+                $_SESSION['success_message'] = 'درخواست‌ها با موفقیت ایجاد شدند!';
+                header('Location: request_management.php');
+                exit();
+            } else {
+                throw new Exception('خطا در ایجاد درخواست‌ها');
+            }
+        } catch (Exception $e) {
+            error_log("Error creating request: " . $e->getMessage());
+            $error_message = 'خطا در ایجاد درخواست: ' . $e->getMessage();
         }
     }
 }
