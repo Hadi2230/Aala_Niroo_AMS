@@ -22,10 +22,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (isset($_POST['items']) && is_array($_POST['items'])) {
                 foreach ($_POST['items'] as $item) {
                     if (!empty($item['item_name'])) {
+                        // تبدیل قیمت فارسی به انگلیسی
+                        $price = $item['price'];
+                        $price = str_replace(['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'], 
+                                           ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], $price);
+                        $price = str_replace(',', '', $price);
+                        
                         $items[] = [
                             'item_name' => sanitizeInput($item['item_name']),
                             'quantity' => (int)$item['quantity'],
-                            'price' => floatval(str_replace(',', '', $item['price'])),
+                            'price' => floatval($price),
                             'priority' => sanitizeInput($item['priority'])
                         ];
                     }
@@ -90,6 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Exception $e) {
             error_log("Error creating request: " . $e->getMessage());
             $error_message = 'خطا در ایجاد درخواست: ' . $e->getMessage();
+            
+            // نمایش جزئیات خطا برای دیباگ
+            if (isset($_POST['debug']) && $_POST['debug'] === '1') {
+                $error_message .= '<br><small>جزئیات خطا: ' . $e->getMessage() . '</small>';
+                $error_message .= '<br><small>Stack trace: ' . $e->getTraceAsString() . '</small>';
+            }
         }
     }
 }
@@ -608,6 +620,17 @@ try {
                             <div id="assignmentsList" class="mt-3"></div>
                         </div>
                         
+                        <!-- Debug Mode -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="debug" value="1" id="debugMode">
+                                <label class="form-check-label form-label" for="debugMode">
+                                    <i class="fas fa-bug me-2"></i>
+                                    حالت دیباگ (نمایش جزئیات خطا)
+                                </label>
+                            </div>
+                        </div>
+                        
                         <!-- Submit Buttons -->
                         <div class="d-flex gap-3">
                             <button type="submit" class="btn btn-success">
@@ -834,13 +857,22 @@ try {
             document.getElementById('fileInput').dispatchEvent(event);
         });
 
-        // فرمت کردن قیمت
+        // فرمت کردن قیمت به فارسی
         function formatPrice(input) {
-            let value = input.value.replace(/,/g, '');
+            let value = input.value.replace(/[^\d]/g, ''); // حذف همه کاراکترهای غیر عددی
             if (value) {
-                value = parseInt(value).toLocaleString('fa-IR');
-                input.value = value;
+                // تبدیل به عدد و فرمت با ویرگول
+                let num = parseInt(value);
+                let formatted = num.toLocaleString('fa-IR');
+                input.value = formatted;
             }
+        }
+
+        // تبدیل قیمت فارسی به انگلیسی برای ارسال
+        function convertPriceToEnglish(price) {
+            return price.replace(/[۰-۹]/g, function(d) {
+                return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);
+            }).replace(/,/g, '');
         }
 
         // اعمال فرمت قیمت به همه فیلدهای قیمت
@@ -861,38 +893,8 @@ try {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('createForm').style.display = 'none';
             
-            // ارسال فرم
-            const formData = new FormData(this);
-            
-            // اضافه کردن انتساب‌ها به formData
-            const assignments = [];
-            document.querySelectorAll('.assignment-item').forEach(item => {
-                const userId = item.querySelector('input[name*="[user_id]"]').value;
-                const department = item.querySelector('input[name*="[department]"]').value;
-                assignments.push({ user_id: userId, department: department });
-            });
-            formData.append('assignments', JSON.stringify(assignments));
-            
-            fetch('request_management_final.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.text())
-            .then(data => {
-                // مخفی کردن loading
-                document.getElementById('loading').style.display = 'none';
-                
-                // نمایش نتیجه
-                if (data.includes('success_message')) {
-                    location.reload();
-                } else {
-                    alert('خطا در ارسال درخواست');
-                }
-            })
-            .catch(error => {
-                document.getElementById('loading').style.display = 'none';
-                alert('خطا در ارسال درخواست: ' + error);
-            });
+            // ارسال فرم به صورت عادی (بدون AJAX)
+            this.submit();
         });
     </script>
 </body>
