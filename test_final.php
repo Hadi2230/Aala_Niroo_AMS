@@ -1,86 +1,81 @@
 <?php
-// تست نهایی سیستم
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+/**
+ * test_final.php - تست نهایی سیستم
+ */
 
-echo "<!DOCTYPE html>
-<html lang='fa' dir='rtl'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>تست نهایی سیستم</title>
-    <style>
-        body { font-family: Tahoma, Arial, sans-serif; padding: 20px; background: #f8f9fa; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .success { color: #27ae60; background: #d5f4e6; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        .error { color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        .info { color: #3498db; background: #d6eaf8; padding: 10px; border-radius: 5px; margin: 10px 0; }
-        h1 { text-align: center; color: #2c3e50; }
-        .btn { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px; }
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <h1>🔍 تست نهایی سیستم</h1>";
-
-try {
-    echo "<div class='info'>در حال بارگذاری config.php...</div>";
-    require_once 'config.php';
-    echo "<div class='success'>✅ config.php بارگذاری شد</div>";
-    
-    // تست اتصال دیتابیس
-    if ($pdo) {
-        echo "<div class='success'>✅ اتصال به دیتابیس برقرار شد</div>";
-        
-        // تست query ساده
-        $stmt = $pdo->query("SELECT 1 as test");
-        $result = $stmt->fetch();
-        if ($result && $result['test'] == 1) {
-            echo "<div class='success'>✅ تست query موفق</div>";
-        }
-        
-        // بررسی جداول
-        $stmt = $pdo->query("SHOW TABLES");
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo "<div class='info'>📊 تعداد جداول: " . count($tables) . "</div>";
-        
-        if (count($tables) > 0) {
-            echo "<div class='success'>✅ جداول موجود:</div><ul>";
-            foreach ($tables as $table) {
-                echo "<li>$table</li>";
-            }
-            echo "</ul>";
-        }
-        
-    } else {
-        echo "<div class='error'>❌ اتصال به دیتابیس برقرار نشد</div>";
-    }
-    
-    // تست توابع
-    $functions = ['hasPermission', 'logAction', 'sanitizeInput', 'verifyCsrfToken', 'csrf_field', 'redirect', 'require_auth', 'jalali_format'];
-    foreach ($functions as $func) {
-        if (function_exists($func)) {
-            echo "<div class='success'>✅ تابع $func موجود است</div>";
-        } else {
-            echo "<div class='error'>❌ تابع $func موجود نیست</div>";
-        }
-    }
-    
-    echo "<div class='success'>🎉 تست نهایی موفق بود!</div>";
-    echo "<div style='text-align: center; margin-top: 20px;'>";
-    echo "<a href='index.php' class='btn'>🏠 صفحه اصلی</a>";
-    echo "<a href='login.php' class='btn'>🔐 ورود</a>";
-    echo "</div>";
-    
-} catch (Exception $e) {
-    echo "<div class='error'>❌ خطا: " . $e->getMessage() . "</div>";
-    echo "<div class='error'>فایل: " . $e->getFile() . "</div>";
-    echo "<div class='error'>خط: " . $e->getLine() . "</div>";
-} catch (Error $e) {
-    echo "<div class='error'>❌ خطای فانی: " . $e->getMessage() . "</div>";
-    echo "<div class='error'>فایل: " . $e->getFile() . "</div>";
-    echo "<div class='error'>خط: " . $e->getLine() . "</div>";
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    $_SESSION['user_id'] = 1;
+    $_SESSION['username'] = 'test_user';
 }
 
-echo "</div></body></html>";
+echo "<h2>تست نهایی سیستم درخواست‌ها</h2>";
+
+// بارگذاری config_simple
+require_once 'config_simple.php';
+
+echo "<h3>1. بررسی توابع:</h3>";
+$functions = ['generateRequestNumber', 'createRequest', 'uploadRequestFile', 'createRequestWorkflow'];
+foreach ($functions as $func) {
+    if (function_exists($func)) {
+        echo "✅ تابع $func: موجود<br>";
+    } else {
+        echo "❌ تابع $func: یافت نشد<br>";
+    }
+}
+
+echo "<h3>2. تست اتصال دیتابیس:</h3>";
+try {
+    $stmt = $pdo->query("SELECT 1");
+    echo "✅ اتصال دیتابیس: موفق<br>";
+} catch (Exception $e) {
+    echo "❌ خطا در اتصال دیتابیس: " . $e->getMessage() . "<br>";
+}
+
+echo "<h3>3. بررسی جداول:</h3>";
+$tables = ['requests', 'request_files', 'request_workflow', 'request_notifications'];
+foreach ($tables as $table) {
+    try {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM $table");
+        echo "✅ جدول $table: موجود<br>";
+    } catch (Exception $e) {
+        echo "❌ جدول $table: " . $e->getMessage() . "<br>";
+    }
+}
+
+echo "<h3>4. تست ایجاد درخواست:</h3>";
+try {
+    $data = [
+        'requester_id' => 1,
+        'requester_name' => 'test_user',
+        'item_name' => 'تست آیتم نهایی',
+        'quantity' => 2,
+        'price' => 5000,
+        'description' => 'تست نهایی سیستم',
+        'priority' => 'متوسط'
+    ];
+    
+    $request_id = createRequest($pdo, $data);
+    if ($request_id) {
+        echo "✅ درخواست ایجاد شد با ID: $request_id<br>";
+        
+        // بررسی درخواست در دیتابیس
+        $stmt = $pdo->prepare("SELECT * FROM requests WHERE id = ?");
+        $stmt->execute([$request_id]);
+        $request = $stmt->fetch();
+        
+        if ($request) {
+            echo "✅ درخواست در دیتابیس:<br>";
+            echo "- شماره: " . $request['request_number'] . "<br>";
+            echo "- آیتم: " . $request['item_name'] . "<br>";
+            echo "- وضعیت: " . $request['status'] . "<br>";
+        }
+    } else {
+        echo "❌ خطا در ایجاد درخواست<br>";
+    }
+} catch (Exception $e) {
+    echo "❌ خطا در تست: " . $e->getMessage() . "<br>";
+}
+
+echo "<br><a href='request_management.php' style='background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>بازگشت به صفحه اصلی</a>";
 ?>

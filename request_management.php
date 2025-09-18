@@ -9,16 +9,9 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-require_once 'config.php';
+require_once 'config_simple.php';
 
-// بررسی وجود توابع مورد نیاز
-if (!function_exists('createRequest')) {
-    die('خطا: تابع createRequest یافت نشد. لطفاً config.php را بررسی کنید.');
-}
-
-if (!function_exists('generateRequestNumber')) {
-    die('خطا: تابع generateRequestNumber یافت نشد. لطفاً config.php را بررسی کنید.');
-}
+// توابع در config_simple.php تعریف شده‌اند
 
 // فعال کردن نمایش خطاها برای دیباگ
 error_reporting(E_ALL);

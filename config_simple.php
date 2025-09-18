@@ -200,5 +200,75 @@ function hasPermission($permission) {
     return true;
 }
 
-echo "<!-- config_simple.php loaded successfully -->";
+// ایجاد جداول اگر وجود ندارند
+try {
+    // بررسی وجود جدول requests
+    $stmt = $pdo->query("SELECT COUNT(*) FROM requests");
+} catch (Exception $e) {
+    // ایجاد جداول
+    $sql_requests = "
+    CREATE TABLE IF NOT EXISTS requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        request_number VARCHAR(50) NOT NULL UNIQUE,
+        requester_id INT NOT NULL,
+        requester_name VARCHAR(255) NOT NULL,
+        item_name VARCHAR(255) NOT NULL,
+        quantity INT NOT NULL,
+        price DECIMAL(15,2),
+        description TEXT,
+        priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+        status ENUM('در انتظار تأیید', 'در حال بررسی', 'تأیید شده', 'رد شده', 'تکمیل شده') DEFAULT 'در انتظار تأیید',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_request_number (request_number),
+        INDEX idx_requester_id (requester_id),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
+    
+    $pdo->exec($sql_requests);
+    
+    $sql_files = "
+    CREATE TABLE IF NOT EXISTS request_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        request_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_type VARCHAR(100),
+        file_size INT,
+        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
+    
+    $pdo->exec($sql_files);
+    
+    $sql_workflow = "
+    CREATE TABLE IF NOT EXISTS request_workflow (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        request_id INT NOT NULL,
+        step_order INT NOT NULL,
+        assigned_to INT,
+        department VARCHAR(255),
+        status ENUM('در انتظار', 'در حال بررسی', 'تأیید شده', 'رد شده') DEFAULT 'در انتظار',
+        comments TEXT,
+        action_date TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
+    
+    $pdo->exec($sql_workflow);
+    
+    $sql_notifications = "
+    CREATE TABLE IF NOT EXISTS request_notifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        request_id INT NOT NULL,
+        user_id INT NOT NULL,
+        notification_type VARCHAR(50) NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
+    
+    $pdo->exec($sql_notifications);
+}
 ?>
