@@ -247,8 +247,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
+            // ذخیره اطلاعات برای SMS
+            $_SESSION['last_visit_id'] = $visit_id;
+            $_SESSION['last_visit_data'] = $visit_data;
+            $_SESSION['last_visitors'] = $_POST['visitors'] ?? [];
+            
             $message = 'درخواست بازدید با موفقیت ثبت شد. شماره درخواست: ' . $visit_id;
             $message_type = 'success';
+            
+            // نمایش مودال SMS
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const smsModal = new bootstrap.Modal(document.getElementById('smsModal'));
+                    smsModal.show();
+                });
+            </script>";
+        }
+        
+        if (isset($_POST['send_sms'])) {
+            $visit_id = $_SESSION['last_visit_id'];
+            $visit_data = $_SESSION['last_visit_data'];
+            $visitors = $_SESSION['last_visitors'];
+            
+            // دریافت قالب SMS
+            $stmt = $pdo->prepare("SELECT * FROM sms_templates WHERE template_type = 'visit_confirmation' AND is_active = 1 ORDER BY id DESC LIMIT 1");
+            $stmt->execute();
+            $template = $stmt->fetch();
+            
+            if ($template) {
+                $template_text = $template['template_text'];
+            } else {
+                $template_text = 'بازدیدکننده محترم {visitor_name} درخواست شما بابت بازدید از کارخانه شرکت اعلا نیرو جهت {visit_type} در تاریخ {visit_date} به شماره بازدید {request_number} ثبت شده است. باتشکر از توجه شما - شرکت اعلا نیرو';
+            }
+            
+            // دریافت اطلاعات بازدید
+            $stmt = $pdo->prepare("SELECT * FROM visit_requests WHERE id = ?");
+            $stmt->execute([$visit_id]);
+            $visit = $stmt->fetch();
+            
+            $visit_type_labels = [
+                'meeting' => 'جلسه',
+                'test' => 'تست',
+                'purchase' => 'خرید',
+                'inspection' => 'بازرسی'
+            ];
+            
+            $visit_type_text = $visit_type_labels[$visit['visit_type']] ?? $visit['visit_type'];
+            $visit_date = $visit['preferred_dates'] ? date('Y-m-d', strtotime(json_decode($visit['preferred_dates'], true)[0])) : date('Y-m-d');
+            
+            // ارسال SMS به هر بازدیدکننده
+            $sms_sent = 0;
+            foreach ($visitors as $visitor) {
+                if (!empty($visitor['phone'])) {
+                    $visitor_name = $visitor['name'] . ' ' . $visitor['lastname'];
+                    
+                    $sms_text = str_replace([
+                        '{visitor_name}',
+                        '{visit_type}',
+                        '{visit_date}',
+                        '{request_number}'
+                    ], [
+                        $visitor_name,
+                        $visit_type_text,
+                        $visit_date,
+                        $visit['request_number']
+                    ], $template_text);
+                    
+                    // ارسال SMS (در اینجا فقط لاگ می‌کنیم)
+                    error_log("SMS to " . $visitor['phone'] . ": " . $sms_text);
+                    $sms_sent++;
+                }
+            }
+            
+            $message = "درخواست بازدید ثبت شد و $sms_sent پیامک ارسال شد";
+            $message_type = 'success';
+            
+            // پاک کردن session
+            unset($_SESSION['last_visit_id']);
+            unset($_SESSION['last_visit_data']);
+            unset($_SESSION['last_visitors']);
         }
         
         if (isset($_POST['edit_visit_request'])) {
@@ -1267,6 +1344,41 @@ try {
                         <button type="submit" class="btn btn-success">ثبت نتیجه</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال SMS -->
+    <div class="modal fade" id="smsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-chat-text"></i> ارسال پیامک</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-question-circle display-4 text-primary"></i>
+                        <h5 class="mt-3">آیا تمایل به ارسال پیامک دارید؟</h5>
+                        <p class="text-muted">پیامک تایید به شماره موبایل بازدیدکنندگان ارسال خواهد شد</p>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <form method="POST" class="d-grid">
+                                <input type="hidden" name="send_sms" value="1">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="bi bi-check-circle"></i> بله، ارسال کن
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-secondary btn-lg w-100" data-bs-dismiss="modal">
+                                <i class="bi bi-x-circle"></i> خیر، فقط ثبت کن
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
