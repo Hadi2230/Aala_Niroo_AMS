@@ -1,540 +1,300 @@
 <?php
-session_start();
 require_once 'config.php';
 
-// بررسی احراز هویت
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+// بررسی دسترسی
+if (!hasPermission('visit_management')) {
+    die('دسترسی غیرمجاز - شما مجوز دسترسی به این بخش را ندارید');
 }
+
+$page_title = 'داشبورد مدیریت بازدید کارخانه';
 
 // دریافت آمار
 try {
     $stats = getVisitStatistics($pdo);
+    $today_visits = getVisitRequests($pdo, [
+        'date_from' => date('Y-m-d 00:00:00'),
+        'date_to' => date('Y-m-d 23:59:59')
+    ]);
+    $pending_documents = getVisitRequests($pdo, ['status' => 'documents_required']);
+    $reserved_devices = getVisitRequests($pdo, ['status' => 'reserved']);
 } catch (Exception $e) {
-    $stats = ['total_requests' => 0, 'by_status' => [], 'by_type' => []];
+    $stats = ['total_requests' => 0, 'by_status' => [], 'by_type' => [], 'by_purpose' => []];
+    $today_visits = [];
+    $pending_documents = [];
+    $reserved_devices = [];
 }
 
-// دریافت بازدیدهای امروز
-$today_visits = [];
+// دریافت درخواست‌های اخیر
 try {
-    $today = date('Y-m-d');
-    $stmt = $pdo->prepare("
-        SELECT vr.*, u.full_name as host_name
-        FROM visit_requests vr
-        LEFT JOIN users u ON vr.host_id = u.id
-        WHERE DATE(vr.confirmed_date) = ? AND vr.status IN ('scheduled', 'reserved', 'ready_for_visit', 'checked_in', 'onsite')
-        ORDER BY vr.confirmed_date
-    ");
-    $stmt->execute([$today]);
-    $today_visits = $stmt->fetchAll();
+    $recent_requests = getVisitRequests($pdo, ['date_from' => date('Y-m-d', strtotime('-7 days'))]);
 } catch (Exception $e) {
-    // جدول وجود ندارد
-}
-
-// دریافت بازدیدهای نیازمند مدارک
-$pending_documents = [];
-try {
-    $stmt = $pdo->prepare("
-        SELECT vr.*, u.full_name as created_by_name
-        FROM visit_requests vr
-        LEFT JOIN users u ON vr.created_by = u.id
-        WHERE vr.status = 'documents_required'
-        ORDER BY vr.created_at DESC
-        LIMIT 10
-    ");
-    $stmt->execute();
-    $pending_documents = $stmt->fetchAll();
-} catch (Exception $e) {
-    // جدول وجود ندارد
-}
-
-// دریافت دستگاه‌های رزرو شده امروز
-$reserved_devices = [];
-try {
-    $stmt = $pdo->prepare("
-        SELECT dr.*, a.name as asset_name, at.display_name as type_name, vr.company_name
-        FROM device_reservations dr
-        LEFT JOIN assets a ON dr.asset_id = a.id
-        LEFT JOIN asset_types at ON a.type_id = at.id
-        LEFT JOIN visit_requests vr ON dr.visit_request_id = vr.id
-        WHERE DATE(dr.reserved_from) = ? AND dr.status IN ('reserved', 'in_use')
-        ORDER BY dr.reserved_from
-    ");
-    $stmt->execute([$today]);
-    $reserved_devices = $stmt->fetchAll();
-} catch (Exception $e) {
-    // جدول وجود ندارد
+    $recent_requests = [];
 }
 ?>
+
 <!DOCTYPE html>
-<html dir="rtl" lang="fa">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>داشبورد بازدید کارخانه - اعلا نیرو</title>
+    <title><?php echo $page_title; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --success-color: #27ae60;
-            --warning-color: #f39c12;
-            --danger-color: #e74c3c;
-            --info-color: #17a2b8;
-            --light-bg: #f8f9fa;
-        }
-        
-        body {
-            font-family: Vazirmatn, sans-serif;
-            background: var(--light-bg);
-            padding-top: 80px;
-        }
-        
-        .dashboard-container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        .dashboard-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            box-shadow: 0 5px 25px rgba(0,0,0,.1);
-        }
-        
         .stats-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,.08);
-            transition: all .3s ease;
-            border-left: 4px solid var(--secondary-color);
-        }
-        
-        .stats-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,.15);
-        }
-        
-        .stats-card.success { border-left-color: var(--success-color); }
-        .stats-card.warning { border-left-color: var(--warning-color); }
-        .stats-card.danger { border-left-color: var(--danger-color); }
-        .stats-card.info { border-left-color: var(--info-color); }
-        
-        .stats-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-        
-        .stats-label {
-            color: #6c757d;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-        
-        .stats-change {
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        
-        .stats-change.positive { color: var(--success-color); }
-        .stats-change.negative { color: var(--danger-color); }
-        
-        .widget-card {
-            background: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,.08);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
         }
-        
-        .widget-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e9ecef;
+        .stats-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
-        
-        .widget-title {
-            font-size: 1.1rem;
+        .stats-card.warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        .stats-card.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        .stats-card.info {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+        .stats-number {
+            font-size: 2.5rem;
             font-weight: bold;
-            color: var(--primary-color);
-            margin: 0;
+            margin-bottom: 10px;
         }
-        
-        .visit-item {
-            background: #f8f9fa;
+        .stats-label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .quick-action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .quick-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            color: white;
+        }
+        .visit-card {
+            border: 1px solid #e9ecef;
             border-radius: 10px;
             padding: 15px;
-            margin-bottom: 10px;
-            border-left: 4px solid var(--secondary-color);
-            transition: all .3s ease;
+            margin-bottom: 15px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        
-        .visit-item:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
-        }
-        
-        .visit-item.urgent { border-left-color: var(--danger-color); }
-        .visit-item.high { border-left-color: var(--warning-color); }
-        .visit-item.medium { border-left-color: var(--info-color); }
-        .visit-item.low { border-left-color: var(--success-color); }
-        
         .status-badge {
-            padding: 4px 12px;
+            padding: 5px 12px;
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: bold;
         }
-        
-        .status-scheduled { background: #e3f2fd; color: #1976d2; }
-        .status-ready_for_visit { background: #f1f8e9; color: #689f38; }
-        .status-checked_in { background: #e0f2f1; color: #00796b; }
-        .status-onsite { background: #fff8e1; color: #f9a825; }
+        .status-new { background: #e3f2fd; color: #1976d2; }
         .status-documents_required { background: #fff3e0; color: #f57c00; }
-        
-        .priority-badge {
-            padding: 2px 8px;
-            border-radius: 15px;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-        
-        .priority-فوری { background: #ffebee; color: #c62828; }
-        .priority-بالا { background: #fff3e0; color: #f57c00; }
-        .priority-متوسط { background: #e3f2fd; color: #1976d2; }
-        .priority-کم { background: #e8f5e8; color: #2e7d32; }
-        
-        .device-item {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .device-reserved { border-left: 4px solid var(--warning-color); }
-        .device-in-use { border-left: 4px solid var(--danger-color); }
-        
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-top: 20px;
-        }
-        
-        .quick-action {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 3px 10px rgba(0,0,0,.1);
-            transition: all .3s ease;
-            text-decoration: none;
-            color: inherit;
-        }
-        
-        .quick-action:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,.15);
-            color: inherit;
-        }
-        
-        .quick-action i {
-            font-size: 2rem;
-            color: var(--secondary-color);
-            margin-bottom: 10px;
-        }
-        
-        .quick-action h6 {
-            color: var(--primary-color);
-            margin: 0;
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-header { padding: 20px; }
-            .stats-card { padding: 20px; }
-            .stats-number { font-size: 2rem; }
-        }
+        .status-reviewed { background: #f3e5f5; color: #7b1fa2; }
+        .status-scheduled { background: #e8f5e8; color: #388e3c; }
+        .status-reserved { background: #fff8e1; color: #f9a825; }
+        .status-ready_for_visit { background: #e0f2f1; color: #00695c; }
+        .status-checked_in { background: #e1f5fe; color: #0277bd; }
+        .status-onsite { background: #fce4ec; color: #c2185b; }
+        .status-completed { background: #e8f5e8; color: #2e7d32; }
+        .status-cancelled { background: #ffebee; color: #d32f2f; }
+        .status-archived { background: #f5f5f5; color: #616161; }
     </style>
 </head>
 <body>
-    <?php if (file_exists('navbar.php')) include 'navbar.php'; ?>
-    
     <div class="container-fluid">
-        <div class="dashboard-container">
-            <!-- هدر داشبورد -->
-            <div class="dashboard-header">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h1><i class="bi bi-building"></i> داشبورد بازدید کارخانه</h1>
-                        <p class="mb-0">مدیریت جامع بازدیدهای کارخانه</p>
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-building me-2"></i>
+                        <?php echo $page_title; ?>
+                    </h1>
+                    <div>
+                        <a href="visit_management.php" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>
+                            درخواست جدید
+                        </a>
                     </div>
-                    <div class="col-md-4 text-end">
-                        <div class="text-light">
-                            <small>آخرین به‌روزرسانی: <?php echo function_exists('jalali_format') ? jalali_format(date('Y-m-d H:i:s')) : date('Y-m-d H:i:s'); ?></small>
+                </div>
+
+                <!-- آمار کلی -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <div class="stats-number"><?php echo $stats['total_requests']; ?></div>
+                            <div class="stats-label">کل درخواست‌ها</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card success">
+                            <div class="stats-number"><?php echo count($today_visits); ?></div>
+                            <div class="stats-label">بازدیدهای امروز</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card warning">
+                            <div class="stats-number"><?php echo count($pending_documents); ?></div>
+                            <div class="stats-label">نیاز به مدارک</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card info">
+                            <div class="stats-number"><?php echo count($reserved_devices); ?></div>
+                            <div class="stats-label">دستگاه‌های رزرو شده</div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- آمار کلی -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="stats-card">
-                        <div class="stats-number"><?php echo $stats['total_requests']; ?></div>
-                        <div class="stats-label">کل درخواست‌ها</div>
-                        <div class="stats-change positive">
-                            <i class="bi bi-arrow-up"></i> +12% نسبت به ماه گذشته
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stats-card success">
-                        <div class="stats-number">
-                            <?php 
-                            $completed = array_filter($stats['by_status'], function($s) { return $s['status'] === 'completed'; });
-                            echo $completed ? $completed[0]['count'] : 0;
-                            ?>
-                        </div>
-                        <div class="stats-label">تکمیل شده</div>
-                        <div class="stats-change positive">
-                            <i class="bi bi-arrow-up"></i> +8% نسبت به هفته گذشته
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stats-card warning">
-                        <div class="stats-number">
-                            <?php 
-                            $pending = array_filter($stats['by_status'], function($s) { return $s['status'] === 'documents_required'; });
-                            echo $pending ? $pending[0]['count'] : 0;
-                            ?>
-                        </div>
-                        <div class="stats-label">نیاز به مدارک</div>
-                        <div class="stats-change negative">
-                            <i class="bi bi-arrow-down"></i> -3% نسبت به دیروز
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stats-card info">
-                        <div class="stats-number"><?php echo count($today_visits); ?></div>
-                        <div class="stats-label">بازدیدهای امروز</div>
-                        <div class="stats-change positive">
-                            <i class="bi bi-calendar-check"></i> برنامه‌ریزی شده
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <!-- بازدیدهای امروز -->
-                <div class="col-md-6">
-                    <div class="widget-card">
-                        <div class="widget-header">
-                            <h5 class="widget-title">
-                                <i class="bi bi-calendar-day"></i> بازدیدهای امروز
-                            </h5>
-                            <span class="badge bg-primary"><?php echo count($today_visits); ?></span>
-                        </div>
-                        
-                        <?php if (empty($today_visits)): ?>
-                            <div class="text-center py-4">
-                                <i class="bi bi-calendar-x display-4 text-muted"></i>
-                                <p class="text-muted mt-3">هیچ بازدیدی برای امروز برنامه‌ریزی نشده است</p>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach ($today_visits as $visit): ?>
-                                <div class="visit-item priority-<?php echo $visit['priority']; ?>">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-8">
-                                            <h6 class="mb-1"><?php echo htmlspecialchars($visit['request_number']); ?></h6>
-                                            <p class="mb-1 text-muted"><?php echo htmlspecialchars($visit['company_name']); ?></p>
-                                            <p class="mb-0 text-muted small">
-                                                <?php echo htmlspecialchars($visit['contact_person']); ?> | 
-                                                <?php echo $visit['visitor_count']; ?> نفر
-                                            </p>
-                                        </div>
-                                        <div class="col-md-4 text-end">
-                                            <span class="status-badge status-<?php echo $visit['status']; ?>">
-                                                <?php 
-                                                $status_labels = [
-                                                    'scheduled' => 'برنامه‌ریزی شده',
-                                                    'ready_for_visit' => 'آماده بازدید',
-                                                    'checked_in' => 'وارد شده',
-                                                    'onsite' => 'در حال بازدید'
-                                                ];
-                                                echo $status_labels[$visit['status']] ?? $visit['status'];
-                                                ?>
-                                            </span>
-                                            <br>
-                                            <small class="text-muted">
-                                                <?php echo date('H:i', strtotime($visit['confirmed_date'])); ?>
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                
-                <!-- نیازمند مدارک -->
-                <div class="col-md-6">
-                    <div class="widget-card">
-                        <div class="widget-header">
-                            <h5 class="widget-title">
-                                <i class="bi bi-file-earmark-excel"></i> نیازمند مدارک
-                            </h5>
-                            <span class="badge bg-warning"><?php echo count($pending_documents); ?></span>
-                        </div>
-                        
-                        <?php if (empty($pending_documents)): ?>
-                            <div class="text-center py-4">
-                                <i class="bi bi-check-circle display-4 text-success"></i>
-                                <p class="text-muted mt-3">همه درخواست‌ها مدارک کامل دارند</p>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach ($pending_documents as $visit): ?>
-                                <div class="visit-item">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-8">
-                                            <h6 class="mb-1"><?php echo htmlspecialchars($visit['request_number']); ?></h6>
-                                            <p class="mb-1 text-muted"><?php echo htmlspecialchars($visit['company_name']); ?></p>
-                                            <p class="mb-0 text-muted small">
-                                                ایجاد شده: <?php echo function_exists('jalali_format') ? jalali_format($visit['created_at']) : date('Y-m-d', strtotime($visit['created_at'])); ?>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-4 text-end">
-                                            <span class="priority-badge priority-<?php echo $visit['priority']; ?>">
-                                                <?php echo $visit['priority']; ?>
-                                            </span>
-                                            <br>
-                                            <a href="visit_details.php?id=<?php echo $visit['id']; ?>" class="btn btn-sm btn-outline-primary mt-1">
-                                                <i class="bi bi-eye"></i> مشاهده
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row">
-                <!-- دستگاه‌های رزرو شده -->
-                <div class="col-md-6">
-                    <div class="widget-card">
-                        <div class="widget-header">
-                            <h5 class="widget-title">
-                                <i class="bi bi-gear"></i> دستگاه‌های رزرو شده امروز
-                            </h5>
-                            <span class="badge bg-info"><?php echo count($reserved_devices); ?></span>
-                        </div>
-                        
-                        <?php if (empty($reserved_devices)): ?>
-                            <div class="text-center py-4">
-                                <i class="bi bi-gear display-4 text-muted"></i>
-                                <p class="text-muted mt-3">هیچ دستگاهی برای امروز رزرو نشده است</p>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach ($reserved_devices as $device): ?>
-                                <div class="device-item device-<?php echo $device['status']; ?>">
-                                    <div>
-                                        <strong><?php echo htmlspecialchars($device['asset_name']); ?></strong>
-                                        <br>
-                                        <small class="text-muted"><?php echo htmlspecialchars($device['type_name']); ?></small>
-                                    </div>
-                                    <div class="text-end">
-                                        <small class="text-muted">
-                                            <?php echo date('H:i', strtotime($device['reserved_from'])); ?> - 
-                                            <?php echo date('H:i', strtotime($device['reserved_to'])); ?>
-                                        </small>
-                                        <br>
-                                        <small class="text-muted"><?php echo htmlspecialchars($device['company_name']); ?></small>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                
+
                 <!-- عملیات سریع -->
-                <div class="col-md-6">
-                    <div class="widget-card">
-                        <div class="widget-header">
-                            <h5 class="widget-title">
-                                <i class="bi bi-lightning"></i> عملیات سریع
-                            </h5>
-                        </div>
-                        
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <a href="visit_management.php" class="quick-action">
-                                    <i class="bi bi-plus-circle"></i>
-                                    <h6>درخواست جدید</h6>
-                                </a>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-bolt me-2"></i>
+                                    عملیات سریع
+                                </h5>
                             </div>
-                            <div class="col-md-6">
-                                <a href="visit_checkin.php" class="quick-action">
-                                    <i class="bi bi-qr-code-scan"></i>
-                                    <h6>Check-in</h6>
+                            <div class="card-body">
+                                <a href="visit_management.php" class="quick-action-btn">
+                                    <i class="fas fa-plus me-2"></i>
+                                    ثبت درخواست جدید
                                 </a>
-                            </div>
-                            <div class="col-md-6">
-                                <a href="visit_management.php?status=scheduled" class="quick-action">
-                                    <i class="bi bi-calendar3"></i>
-                                    <h6>تقویم بازدیدها</h6>
+                                <a href="visit_management.php?tab=calendar" class="quick-action-btn">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    تقویم بازدیدها
                                 </a>
-                            </div>
-                            <div class="col-md-6">
-                                <a href="visit_management.php?status=documents_required" class="quick-action">
-                                    <i class="bi bi-file-earmark-check"></i>
-                                    <h6>بررسی مدارک</h6>
+                                <a href="visit_checkin.php" class="quick-action-btn">
+                                    <i class="fas fa-qrcode me-2"></i>
+                                    چک‌این بازدیدکنندگان
+                                </a>
+                                <a href="visit_management.php?status=documents_required" class="quick-action-btn">
+                                    <i class="fas fa-file-upload me-2"></i>
+                                    بررسی مدارک
+                                </a>
+                                <a href="visit_management.php?status=scheduled" class="quick-action-btn">
+                                    <i class="fas fa-clock me-2"></i>
+                                    بازدیدهای برنامه‌ریزی شده
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- نمودار آمار -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="widget-card">
-                        <div class="widget-header">
-                            <h5 class="widget-title">
-                                <i class="bi bi-bar-chart"></i> آمار بازدیدها
-                            </h5>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>وضعیت بازدیدها</h6>
-                                <div class="chart-container">
-                                    <canvas id="statusChart"></canvas>
-                                </div>
+
+                <div class="row">
+                    <!-- درخواست‌های اخیر -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-history me-2"></i>
+                                    درخواست‌های اخیر
+                                </h5>
                             </div>
-                            <div class="col-md-6">
-                                <h6>نوع بازدیدها</h6>
-                                <div class="chart-container">
-                                    <canvas id="typeChart"></canvas>
-                                </div>
+                            <div class="card-body">
+                                <?php if (empty($recent_requests)): ?>
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>هیچ درخواست اخیری یافت نشد</p>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach (array_slice($recent_requests, 0, 5) as $request): ?>
+                                        <div class="visit-card">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1"><?php echo htmlspecialchars($request['company_name']); ?></h6>
+                                                    <p class="text-muted mb-1">
+                                                        <i class="fas fa-user me-1"></i>
+                                                        <?php echo htmlspecialchars($request['contact_person']); ?>
+                                                    </p>
+                                                    <p class="text-muted mb-0">
+                                                        <i class="fas fa-phone me-1"></i>
+                                                        <?php echo htmlspecialchars($request['contact_phone']); ?>
+                                                    </p>
+                                                </div>
+                                                <div class="text-end">
+                                                    <span class="status-badge status-<?php echo $request['status']; ?>">
+                                                        <?php echo $request['status']; ?>
+                                                    </span>
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">
+                                                            <?php echo jalali_format($request['created_at'], 'Y/m/d H:i'); ?>
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- آمار بر اساس وضعیت -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    آمار بر اساس وضعیت
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <?php if (empty($stats['by_status'])): ?>
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                                        <p>داده‌ای برای نمایش وجود ندارد</p>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach ($stats['by_status'] as $status): ?>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="status-badge status-<?php echo $status['status']; ?>">
+                                                <?php echo $status['status']; ?>
+                                            </span>
+                                            <span class="fw-bold"><?php echo $status['count']; ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- آمار بر اساس نوع -->
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-tags me-2"></i>
+                                    آمار بر اساس نوع
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <?php if (empty($stats['by_type'])): ?>
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-tags fa-3x mb-3"></i>
+                                        <p>داده‌ای برای نمایش وجود ندارد</p>
+                                    </div>
+                                <?php else: ?>
+                                    <?php foreach ($stats['by_type'] as $type): ?>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span><?php echo $type['visit_type']; ?></span>
+                                            <span class="fw-bold"><?php echo $type['count']; ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -544,70 +304,5 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // نمودار وضعیت بازدیدها
-        const statusCtx = document.getElementById('statusChart').getContext('2d');
-        const statusData = <?php echo json_encode($stats['by_status']); ?>;
-        
-        new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: statusData.map(item => item.status),
-                datasets: [{
-                    data: statusData.map(item => item.count),
-                    backgroundColor: [
-                        '#3498db', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6',
-                        '#1abc9c', '#34495e', '#e67e22', '#2ecc71', '#95a5a6'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-        
-        // نمودار نوع بازدیدها
-        const typeCtx = document.getElementById('typeChart').getContext('2d');
-        const typeData = <?php echo json_encode($stats['by_type']); ?>;
-        
-        new Chart(typeCtx, {
-            type: 'bar',
-            data: {
-                labels: typeData.map(item => item.visit_type),
-                datasets: [{
-                    label: 'تعداد',
-                    data: typeData.map(item => item.count),
-                    backgroundColor: '#3498db',
-                    borderColor: '#2980b9',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
-        });
-        
-        // Auto-refresh هر 5 دقیقه
-        setInterval(function() {
-            window.location.reload();
-        }, 300000);
-    </script>
 </body>
 </html>
