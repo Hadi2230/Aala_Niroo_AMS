@@ -159,11 +159,33 @@ function createRequestWorkflow($pdo, $request_id, $assignments) {
                 $assignment['user_name'],
                 $assignment['department'] ?? ''
             ]);
+            
+            // ایجاد اعلان برای کاربر
+            createRequestNotification($pdo, $assignment['user_id'], $request_id, 'درخواست جدید', 
+                'درخواست جدیدی برای بررسی به شما ارسال شده است');
         }
         
         return true;
     } catch (Exception $e) {
         error_log("Error creating workflow: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * ایجاد اعلان درخواست
+ */
+function createRequestNotification($pdo, $user_id, $request_id, $type, $message) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_notifications (request_id, user_id, notification_type, message, is_read) 
+            VALUES (?, ?, ?, ?, 0)
+        ");
+        
+        $stmt->execute([$request_id, $user_id, $type, $message]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating request notification: " . $e->getMessage());
         return false;
     }
 }

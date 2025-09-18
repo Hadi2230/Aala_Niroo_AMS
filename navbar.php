@@ -185,11 +185,6 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                 <h6 class="lang" data-fa="درخواست کالا/خدمات" data-en="Request Management"></h6>
                 <p class="lang" data-fa="ایجاد درخواست جدید" data-en="Create new request"></p>
               </a>
-              <a href="request_tracking.php" class="menu-card workflow">
-                <i class="fas fa-search"></i>
-                <h6 class="lang" data-fa="پیگیری درخواست‌ها" data-en="Request Tracking"></h6>
-                <p class="lang" data-fa="ردیابی وضعیت درخواست‌ها" data-en="Track request status"></p>
-              </a>
               <a href="tickets.php" class="menu-card workflow">
                 <i class="fas fa-ticket-alt"></i>
                 <h6 class="lang" data-fa="مدیریت تیکت‌ها" data-en="Ticket Management"></h6>

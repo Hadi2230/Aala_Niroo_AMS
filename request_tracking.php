@@ -213,7 +213,7 @@ if (isset($_GET['id'])) {
         .request-number {
             font-size: 1.2rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: #ffffff !important;
         }
 
         .request-status {
@@ -237,6 +237,7 @@ if (isset($_GET['id'])) {
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 8px;
+            color: #ffffff !important;
         }
 
         .request-meta {
@@ -244,7 +245,7 @@ if (isset($_GET['id'])) {
             justify-content: space-between;
             align-items: center;
             font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
+            color: #ffffff !important;
         }
 
         .priority-badge {

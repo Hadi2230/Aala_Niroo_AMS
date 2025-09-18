@@ -95,10 +95,11 @@ try {
         'read' => $pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . $_SESSION['user_id'] . " AND is_read = 1")->fetchColumn(),
         'ticket' => $pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . $_SESSION['user_id'] . " AND type = 'ticket'")->fetchColumn(),
         'maintenance' => $pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . $_SESSION['user_id'] . " AND type = 'maintenance'")->fetchColumn(),
-        'message' => $pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . $_SESSION['user_id'] . " AND type = 'message'")->fetchColumn()
+        'message' => $pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . $_SESSION['user_id'] . " AND type = 'message'")->fetchColumn(),
+        'request' => $pdo->query("SELECT COUNT(*) FROM request_notifications WHERE user_id = " . $_SESSION['user_id'] . " AND is_read = 0")->fetchColumn()
     ];
 } catch (Exception $e) {
-    $stats = ['total' => 0, 'unread' => 0, 'read' => 0, 'ticket' => 0, 'maintenance' => 0, 'message' => 0];
+    $stats = ['total' => 0, 'unread' => 0, 'read' => 0, 'ticket' => 0, 'maintenance' => 0, 'message' => 0, 'request' => 0];
 }
 ?>
 

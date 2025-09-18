@@ -72,6 +72,30 @@ try {
 } catch (Exception $e) {
     error_log("Error fetching users: " . $e->getMessage());
 }
+
+// دریافت آمار درخواست‌ها
+$stats = [
+    'total' => 0,
+    'pending' => 0,
+    'approved' => 0,
+    'rejected' => 0
+];
+
+try {
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM requests");
+    $stats['total'] = $stmt->fetch()['total'];
+    
+    $stmt = $pdo->query("SELECT COUNT(*) as pending FROM requests WHERE status = 'در انتظار تأیید'");
+    $stats['pending'] = $stmt->fetch()['pending'];
+    
+    $stmt = $pdo->query("SELECT COUNT(*) as approved FROM requests WHERE status = 'تأیید شده'");
+    $stats['approved'] = $stmt->fetch()['approved'];
+    
+    $stmt = $pdo->query("SELECT COUNT(*) as rejected FROM requests WHERE status = 'رد شده'");
+    $stats['rejected'] = $stmt->fetch()['rejected'];
+} catch (Exception $e) {
+    error_log("Error fetching stats: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -187,12 +211,92 @@ try {
             padding: 30px;
         }
 
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .main-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+
+        .main-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow-xl);
+            border-color: var(--primary-color);
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        .card-description {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .card-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
         .form-container {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 16px;
             padding: 30px;
             margin-bottom: 30px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+
+        .form-container.show {
+            display: block;
         }
 
         .form-title {
@@ -252,6 +356,23 @@ try {
             color: white;
         }
 
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px 30px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
         .file-upload-area {
             border: 2px dashed rgba(255, 255, 255, 0.3);
             border-radius: 12px;
@@ -295,6 +416,30 @@ try {
             transform: scale(1.1);
         }
 
+        .item-row {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .remove-item {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .remove-item:hover {
+            transform: scale(1.1);
+        }
+
         .priority-badge {
             padding: 4px 12px;
             border-radius: 20px;
@@ -317,7 +462,11 @@ try {
                 padding: 20px;
             }
             
-            .form-container {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .main-card {
                 padding: 20px;
             }
         }
@@ -341,7 +490,7 @@ try {
                     مدیریت درخواست‌های کالا/خدمات
                 </h1>
                 <p class="page-subtitle">
-                    ایجاد درخواست جدید و مدیریت گردش کار
+                    ایجاد، پیگیری و گزارش‌گیری درخواست‌ها
                 </p>
             </div>
         </div>
@@ -364,8 +513,60 @@ try {
                 </div>
             <?php endif; ?>
 
+            <!-- Main Cards -->
+            <div class="cards-grid" data-aos="fade-up">
+                <!-- Create Request Card -->
+                <div class="main-card" onclick="showCreateForm()">
+                    <div class="card-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <h3 class="card-title">ایجاد درخواست جدید</h3>
+                    <p class="card-description">ایجاد درخواست کالا یا خدمات جدید با قابلیت آپلود فایل و انتخاب واحدها</p>
+                    <div class="card-stats">
+                        <div class="stat-item">
+                            <div class="stat-number"><?php echo $stats['total']; ?></div>
+                            <div class="stat-label">کل درخواست‌ها</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Track Requests Card -->
+                <div class="main-card" onclick="window.location.href='request_tracking.php'">
+                    <div class="card-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3 class="card-title">پیگیری درخواست‌ها</h3>
+                    <p class="card-description">ردیابی وضعیت و جزئیات درخواست‌های موجود</p>
+                    <div class="card-stats">
+                        <div class="stat-item">
+                            <div class="stat-number"><?php echo $stats['pending']; ?></div>
+                            <div class="stat-label">در انتظار</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number"><?php echo $stats['approved']; ?></div>
+                            <div class="stat-label">تأیید شده</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Card -->
+                <div class="main-card" onclick="showReports()">
+                    <div class="card-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3 class="card-title">گزارش درخواست‌ها</h3>
+                    <p class="card-description">گزارش‌گیری و آمارگیری از درخواست‌ها و عملکرد واحدها</p>
+                    <div class="card-stats">
+                        <div class="stat-item">
+                            <div class="stat-number"><?php echo $stats['rejected']; ?></div>
+                            <div class="stat-label">رد شده</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Request Form -->
-            <div class="form-container" data-aos="fade-up">
+            <div class="form-container" id="createForm">
                 <h3 class="form-title">
                     <i class="fas fa-plus-circle me-2"></i>
                     ایجاد درخواست جدید
@@ -375,61 +576,84 @@ try {
                     <input type="hidden" name="action" value="create_request">
                     <?php echo csrf_field(); ?>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label class="form-label">
-                                    <i class="fas fa-box me-2"></i>
-                                    نام آیتم
-                                </label>
-                                <input type="text" class="form-control" name="item_name" required 
-                                       placeholder="نام کالا یا خدمت مورد نیاز">
+                    <!-- Items Section -->
+                    <div id="itemsSection">
+                        <div class="item-row" data-item="0">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-box me-2"></i>
+                                            نام آیتم
+                                        </label>
+                                        <input type="text" class="form-control" name="items[0][item_name]" required 
+                                               placeholder="نام کالا یا خدمت مورد نیاز">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-hashtag me-2"></i>
+                                            تعداد
+                                        </label>
+                                        <input type="number" class="form-control" name="items[0][quantity]" required 
+                                               placeholder="تعداد" min="1">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-dollar-sign me-2"></i>
+                                            قیمت (ریال)
+                                        </label>
+                                        <input type="text" class="form-control" name="items[0][price]" 
+                                               placeholder="قیمت تخمینی" id="priceInput0">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            اولویت
+                                        </label>
+                                        <select class="form-control" name="items[0][priority]" required>
+                                            <option value="کم">کم</option>
+                                            <option value="متوسط" selected>متوسط</option>
+                                            <option value="بالا">بالا</option>
+                                            <option value="فوری">فوری</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-1">
+                                    <div class="form-group">
+                                        <label class="form-label">&nbsp;</label>
+                                        <button type="button" class="btn btn-danger remove-item" onclick="removeItem(0)" style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label">
-                                    <i class="fas fa-hashtag me-2"></i>
-                                    تعداد
-                                </label>
-                                <input type="number" class="form-control" name="quantity" required 
-                                       placeholder="تعداد" min="1">
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label class="form-label">
-                                    <i class="fas fa-dollar-sign me-2"></i>
-                                    قیمت (ریال)
-                                </label>
-                                <input type="number" class="form-control" name="price" 
-                                       placeholder="قیمت تخمینی">
-                            </div>
-                        </div>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <button type="button" class="btn btn-secondary" onclick="addItem()">
+                            <i class="fas fa-plus me-2"></i>
+                            اضافه کردن آیتم جدید
+                        </button>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">
                             <i class="fas fa-align-right me-2"></i>
-                            توضیحات
+                            توضیحات کلی
                         </label>
                         <textarea class="form-control" name="description" rows="4" 
-                                  placeholder="توضیحات کامل درخواست..."></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            اولویت
-                        </label>
-                        <select class="form-control" name="priority" required>
-                            <option value="کم">کم</option>
-                            <option value="متوسط" selected>متوسط</option>
-                            <option value="بالا">بالا</option>
-                            <option value="فوری">فوری</option>
-                        </select>
+                                  placeholder="توضیحات کلی درخواست..."></textarea>
                     </div>
                     
                     <!-- File Upload -->
@@ -484,6 +708,10 @@ try {
                             <i class="fas fa-paper-plane me-2"></i>
                             ارسال درخواست
                         </button>
+                        <button type="button" class="btn btn-secondary btn-lg ms-3" onclick="hideCreateForm()">
+                            <i class="fas fa-times me-2"></i>
+                            انصراف
+                        </button>
                     </div>
                 </form>
             </div>
@@ -502,7 +730,126 @@ try {
             once: true
         });
 
+        let itemCount = 1;
         let assignments = [];
+
+        // Show/Hide Create Form
+        function showCreateForm() {
+            document.getElementById('createForm').classList.add('show');
+            document.getElementById('createForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideCreateForm() {
+            document.getElementById('createForm').classList.remove('show');
+        }
+
+        // Add Item
+        function addItem() {
+            const itemsSection = document.getElementById('itemsSection');
+            const newItem = document.createElement('div');
+            newItem.className = 'item-row';
+            newItem.setAttribute('data-item', itemCount);
+            newItem.innerHTML = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-box me-2"></i>
+                                نام آیتم
+                            </label>
+                            <input type="text" class="form-control" name="items[${itemCount}][item_name]" required 
+                                   placeholder="نام کالا یا خدمت مورد نیاز">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-hashtag me-2"></i>
+                                تعداد
+                            </label>
+                            <input type="number" class="form-control" name="items[${itemCount}][quantity]" required 
+                                   placeholder="تعداد" min="1">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-dollar-sign me-2"></i>
+                                قیمت (ریال)
+                            </label>
+                            <input type="text" class="form-control" name="items[${itemCount}][price]" 
+                                   placeholder="قیمت تخمینی" id="priceInput${itemCount}">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                اولویت
+                            </label>
+                            <select class="form-control" name="items[${itemCount}][priority]" required>
+                                <option value="کم">کم</option>
+                                <option value="متوسط" selected>متوسط</option>
+                                <option value="بالا">بالا</option>
+                                <option value="فوری">فوری</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-1">
+                        <div class="form-group">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-danger remove-item" onclick="removeItem(${itemCount})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            itemsSection.appendChild(newItem);
+            itemCount++;
+            
+            // Show remove buttons for all items
+            document.querySelectorAll('.remove-item').forEach(btn => {
+                btn.style.display = 'block';
+            });
+        }
+
+        // Remove Item
+        function removeItem(itemIndex) {
+            const item = document.querySelector(`[data-item="${itemIndex}"]`);
+            if (item) {
+                item.remove();
+            }
+            
+            // Hide remove buttons if only one item left
+            const remainingItems = document.querySelectorAll('.item-row');
+            if (remainingItems.length <= 1) {
+                document.querySelectorAll('.remove-item').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            }
+        }
+
+        // Price formatting
+        function formatPrice(input) {
+            let value = input.value.replace(/,/g, '');
+            if (value) {
+                input.value = parseInt(value).toLocaleString('fa-IR');
+            }
+        }
+
+        // Add price formatting to all price inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[name*="[price]"]').forEach(input => {
+                input.addEventListener('input', function() {
+                    formatPrice(this);
+                });
+            });
+        });
 
         // File upload handling
         const fileUploadArea = document.getElementById('fileUploadArea');
@@ -615,6 +962,11 @@ try {
 
         function updateAssignmentsInput() {
             document.getElementById('assignmentsInput').value = JSON.stringify(assignments);
+        }
+
+        // Show Reports
+        function showReports() {
+            alert('قابلیت گزارش‌گیری در نسخه بعدی اضافه خواهد شد');
         }
 
         // Form submission

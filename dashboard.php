@@ -199,6 +199,13 @@ if (!$pdo) {
         </div>
         
         <div class="card">
+            <div class="card-icon">🛒</div>
+            <h3>درخواست‌ها</h3>
+            <p>مدیریت درخواست‌های کالا/خدمات</p>
+            <a href="request_management.php" class="card-btn">ورود</a>
+        </div>
+        
+        <div class="card">
             <div class="card-icon">🔧</div>
             <h3>ابزارها</h3>
             <p>مدیریت ابزارها و تجهیزات</p>
