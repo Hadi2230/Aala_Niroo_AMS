@@ -1,6 +1,10 @@
 <?php
+/**
+ * get_user_password.php - دریافت رمز عبور کاربر
+ */
+
 session_start();
-include 'config.php';
+require_once 'config.php';
 
 // بررسی دسترسی ادمین
 if (!hasPermission('*')) {
@@ -11,7 +15,7 @@ if (!hasPermission('*')) {
 
 $user_id = (int)($_GET['user_id'] ?? 0);
 
-if (!$user_id) {
+if ($user_id <= 0) {
     http_response_code(400);
     echo json_encode(['error' => 'شناسه کاربر نامعتبر']);
     exit();
@@ -25,7 +29,6 @@ try {
     if ($user) {
         echo json_encode(['password' => $user['password']]);
     } else {
-        http_response_code(404);
         echo json_encode(['error' => 'کاربر یافت نشد']);
     }
 } catch (Exception $e) {

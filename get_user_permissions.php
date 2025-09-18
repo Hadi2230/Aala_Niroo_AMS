@@ -1,6 +1,10 @@
 <?php
+/**
+ * get_user_permissions.php - دریافت دسترسی‌های کاربر
+ */
+
 session_start();
-include 'config.php';
+require_once 'config.php';
 
 // بررسی دسترسی ادمین
 if (!hasPermission('*')) {
@@ -11,7 +15,7 @@ if (!hasPermission('*')) {
 
 $user_id = (int)($_GET['user_id'] ?? 0);
 
-if (!$user_id) {
+if ($user_id <= 0) {
     http_response_code(400);
     echo json_encode(['error' => 'شناسه کاربر نامعتبر']);
     exit();
@@ -22,7 +26,7 @@ try {
     $stmt->execute([$user_id]);
     $role = $stmt->fetch();
     
-    if ($role) {
+    if ($role && $role['permissions']) {
         $permissions = json_decode($role['permissions'], true);
         echo json_encode(['permissions' => $permissions ?: []]);
     } else {
@@ -30,6 +34,6 @@ try {
     }
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'خطا در دریافت اطلاعات']);
+    echo json_encode(['error' => 'خطا در دریافت دسترسی‌ها']);
 }
 ?>
