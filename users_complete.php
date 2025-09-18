@@ -316,6 +316,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         throw new Exception('نمی‌توانید وضعیت خود را تغییر دهید');
                     }
                     break;
+                    
+                case 'save_permissions':
+                    $user_id = sanitizeInput($_POST['user_id']);
+                    $permissions_json = sanitizeInput($_POST['permissions']);
+                    $permissions = json_decode($permissions_json, true);
+                    
+                    if ($user_id && is_array($permissions)) {
+                        $pdo->beginTransaction();
+                        
+                        // حذف دسترسی‌های قبلی
+                        $stmt = $pdo->prepare("DELETE FROM custom_roles WHERE user_id = ?");
+                        $stmt->execute([$user_id]);
+                        
+                        // ذخیره دسترسی‌های جدید
+                        if (!empty($permissions)) {
+                            $custom_role_name = 'custom_' . $user_id;
+                            $stmt = $pdo->prepare("INSERT INTO custom_roles (user_id, role_name, permissions) VALUES (?, ?, ?)");
+                            $stmt->execute([$user_id, $custom_role_name, json_encode($permissions)]);
+                        }
+                        
+                        // تغییر نقش به سفارشی
+                        $stmt = $pdo->prepare("UPDATE users SET role = 'سفارشی' WHERE id = ?");
+                        $stmt->execute([$user_id]);
+                        
+                        $pdo->commit();
+                        $success_message = "دسترسی‌های کاربر با موفقیت به‌روزرسانی شد";
+                    } else {
+                        throw new Exception('داده‌های نامعتبر');
+                    }
+                    break;
             }
         }
     } catch (Exception $e) {
