@@ -175,6 +175,11 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                 <h6 class="lang" data-fa="Check-in موبایل" data-en="Mobile Check-in"></h6>
                 <p class="lang" data-fa="ورود و خروج بازدیدکنندگان" data-en="Visitor check-in/out"></p>
               </a>
+              <a href="factory_cameras.php" class="menu-card workflow">
+                <i class="fas fa-video"></i>
+                <h6 class="lang" data-fa="دوربین‌های کارخانه" data-en="Factory Cameras"></h6>
+                <p class="lang" data-fa="مشاهده زنده دوربین‌های مداربسته" data-en="Live camera monitoring"></p>
+              </a>
               <a href="tickets.php" class="menu-card workflow">
                 <i class="fas fa-ticket-alt"></i>
                 <h6 class="lang" data-fa="مدیریت تیکت‌ها" data-en="Ticket Management"></h6>
