@@ -1481,6 +1481,16 @@ function getVisitRequests($pdo, $filters = []) {
         $params[] = '%' . $filters['company_name'] . '%';
     }
     
+    if (!empty($filters['priority'])) {
+        $where_conditions[] = "vr.priority = ?";
+        $params[] = $filters['priority'];
+    }
+    
+    if (!empty($filters['host_id'])) {
+        $where_conditions[] = "vr.host_id = ?";
+        $params[] = $filters['host_id'];
+    }
+    
     $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
     
     $stmt = $pdo->prepare("
@@ -1496,6 +1506,196 @@ function getVisitRequests($pdo, $filters = []) {
         ORDER BY vr.created_at DESC
     ");
     $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+// دریافت میزبان‌های در دسترس
+function getAvailableHosts($pdo) {
+    $stmt = $pdo->prepare("
+        SELECT id, full_name, role 
+        FROM users 
+        WHERE role IN ('ادمین', 'مدیر عملیات', 'تکنسین') 
+        AND is_active = 1
+        ORDER BY full_name
+    ");
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+// ایجاد چک‌لیست پیشرفته
+function createEnhancedChecklist($pdo, $visit_request_id) {
+    $checklist_items = [
+        // چک‌لیست قبل از بازدید
+        'pre_visit' => [
+            'تایید مدارک بازدیدکننده',
+            'بررسی مجوزهای امنیتی',
+            'آماده‌سازی تجهیزات',
+            'برنامه‌ریزی مسیر بازدید',
+            'آماده‌سازی مواد آموزشی',
+            'تایید حضور میزبان'
+        ],
+        // چک‌لیست حین بازدید
+        'onsite' => [
+            'استقبال از بازدیدکنندگان',
+            'توزیع کارت‌های شناسایی',
+            'ارائه توضیحات امنیتی',
+            'بازدید از بخش‌های مختلف',
+            'تست تجهیزات',
+            'ثبت نظرات بازدیدکنندگان'
+        ],
+        // چک‌لیست بعد از بازدید
+        'post_visit' => [
+            'جمع‌آوری کارت‌های شناسایی',
+            'تکمیل گزارش بازدید',
+            'ارسال گزارش به مشتری',
+            'آرشیو مدارک',
+            'بررسی بازخورد',
+            'برنامه‌ریزی پیگیری'
+        ]
+    ];
+    
+    foreach ($checklist_items as $type => $items) {
+        foreach ($items as $item) {
+            $stmt = $pdo->prepare("
+                INSERT INTO visit_checklists (visit_request_id, checklist_type, item_name) 
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([$visit_request_id, $type, $item]);
+        }
+    }
+    
+    return true;
+}
+
+// دریافت چک‌لیست بازدید
+function getVisitChecklist($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vc.*, u.full_name as completed_by_name
+        FROM visit_checklists vc
+        LEFT JOIN users u ON vc.completed_by = u.id
+        WHERE vc.visit_request_id = ?
+        ORDER BY vc.checklist_type, vc.id
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت آمار پیشرفته بازدیدها
+function getAdvancedVisitStatistics($pdo, $date_from = null, $date_to = null) {
+    $where_clause = '';
+    $params = [];
+    
+    if ($date_from && $date_to) {
+        $where_clause = 'WHERE created_at BETWEEN ? AND ?';
+        $params = [$date_from, $date_to];
+    }
+    
+    $stats = [];
+    
+    // آمار کلی
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM visit_requests $where_clause");
+    $stmt->execute($params);
+    $stats['total_requests'] = $stmt->fetch()['total'];
+    
+    // آمار بر اساس وضعیت
+    $stmt = $pdo->prepare("
+        SELECT status, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY status
+    ");
+    $stmt->execute($params);
+    $stats['by_status'] = $stmt->fetchAll();
+    
+    // آمار بر اساس نوع
+    $stmt = $pdo->prepare("
+        SELECT visit_type, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_type
+    ");
+    $stmt->execute($params);
+    $stats['by_type'] = $stmt->fetchAll();
+    
+    // آمار بر اساس هدف
+    $stmt = $pdo->prepare("
+        SELECT visit_purpose, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_purpose
+    ");
+    $stmt->execute($params);
+    $stats['by_purpose'] = $stmt->fetchAll();
+    
+    // آمار بر اساس اولویت
+    $stmt = $pdo->prepare("
+        SELECT priority, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY priority
+    ");
+    $stmt->execute($params);
+    $stats['by_priority'] = $stmt->fetchAll();
+    
+    // آمار ماهانه
+    $stmt = $pdo->prepare("
+        SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month DESC
+        LIMIT 12
+    ");
+    $stmt->execute($params);
+    $stats['monthly'] = $stmt->fetchAll();
+    
+    // آمار میزبان‌ها
+    $stmt = $pdo->prepare("
+        SELECT u.full_name as host_name, COUNT(vr.id) as count
+        FROM visit_requests vr
+        LEFT JOIN users u ON vr.host_id = u.id
+        $where_clause
+        GROUP BY vr.host_id, u.full_name
+        ORDER BY count DESC
+    ");
+    $stmt->execute($params);
+    $stats['by_host'] = $stmt->fetchAll();
+    
+    return $stats;
+}
+
+// دریافت گزارش‌های بازدید
+function getVisitReports($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vr.*, u.full_name as created_by_name
+        FROM visit_reports vr
+        LEFT JOIN users u ON vr.created_by = u.id
+        WHERE vr.visit_request_id = ?
+        ORDER BY vr.created_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت عکس‌های بازدید
+function getVisitPhotos($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vp.*, u.full_name as taken_by_name
+        FROM visit_photos vp
+        LEFT JOIN users u ON vp.taken_by = u.id
+        WHERE vp.visit_request_id = ?
+        ORDER BY vp.taken_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت مدارک بازدید
+function getVisitDocuments($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vd.*, u1.full_name as uploaded_by_name, u2.full_name as verified_by_name
+        FROM visit_documents vd
+        LEFT JOIN users u1 ON vd.uploaded_by = u1.id
+        LEFT JOIN users u2 ON vd.verified_by = u2.id
+        WHERE vd.visit_request_id = ?
+        ORDER BY vd.created_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
     return $stmt->fetchAll();
 }
 
