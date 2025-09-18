@@ -1,6 +1,6 @@
 <?php
 /**
- * request_tracking_final.php - پیگیری درخواست‌ها - نسخه نهایی و پیشرفته
+ * request_workflow_professional.php - سیستم حرفه‌ای مدیریت درخواست‌ها
  */
 
 session_start();
@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once 'config_simple.php';
 
-$page_title = 'پیگیری درخواست‌ها';
+$page_title = 'سیستم حرفه‌ای مدیریت درخواست‌ها';
 
 // پردازش عملیات
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $comments = sanitizeInput($_POST['comments']);
             $priority = sanitizeInput($_POST['priority'] ?? '');
             
-            // بررسی دسترسی کاربر به این درخواست
+            // بررسی دسترسی کاربر
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) FROM request_workflow 
                 WHERE request_id = ? AND assigned_to = ? AND status IN ('در انتظار', 'در حال بررسی')
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('شما دسترسی لازم برای این درخواست را ندارید');
             }
             
-            // به‌روزرسانی وضعیت گردش کار
+            // به‌روزرسانی گردش کار
             $stmt = $pdo->prepare("
                 UPDATE request_workflow 
                 SET status = ?, comments = ?, action_date = NOW(), updated_at = NOW()
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ");
             $stmt->execute([$status, $request_id]);
             
-            // به‌روزرسانی اولویت اگر مشخص شده
+            // به‌روزرسانی اولویت
             if ($priority) {
                 $stmt = $pdo->prepare("
                     UPDATE requests 
@@ -60,19 +60,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->execute([$priority, $request_id]);
             }
             
-            // دریافت اطلاعات درخواست برای اعلان
+            // ایجاد اعلان
             $stmt = $pdo->prepare("SELECT requester_id, request_number FROM requests WHERE id = ?");
             $stmt->execute([$request_id]);
             $request_info = $stmt->fetch();
             
-            // ایجاد اعلان برای درخواست‌دهنده
             if ($request_info) {
                 createRequestNotification($pdo, $request_info['requester_id'], $request_id, 'workflow_update', 
                     "وضعیت درخواست {$request_info['request_number']} به '{$status}' تغییر یافت");
             }
             
             $_SESSION['success_message'] = 'وضعیت درخواست با موفقیت به‌روزرسانی شد!';
-            header('Location: request_tracking_final.php');
+            header('Location: request_workflow_professional.php');
             exit();
         } catch (Exception $e) {
             $error_message = 'خطا در به‌روزرسانی: ' . $e->getMessage();
@@ -80,33 +79,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// دریافت درخواست‌های کاربر
+// دریافت درخواست‌ها با فیلترهای پیشرفته
 $requests = [];
+$filters = [
+    'search' => $_GET['search'] ?? '',
+    'status' => $_GET['status'] ?? '',
+    'priority' => $_GET['priority'] ?? '',
+    'type' => $_GET['type'] ?? '',
+    'date' => $_GET['date'] ?? ''
+];
+
 try {
-    // ابتدا همه درخواست‌ها را دریافت می‌کنیم
-    $stmt = $pdo->prepare("
+    $where_conditions = [];
+    $params = [];
+    
+    // فیلتر جستجو
+    if (!empty($filters['search'])) {
+        $where_conditions[] = "(r.request_number LIKE ? OR r.item_name LIKE ? OR r.description LIKE ?)";
+        $search_term = "%{$filters['search']}%";
+        $params = array_merge($params, [$search_term, $search_term, $search_term]);
+    }
+    
+    // فیلتر وضعیت
+    if (!empty($filters['status'])) {
+        $where_conditions[] = "r.status = ?";
+        $params[] = $filters['status'];
+    }
+    
+    // فیلتر اولویت
+    if (!empty($filters['priority'])) {
+        $where_conditions[] = "r.priority = ?";
+        $params[] = $filters['priority'];
+    }
+    
+    // فیلتر نوع
+    if ($filters['type'] === 'my_requests') {
+        $where_conditions[] = "r.requester_id = ?";
+        $params[] = $_SESSION['user_id'];
+    } elseif ($filters['type'] === 'assigned_to_me') {
+        $where_conditions[] = "EXISTS (SELECT 1 FROM request_workflow rw2 WHERE rw2.request_id = r.id AND rw2.assigned_to = ?)";
+        $params[] = $_SESSION['user_id'];
+    } else {
+        // همه درخواست‌ها
+        $where_conditions[] = "(r.requester_id = ? OR EXISTS (SELECT 1 FROM request_workflow rw2 WHERE rw2.request_id = r.id AND rw2.assigned_to = ?))";
+        $params = array_merge($params, [$_SESSION['user_id'], $_SESSION['user_id']]);
+    }
+    
+    // فیلتر تاریخ
+    if (!empty($filters['date'])) {
+        $date_condition = "";
+        switch ($filters['date']) {
+            case 'today':
+                $date_condition = "DATE(r.created_at) = CURDATE()";
+                break;
+            case 'week':
+                $date_condition = "r.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                break;
+            case 'month':
+                $date_condition = "r.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+                break;
+        }
+        if ($date_condition) {
+            $where_conditions[] = $date_condition;
+        }
+    }
+    
+    $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+    
+    $sql = "
         SELECT r.*, 
                COUNT(DISTINCT rf.id) as file_count,
                COUNT(DISTINCT rw.id) as workflow_count,
-               GROUP_CONCAT(DISTINCT rw.assigned_to) as assigned_users
+               GROUP_CONCAT(DISTINCT rw.assigned_to) as assigned_users,
+               GROUP_CONCAT(DISTINCT u.full_name) as assigned_names
         FROM requests r
         LEFT JOIN request_files rf ON r.id = rf.request_id
         LEFT JOIN request_workflow rw ON r.id = rw.request_id
-        WHERE r.requester_id = ? OR EXISTS (
-            SELECT 1 FROM request_workflow rw2 
-            WHERE rw2.request_id = r.id AND rw2.assigned_to = ?
-        )
+        LEFT JOIN users u ON rw.assigned_to = u.id
+        $where_clause
         GROUP BY r.id
         ORDER BY r.created_at DESC
-    ");
-    $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $requests = $stmt->fetchAll();
 } catch (Exception $e) {
     error_log("Error fetching requests: " . $e->getMessage());
     $requests = [];
 }
 
-// دریافت آمار
+// محاسبه آمار
 $stats = [
     'total' => count($requests),
     'pending' => 0,
@@ -132,20 +195,14 @@ foreach ($requests as $request) {
             $stats['completed']++;
             break;
     }
-}
-
-// شمارش درخواست‌های ارجاع شده به کاربر
-try {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(DISTINCT r.id) as count
-        FROM requests r
-        JOIN request_workflow rw ON r.id = rw.request_id
-        WHERE rw.assigned_to = ? AND rw.status IN ('در انتظار', 'در حال بررسی')
-    ");
-    $stmt->execute([$_SESSION['user_id']]);
-    $stats['assigned_to_me'] = $stmt->fetchColumn();
-} catch (Exception $e) {
-    $stats['assigned_to_me'] = 0;
+    
+    // بررسی درخواست‌های ارجاع شده
+    if (isset($request['assigned_users']) && $request['assigned_users']) {
+        $assigned_users = explode(',', $request['assigned_users']);
+        if (in_array($_SESSION['user_id'], $assigned_users)) {
+            $stats['assigned_to_me']++;
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -460,30 +517,6 @@ try {
             box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         }
 
-        .text-primary {
-            color: var(--text-primary) !important;
-        }
-
-        .text-secondary {
-            color: var(--text-secondary) !important;
-        }
-
-        .text-muted {
-            color: var(--text-secondary) !important;
-        }
-
-        .no-requests {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-
-        .no-requests i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-
         .search-filter {
             background: white;
             border-radius: 12px;
@@ -514,6 +547,18 @@ try {
             color: var(--text-primary) !important;
             margin-bottom: 8px;
             font-size: 0.95rem;
+        }
+
+        .no-requests {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .no-requests i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
         }
 
         .workflow-timeline {
@@ -620,11 +665,11 @@ try {
             <!-- Page Header -->
             <div class="page-header text-center">
                 <h1 class="page-title">
-                    <i class="fas fa-search me-3"></i>
-                    پیگیری درخواست‌ها
+                    <i class="fas fa-cogs me-3"></i>
+                    سیستم حرفه‌ای مدیریت درخواست‌ها
                 </h1>
                 <p class="page-subtitle">
-                    وضعیت و جزئیات درخواست‌ها و گردش کار
+                    مدیریت پیشرفته و پیگیری کامل درخواست‌های کالا/خدمات
                 </p>
             </div>
 
@@ -691,56 +736,64 @@ try {
 
             <!-- Search and Filter -->
             <div class="search-filter">
-                <div class="row">
-                    <div class="col-md-3">
-                        <label class="form-label">جستجو در درخواست‌ها</label>
-                        <input type="text" class="form-control" id="searchInput" placeholder="جستجو بر اساس نام آیتم یا شماره درخواست...">
+                <form method="GET" id="filterForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label class="form-label">جستجو در درخواست‌ها</label>
+                            <input type="text" class="form-control" name="search" value="<?php echo htmlspecialchars($filters['search']); ?>" 
+                                   placeholder="جستجو بر اساس نام آیتم یا شماره درخواست...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">فیلتر بر اساس وضعیت</label>
+                            <select class="form-control" name="status">
+                                <option value="">همه وضعیت‌ها</option>
+                                <option value="در انتظار تأیید" <?php echo $filters['status'] === 'در انتظار تأیید' ? 'selected' : ''; ?>>در انتظار تأیید</option>
+                                <option value="در حال بررسی" <?php echo $filters['status'] === 'در حال بررسی' ? 'selected' : ''; ?>>در حال بررسی</option>
+                                <option value="تأیید شده" <?php echo $filters['status'] === 'تأیید شده' ? 'selected' : ''; ?>>تأیید شده</option>
+                                <option value="رد شده" <?php echo $filters['status'] === 'رد شده' ? 'selected' : ''; ?>>رد شده</option>
+                                <option value="تکمیل شده" <?php echo $filters['status'] === 'تکمیل شده' ? 'selected' : ''; ?>>تکمیل شده</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">فیلتر بر اساس اولویت</label>
+                            <select class="form-control" name="priority">
+                                <option value="">همه اولویت‌ها</option>
+                                <option value="کم" <?php echo $filters['priority'] === 'کم' ? 'selected' : ''; ?>>کم</option>
+                                <option value="متوسط" <?php echo $filters['priority'] === 'متوسط' ? 'selected' : ''; ?>>متوسط</option>
+                                <option value="بالا" <?php echo $filters['priority'] === 'بالا' ? 'selected' : ''; ?>>بالا</option>
+                                <option value="فوری" <?php echo $filters['priority'] === 'فوری' ? 'selected' : ''; ?>>فوری</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">نوع درخواست</label>
+                            <select class="form-control" name="type">
+                                <option value="">همه</option>
+                                <option value="my_requests" <?php echo $filters['type'] === 'my_requests' ? 'selected' : ''; ?>>درخواست‌های من</option>
+                                <option value="assigned_to_me" <?php echo $filters['type'] === 'assigned_to_me' ? 'selected' : ''; ?>>ارجاع شده به من</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">تاریخ</label>
+                            <select class="form-control" name="date">
+                                <option value="">همه تاریخ‌ها</option>
+                                <option value="today" <?php echo $filters['date'] === 'today' ? 'selected' : ''; ?>>امروز</option>
+                                <option value="week" <?php echo $filters['date'] === 'week' ? 'selected' : ''; ?>>این هفته</option>
+                                <option value="month" <?php echo $filters['date'] === 'month' ? 'selected' : ''; ?>>این ماه</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-1">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">فیلتر بر اساس وضعیت</label>
-                        <select class="form-control" id="statusFilter">
-                            <option value="">همه وضعیت‌ها</option>
-                            <option value="در انتظار تأیید">در انتظار تأیید</option>
-                            <option value="در حال بررسی">در حال بررسی</option>
-                            <option value="تأیید شده">تأیید شده</option>
-                            <option value="رد شده">رد شده</option>
-                            <option value="تکمیل شده">تکمیل شده</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">فیلتر بر اساس اولویت</label>
-                        <select class="form-control" id="priorityFilter">
-                            <option value="">همه اولویت‌ها</option>
-                            <option value="کم">کم</option>
-                            <option value="متوسط">متوسط</option>
-                            <option value="بالا">بالا</option>
-                            <option value="فوری">فوری</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">نوع درخواست</label>
-                        <select class="form-control" id="typeFilter">
-                            <option value="">همه</option>
-                            <option value="my_requests">درخواست‌های من</option>
-                            <option value="assigned_to_me">ارجاع شده به من</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">تاریخ</label>
-                        <select class="form-control" id="dateFilter">
-                            <option value="">همه تاریخ‌ها</option>
-                            <option value="today">امروز</option>
-                            <option value="week">این هفته</option>
-                            <option value="month">این ماه</option>
-                        </select>
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label">&nbsp;</label>
-                        <button class="btn btn-primary w-100" onclick="clearFilters()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
+                </form>
             </div>
 
             <!-- Requests List -->
@@ -748,13 +801,14 @@ try {
                 <div class="card-header">
                     <i class="fas fa-list me-2"></i>
                     لیست درخواست‌ها
+                    <span class="badge bg-light text-dark ms-2"><?php echo count($requests); ?> درخواست</span>
                 </div>
                 <div class="card-body">
                     <?php if (empty($requests)): ?>
                         <div class="no-requests">
                             <i class="fas fa-inbox"></i>
                             <h4>هیچ درخواستی یافت نشد</h4>
-                            <p>شما هنوز درخواستی ایجاد نکرده‌اید یا به شما ارجاع نشده است.</p>
+                            <p>با فیلترهای انتخابی هیچ درخواستی یافت نشد.</p>
                             <a href="request_management_final.php" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>
                                 ایجاد درخواست جدید
@@ -830,6 +884,12 @@ try {
                                                 <i class="fas fa-paperclip"></i>
                                                 <span><?php echo $request['file_count']; ?> فایل</span>
                                             </div>
+                                            <?php if (isset($request['assigned_names']) && $request['assigned_names']): ?>
+                                                <div class="meta-item">
+                                                    <i class="fas fa-users"></i>
+                                                    <span>ارجاع شده به: <?php echo htmlspecialchars($request['assigned_names']); ?></span>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                         
                                         <?php if ($request['description']): ?>
@@ -852,6 +912,12 @@ try {
                                             <button class="btn btn-success" onclick="viewFiles(<?php echo $request['id']; ?>)">
                                                 <i class="fas fa-download me-1"></i>
                                                 فایل‌ها
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if ($is_assigned): ?>
+                                            <button class="btn btn-warning" onclick="updateWorkflow(<?php echo $request['id']; ?>, '<?php echo $request['status']; ?>')">
+                                                <i class="fas fa-edit me-1"></i>
+                                                اقدام
                                             </button>
                                         <?php endif; ?>
                                     </div>
@@ -888,6 +954,17 @@ try {
                                 <option value="تأیید شده">تأیید شده</option>
                                 <option value="رد شده">رد شده</option>
                                 <option value="تکمیل شده">تکمیل شده</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">اولویت</label>
+                            <select class="form-control" id="workflowPriority" name="priority">
+                                <option value="">تغییر اولویت (اختیاری)</option>
+                                <option value="کم">کم</option>
+                                <option value="متوسط">متوسط</option>
+                                <option value="بالا">بالا</option>
+                                <option value="فوری">فوری</option>
                             </select>
                         </div>
                         
@@ -929,74 +1006,12 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // جستجو و فیلتر
-        document.getElementById('searchInput').addEventListener('input', filterRequests);
-        document.getElementById('statusFilter').addEventListener('change', filterRequests);
-        document.getElementById('priorityFilter').addEventListener('change', filterRequests);
-        document.getElementById('typeFilter').addEventListener('change', filterRequests);
-        document.getElementById('dateFilter').addEventListener('change', filterRequests);
-
-        function filterRequests() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('statusFilter').value;
-            const priorityFilter = document.getElementById('priorityFilter').value;
-            const typeFilter = document.getElementById('typeFilter').value;
-            const dateFilter = document.getElementById('dateFilter').value;
-            
-            const requestItems = document.querySelectorAll('.request-item');
-            
-            requestItems.forEach(item => {
-                const requestNumber = item.querySelector('.request-number').textContent.toLowerCase();
-                const itemName = item.querySelector('.request-item-name').textContent.toLowerCase();
-                const status = item.getAttribute('data-status');
-                const priority = item.getAttribute('data-priority');
-                const isAssigned = item.classList.contains('assigned');
-                const requestDate = new Date(item.querySelector('.request-date').textContent);
-                
-                const matchesSearch = requestNumber.includes(searchTerm) || itemName.includes(searchTerm);
-                const matchesStatus = !statusFilter || status === statusFilter;
-                const matchesPriority = !priorityFilter || priority === priorityFilter;
-                
-                let matchesType = true;
-                if (typeFilter === 'my_requests') {
-                    matchesType = !isAssigned;
-                } else if (typeFilter === 'assigned_to_me') {
-                    matchesType = isAssigned;
-                }
-                
-                let matchesDate = true;
-                if (dateFilter === 'today') {
-                    const today = new Date();
-                    matchesDate = requestDate.toDateString() === today.toDateString();
-                } else if (dateFilter === 'week') {
-                    const weekAgo = new Date();
-                    weekAgo.setDate(weekAgo.getDate() - 7);
-                    matchesDate = requestDate >= weekAgo;
-                } else if (dateFilter === 'month') {
-                    const monthAgo = new Date();
-                    monthAgo.setMonth(monthAgo.getMonth() - 1);
-                    matchesDate = requestDate >= monthAgo;
-                }
-                
-                if (matchesSearch && matchesStatus && matchesPriority && matchesType && matchesDate) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-
         function clearFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('priorityFilter').value = '';
-            document.getElementById('typeFilter').value = '';
-            document.getElementById('dateFilter').value = '';
-            filterRequests();
+            document.getElementById('filterForm').reset();
+            window.location.href = 'request_workflow_professional.php';
         }
 
         function viewDetails(requestId, isAssigned) {
-            // بارگذاری جزئیات درخواست از طریق AJAX
             fetch(`get_request_details.php?id=${requestId}&assigned=${isAssigned}`)
                 .then(response => response.text())
                 .then(data => {
@@ -1009,7 +1024,6 @@ try {
         }
 
         function viewWorkflow(requestId) {
-            // بارگذاری گردش کار از طریق AJAX
             fetch(`get_request_workflow.php?id=${requestId}`)
                 .then(response => response.text())
                 .then(data => {
@@ -1021,9 +1035,9 @@ try {
                 });
         }
 
-        function updateWorkflow(requestId, status) {
+        function updateWorkflow(requestId, currentStatus) {
             document.getElementById('workflowRequestId').value = requestId;
-            document.getElementById('workflowStatus').value = status;
+            document.getElementById('workflowStatus').value = currentStatus;
             new bootstrap.Modal(document.getElementById('workflowModal')).show();
         }
 
@@ -1031,7 +1045,7 @@ try {
             const form = document.getElementById('workflowForm');
             const formData = new FormData(form);
             
-            fetch('request_tracking_final.php', {
+            fetch('request_workflow_professional.php', {
                 method: 'POST',
                 body: formData
             })

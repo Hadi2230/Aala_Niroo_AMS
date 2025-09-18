@@ -14,7 +14,7 @@ $surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','su
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
 $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php']);
-$workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php']);
+$workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -180,10 +180,15 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                 <h6 class="lang" data-fa="دوربین‌های کارخانه" data-en="Factory Cameras"></h6>
                 <p class="lang" data-fa="مشاهده زنده دوربین‌های مداربسته" data-en="Live camera monitoring"></p>
               </a>
-              <a href="request_management.php" class="menu-card workflow">
+              <a href="request_management_final.php" class="menu-card workflow">
                 <i class="fas fa-shopping-cart"></i>
                 <h6 class="lang" data-fa="درخواست کالا/خدمات" data-en="Request Management"></h6>
                 <p class="lang" data-fa="ایجاد درخواست جدید" data-en="Create new request"></p>
+              </a>
+              <a href="request_workflow_professional.php" class="menu-card workflow">
+                <i class="fas fa-cogs"></i>
+                <h6 class="lang" data-fa="سیستم حرفه‌ای درخواست‌ها" data-en="Professional Request System"></h6>
+                <p class="lang" data-fa="مدیریت و پیگیری پیشرفته" data-en="Advanced management and tracking"></p>
               </a>
               <a href="tickets.php" class="menu-card workflow">
                 <i class="fas fa-ticket-alt"></i>

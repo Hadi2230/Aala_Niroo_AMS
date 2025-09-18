@@ -29,7 +29,7 @@ try {
         exit;
     }
     
-    // دریافت گردش کار کامل
+    // دریافت گردش کار
     $stmt = $pdo->prepare("
         SELECT rw.*, u.full_name as assigned_user_name, u.username
         FROM request_workflow rw
@@ -41,65 +41,75 @@ try {
     $workflow = $stmt->fetchAll();
     
     ?>
-    <div class="mb-4">
-        <h5 class="text-primary">
-            <i class="fas fa-route me-2"></i>
-            گردش کار درخواست <?php echo htmlspecialchars($request['request_number']); ?>
-        </h5>
-        <p class="text-muted">
-            درخواست‌دهنده: <?php echo htmlspecialchars($request['requester_full_name'] ?: $request['requester_name']); ?>
-            | آیتم: <?php echo htmlspecialchars($request['item_name']); ?>
-        </p>
+    <div class="row">
+        <div class="col-12">
+            <h6 class="text-primary mb-3">
+                <i class="fas fa-info-circle me-2"></i>
+                اطلاعات درخواست
+            </h6>
+            <div class="alert alert-info">
+                <strong>شماره درخواست:</strong> <?php echo htmlspecialchars($request['request_number']); ?><br>
+                <strong>درخواست‌دهنده:</strong> <?php echo htmlspecialchars($request['requester_full_name'] ?: $request['requester_name']); ?><br>
+                <strong>نام آیتم:</strong> <?php echo htmlspecialchars($request['item_name']); ?><br>
+                <strong>وضعیت فعلی:</strong> 
+                <span class="badge status-<?php echo str_replace(' ', '-', strtolower($request['status'])); ?>">
+                    <?php echo $request['status']; ?>
+                </span>
+            </div>
+        </div>
     </div>
     
     <?php if ($workflow): ?>
-        <div class="workflow-timeline">
-            <?php foreach ($workflow as $index => $step): ?>
-                <div class="timeline-item">
-                    <div class="timeline-icon" style="background: <?php 
-                        echo $step['status'] === 'تأیید شده' ? 'var(--success-color)' : 
-                            ($step['status'] === 'رد شده' ? 'var(--accent-color)' : 'var(--secondary-color)'); 
-                    ?>;">
-                        <i class="fas fa-<?php 
-                            echo $step['status'] === 'تأیید شده' ? 'check' : 
-                                ($step['status'] === 'رد شده' ? 'times' : 
-                                    ($step['status'] === 'در حال بررسی' ? 'clock' : 'hourglass-half')); 
-                        ?>"></i>
-                    </div>
-                    <div class="timeline-content">
-                        <div class="timeline-title">
-                            <strong>مرحله <?php echo $step['step_order']; ?>:</strong>
-                            <?php echo htmlspecialchars($step['assigned_user_name'] ?: $step['username'] ?: 'کاربر ناشناس'); ?>
-                            <span class="badge status-<?php echo str_replace(' ', '-', strtolower($step['status'])); ?> ms-2">
-                                <?php echo $step['status']; ?>
-                            </span>
+        <div class="mt-4">
+            <h6 class="text-primary mb-3">
+                <i class="fas fa-route me-2"></i>
+                گردش کار
+            </h6>
+            <div class="workflow-timeline">
+                <?php foreach ($workflow as $index => $step): ?>
+                    <div class="timeline-item">
+                        <div class="timeline-icon">
+                            <?php
+                            $icon = 'clock';
+                            if ($step['status'] === 'تأیید شده') $icon = 'check';
+                            elseif ($step['status'] === 'رد شده') $icon = 'times';
+                            elseif ($step['status'] === 'در حال بررسی') $icon = 'cog';
+                            ?>
+                            <i class="fas fa-<?php echo $icon; ?>"></i>
                         </div>
-                        <div class="timeline-meta">
-                            <?php if ($step['department']): ?>
-                                <i class="fas fa-building me-1"></i>
-                                واحد: <?php echo htmlspecialchars($step['department']); ?> |
-                            <?php endif; ?>
-                            <i class="fas fa-calendar me-1"></i>
-                            تاریخ انتساب: <?php echo date('Y/m/d H:i', strtotime($step['created_at'])); ?>
-                            <?php if ($step['action_date']): ?>
-                                | <i class="fas fa-clock me-1"></i>
-                                تاریخ اقدام: <?php echo date('Y/m/d H:i', strtotime($step['action_date'])); ?>
-                            <?php endif; ?>
-                        </div>
-                        <?php if ($step['comments']): ?>
-                            <div class="timeline-comments">
-                                <strong><i class="fas fa-comment me-1"></i>توضیحات:</strong><br>
-                                <?php echo nl2br(htmlspecialchars($step['comments'])); ?>
+                        <div class="timeline-content">
+                            <div class="timeline-title">
+                                مرحله <?php echo $step['step_order']; ?>: 
+                                <?php echo htmlspecialchars($step['assigned_user_name'] ?: 'کاربر ناشناس'); ?>
+                                - <?php echo $step['status']; ?>
                             </div>
-                        <?php endif; ?>
+                            <div class="timeline-meta">
+                                <?php if ($step['department']): ?>
+                                    <i class="fas fa-building me-1"></i>
+                                    واحد: <?php echo htmlspecialchars($step['department']); ?> |
+                                <?php endif; ?>
+                                <i class="fas fa-calendar me-1"></i>
+                                تاریخ ایجاد: <?php echo date('Y/m/d H:i', strtotime($step['created_at'])); ?>
+                                <?php if ($step['action_date']): ?>
+                                    | <i class="fas fa-clock me-1"></i>
+                                    تاریخ اقدام: <?php echo date('Y/m/d H:i', strtotime($step['action_date'])); ?>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($step['comments']): ?>
+                                <div class="timeline-comments">
+                                    <strong>توضیحات:</strong><br>
+                                    <?php echo nl2br(htmlspecialchars($step['comments'])); ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php else: ?>
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            هنوز گردش کاری برای این درخواست تعریف نشده است.
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            هیچ گردش کاری برای این درخواست تعریف نشده است.
         </div>
     <?php endif; ?>
     
@@ -114,59 +124,54 @@ try {
             background: #f8f9fa;
             border-radius: 10px;
             padding: 20px;
+            margin-top: 15px;
         }
-        
+
         .timeline-item {
             display: flex;
-            align-items: flex-start;
-            margin-bottom: 20px;
+            align-items: center;
+            margin-bottom: 15px;
             padding: 15px;
             background: white;
             border-radius: 8px;
-            border-left: 4px solid var(--secondary-color);
+            border-left: 4px solid #3498db;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
+
         .timeline-icon {
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            background: #3498db;
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-left: 15px;
             font-size: 1.2rem;
-            flex-shrink: 0;
         }
-        
+
         .timeline-content {
             flex: 1;
         }
-        
+
         .timeline-title {
             font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
+            color: #2c3e50;
+            margin-bottom: 5px;
         }
-        
+
         .timeline-meta {
             font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
+            color: #6c757d;
         }
-        
+
         .timeline-comments {
-            margin-top: 10px;
-            padding: 12px;
+            margin-top: 8px;
+            padding: 10px;
             background: #e9ecef;
             border-radius: 6px;
             font-size: 0.9rem;
-            border-right: 3px solid var(--secondary-color);
         }
     </style>
     <?php

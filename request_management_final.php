@@ -85,6 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             createRequestWorkflow($pdo, $request_id, $assignments);
                         }
                     }
+                } else {
+                    // اگر هیچ انتسابی مشخص نشده، به ادمین ارجاع می‌دهیم
+                    $admin_assignments = [
+                        ['user_id' => 1, 'department' => 'مدیریت'] // فرض می‌کنیم کاربر 1 ادمین است
+                    ];
+                    foreach ($request_ids as $request_id) {
+                        createRequestWorkflow($pdo, $request_id, $admin_assignments);
+                    }
                 }
                 
                 $_SESSION['success_message'] = 'درخواست‌ها با موفقیت ایجاد شدند!';
@@ -107,13 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 // دریافت لیست کاربران
-$users = [];
-try {
-    $stmt = $pdo->query("SELECT id, username, full_name, role FROM users WHERE is_active = 1 ORDER BY full_name");
-    $users = $stmt->fetchAll();
-} catch (Exception $e) {
-    $users = [];
-}
+$users = getUsersForAssignment($pdo);
 ?>
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
