@@ -86,12 +86,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         }
                     }
                 } else {
-                    // اگر هیچ انتسابی مشخص نشده، به ادمین ارجاع می‌دهیم
-                    $admin_assignments = [
-                        ['user_id' => 1, 'department' => 'مدیریت'] // فرض می‌کنیم کاربر 1 ادمین است
-                    ];
-                    foreach ($request_ids as $request_id) {
-                        createRequestWorkflow($pdo, $request_id, $admin_assignments);
+                    // اگر هیچ انتسابی مشخص نشده، به همه ادمین‌ها ارجاع می‌دهیم
+                    try {
+                        $stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
+                        $admins = $stmt->fetchAll();
+                        
+                        if (empty($admins)) {
+                            // اگر ادمینی نباشد، به اولین کاربر ارجاع می‌دهیم
+                            $stmt = $pdo->query("SELECT id FROM users WHERE is_active = 1 ORDER BY id LIMIT 1");
+                            $user = $stmt->fetch();
+                            if ($user) {
+                                $admin_assignments = [
+                                    ['user_id' => $user['id'], 'department' => 'مدیریت']
+                                ];
+                            }
+                        } else {
+                            $admin_assignments = [];
+                            foreach ($admins as $admin) {
+                                $admin_assignments[] = ['user_id' => $admin['id'], 'department' => 'مدیریت'];
+                            }
+                        }
+                        
+                        if (!empty($admin_assignments)) {
+                            foreach ($request_ids as $request_id) {
+                                createRequestWorkflow($pdo, $request_id, $admin_assignments);
+                            }
+                        }
+                    } catch (Exception $e) {
+                        error_log("Error creating default workflow: " . $e->getMessage());
                     }
                 }
                 
@@ -676,7 +698,7 @@ $users = getUsersForAssignment($pdo);
 
         // نمایش گزارش‌ها
         function showReports() {
-            alert('بخش گزارش‌ها به زودی اضافه خواهد شد');
+            window.location.href = 'request_reports.php';
         }
 
         // اضافه کردن آیتم جدید

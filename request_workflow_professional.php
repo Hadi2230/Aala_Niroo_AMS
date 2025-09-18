@@ -15,7 +15,26 @@ $page_title = 'سیستم حرفه‌ای مدیریت درخواست‌ها';
 
 // پردازش عملیات
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'update_workflow') {
+    if ($_POST['action'] === 'delete_request') {
+        try {
+            $request_id = (int)$_POST['request_id'];
+            
+            // بررسی دسترسی ادمین
+            if (!is_admin()) {
+                throw new Exception('فقط ادمین می‌تواند درخواست‌ها را حذف کند');
+            }
+            
+            // حذف درخواست (cascade delete همه جداول مرتبط)
+            $stmt = $pdo->prepare("DELETE FROM requests WHERE id = ?");
+            $stmt->execute([$request_id]);
+            
+            $_SESSION['success_message'] = 'درخواست با موفقیت حذف شد!';
+            header('Location: request_workflow_professional.php');
+            exit();
+        } catch (Exception $e) {
+            $error_message = 'خطا در حذف درخواست: ' . $e->getMessage();
+        }
+    } elseif ($_POST['action'] === 'update_workflow') {
         try {
             $request_id = (int)$_POST['request_id'];
             $status = sanitizeInput($_POST['status']);
@@ -920,6 +939,16 @@ foreach ($requests as $request) {
                                                 اقدام
                                             </button>
                                         <?php endif; ?>
+                                        <?php 
+                                        // بررسی دسترسی ادمین برای حذف
+                                        $is_admin = is_admin();
+                                        ?>
+                                        <?php if ($is_admin): ?>
+                                            <button class="btn btn-danger" onclick="deleteRequest(<?php echo $request['id']; ?>, '<?php echo htmlspecialchars($request['request_number']); ?>')">
+                                                <i class="fas fa-trash me-1"></i>
+                                                حذف
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -1064,6 +1093,31 @@ foreach ($requests as $request) {
 
         function viewFiles(requestId) {
             alert('فایل‌های درخواست #' + requestId + ' - این قابلیت به زودی اضافه خواهد شد');
+        }
+
+        function deleteRequest(requestId, requestNumber) {
+            if (confirm('آیا مطمئن هستید که می‌خواهید درخواست "' + requestNumber + '" را حذف کنید؟\n\nاین عمل قابل بازگشت نیست!')) {
+                const formData = new FormData();
+                formData.append('action', 'delete_request');
+                formData.append('request_id', requestId);
+                
+                fetch('request_workflow_professional.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(data => {
+                    if (data.includes('success_message')) {
+                        alert('درخواست با موفقیت حذف شد!');
+                        location.reload();
+                    } else {
+                        alert('خطا در حذف درخواست');
+                    }
+                })
+                .catch(error => {
+                    alert('خطا در حذف درخواست: ' + error);
+                });
+            }
         }
     </script>
 </body>

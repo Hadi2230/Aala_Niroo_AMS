@@ -218,6 +218,27 @@ function hasPermission($permission) {
     return true;
 }
 
+/**
+ * بررسی ادمین بودن کاربر
+ */
+function is_admin($user_id = null) {
+    global $pdo;
+    
+    if ($user_id === null) {
+        $user_id = $_SESSION['user_id'] ?? 0;
+    }
+    
+    try {
+        $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $stmt->execute([$user_id]);
+        $role = $stmt->fetchColumn();
+        return ($role === 'admin');
+    } catch (Exception $e) {
+        error_log("Error checking admin status: " . $e->getMessage());
+        return false;
+    }
+}
+
 // ایجاد جداول اگر وجود ندارند
 try {
     // بررسی وجود جدول requests
