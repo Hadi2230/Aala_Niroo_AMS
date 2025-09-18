@@ -40,6 +40,9 @@ try {
     <title><?php echo $page_title; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Video.js برای پخش ویدیو -->
+    <link href="https://vjs.zencdn.net/8.5.2/video-js.css" rel="stylesheet">
+    <script src="https://vjs.zencdn.net/8.5.2/video.min.js"></script>
     <style>
         .stats-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -112,6 +115,99 @@ try {
         .status-onsite { background: #fce4ec; color: #c2185b; }
         .status-completed { background: #e8f5e8; color: #2e7d32; }
         .status-cancelled { background: #ffebee; color: #d32f2f; }
+
+        /* استایل‌های دوربین‌های مداربسته */
+        .camera-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .camera-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .camera-title {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .camera-container {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .camera-video {
+            border-radius: 8px;
+        }
+
+        .camera-status {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.online {
+            background-color: #28a745;
+        }
+
+        .status-indicator.offline {
+            background-color: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-text {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .camera-controls {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .camera-controls .btn {
+            margin-left: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* Video.js customization */
+        .video-js {
+            font-family: 'Tahoma', sans-serif;
+        }
+
+        .video-js .vjs-big-play-button {
+            background-color: rgba(43, 51, 63, 0.7);
+            border-radius: 50%;
+        }
+
+        .video-js .vjs-control-bar {
+            background-color: rgba(43, 51, 63, 0.8);
+        }
         .status-archived { background: #f5f5f5; color: #616161; }
     </style>
 </head>
@@ -191,6 +287,188 @@ try {
                                     <i class="fas fa-clock me-2"></i>
                                     بازدیدهای برنامه‌ریزی شده
                                 </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- دوربین‌های مداربسته کارخانه -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-video me-2"></i>
+                                    دوربین‌های مداربسته کارخانه
+                                    <span class="badge bg-success ms-2">لایو</span>
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <!-- دوربین ورودی -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="camera-card">
+                                            <h6 class="camera-title">
+                                                <i class="fas fa-door-open me-2"></i>
+                                                دوربین ورودی کارخانه
+                                            </h6>
+                                            <div class="camera-container">
+                                                <video 
+                                                    id="camera1" 
+                                                    class="video-js vjs-default-skin camera-video" 
+                                                    controls 
+                                                    preload="auto" 
+                                                    width="100%" 
+                                                    height="250"
+                                                    data-setup='{"fluid": true, "responsive": true}'>
+                                                    <source src="rtsp://192.168.1.100:554/stream1" type="application/x-rtsp">
+                                                    <p class="vjs-no-js">
+                                                        برای مشاهده این ویدیو، لطفاً 
+                                                        <a href="https://videojs.com/html5-video-support/" target="_blank">
+                                                            JavaScript را فعال کنید
+                                                        </a>
+                                                        و از مرورگر مدرن استفاده کنید.
+                                                    </p>
+                                                </video>
+                                            </div>
+                                            <div class="camera-status">
+                                                <span class="status-indicator online"></span>
+                                                <span class="status-text">آنلاین</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- دوربین سالن تولید -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="camera-card">
+                                            <h6 class="camera-title">
+                                                <i class="fas fa-industry me-2"></i>
+                                                دوربین سالن تولید
+                                            </h6>
+                                            <div class="camera-container">
+                                                <video 
+                                                    id="camera2" 
+                                                    class="video-js vjs-default-skin camera-video" 
+                                                    controls 
+                                                    preload="auto" 
+                                                    width="100%" 
+                                                    height="250"
+                                                    data-setup='{"fluid": true, "responsive": true}'>
+                                                    <source src="rtsp://192.168.1.101:554/stream1" type="application/x-rtsp">
+                                                    <p class="vjs-no-js">
+                                                        برای مشاهده این ویدیو، لطفاً 
+                                                        <a href="https://videojs.com/html5-video-support/" target="_blank">
+                                                            JavaScript را فعال کنید
+                                                        </a>
+                                                        و از مرورگر مدرن استفاده کنید.
+                                                    </p>
+                                                </video>
+                                            </div>
+                                            <div class="camera-status">
+                                                <span class="status-indicator online"></span>
+                                                <span class="status-text">آنلاین</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- دوربین انبار -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="camera-card">
+                                            <h6 class="camera-title">
+                                                <i class="fas fa-warehouse me-2"></i>
+                                                دوربین انبار
+                                            </h6>
+                                            <div class="camera-container">
+                                                <video 
+                                                    id="camera3" 
+                                                    class="video-js vjs-default-skin camera-video" 
+                                                    controls 
+                                                    preload="auto" 
+                                                    width="100%" 
+                                                    height="250"
+                                                    data-setup='{"fluid": true, "responsive": true}'>
+                                                    <source src="rtsp://192.168.1.102:554/stream1" type="application/x-rtsp">
+                                                    <p class="vjs-no-js">
+                                                        برای مشاهده این ویدیو، لطفاً 
+                                                        <a href="https://videojs.com/html5-video-support/" target="_blank">
+                                                            JavaScript را فعال کنید
+                                                        </a>
+                                                        و از مرورگر مدرن استفاده کنید.
+                                                    </p>
+                                                </video>
+                                            </div>
+                                            <div class="camera-status">
+                                                <span class="status-indicator online"></span>
+                                                <span class="status-text">آنلاین</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- دوربین پارکینگ -->
+                                    <div class="col-md-6 mb-3">
+                                        <div class="camera-card">
+                                            <h6 class="camera-title">
+                                                <i class="fas fa-car me-2"></i>
+                                                دوربین پارکینگ
+                                            </h6>
+                                            <div class="camera-container">
+                                                <video 
+                                                    id="camera4" 
+                                                    class="video-js vjs-default-skin camera-video" 
+                                                    controls 
+                                                    preload="auto" 
+                                                    width="100%" 
+                                                    height="250"
+                                                    data-setup='{"fluid": true, "responsive": true}'>
+                                                    <source src="rtsp://192.168.1.103:554/stream1" type="application/x-rtsp">
+                                                    <p class="vjs-no-js">
+                                                        برای مشاهده این ویدیو، لطفاً 
+                                                        <a href="https://videojs.com/html5-video-support/" target="_blank">
+                                                            JavaScript را فعال کنید
+                                                        </a>
+                                                        و از مرورگر مدرن استفاده کنید.
+                                                    </p>
+                                                </video>
+                                            </div>
+                                            <div class="camera-status">
+                                                <span class="status-indicator online"></span>
+                                                <span class="status-text">آنلاین</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- کنترل‌های دوربین -->
+                                <div class="camera-controls mt-3">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="refreshAllCameras()">
+                                                <i class="fas fa-sync-alt me-1"></i>
+                                                بروزرسانی همه دوربین‌ها
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm" onclick="startAllCameras()">
+                                                <i class="fas fa-play me-1"></i>
+                                                شروع همه
+                                            </button>
+                                            <button class="btn btn-outline-warning btn-sm" onclick="pauseAllCameras()">
+                                                <i class="fas fa-pause me-1"></i>
+                                                توقف همه
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-outline-secondary btn-sm" onclick="toggleFullscreen('camera1')">
+                                                    <i class="fas fa-expand me-1"></i>
+                                                    تمام صفحه
+                                                </button>
+                                                <button class="btn btn-outline-info btn-sm" onclick="takeSnapshot()">
+                                                    <i class="fas fa-camera me-1"></i>
+                                                    عکس‌برداری
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -304,5 +582,249 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // متغیرهای سراسری برای دوربین‌ها
+        let cameraPlayers = {};
+        let cameraStatus = {
+            'camera1': 'online',
+            'camera2': 'online', 
+            'camera3': 'online',
+            'camera4': 'online'
+        };
+
+        // مقداردهی اولیه Video.js players
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCameras();
+            startCameraStatusCheck();
+        });
+
+        // مقداردهی دوربین‌ها
+        function initializeCameras() {
+            const cameraIds = ['camera1', 'camera2', 'camera3', 'camera4'];
+            
+            cameraIds.forEach(cameraId => {
+                try {
+                    cameraPlayers[cameraId] = videojs(cameraId, {
+                        fluid: true,
+                        responsive: true,
+                        controls: true,
+                        preload: 'auto',
+                        autoplay: false,
+                        muted: true,
+                        playbackRates: [0.5, 1, 1.25, 1.5, 2],
+                        plugins: {
+                            // اضافه کردن پلاگین‌های مورد نیاز
+                        }
+                    });
+
+                    // رویدادهای دوربین
+                    cameraPlayers[cameraId].on('loadstart', function() {
+                        updateCameraStatus(cameraId, 'loading');
+                    });
+
+                    cameraPlayers[cameraId].on('canplay', function() {
+                        updateCameraStatus(cameraId, 'online');
+                    });
+
+                    cameraPlayers[cameraId].on('error', function() {
+                        updateCameraStatus(cameraId, 'offline');
+                        console.error('خطا در بارگذاری دوربین ' + cameraId);
+                    });
+
+                } catch (error) {
+                    console.error('خطا در مقداردهی دوربین ' + cameraId + ':', error);
+                    updateCameraStatus(cameraId, 'offline');
+                }
+            });
+        }
+
+        // به‌روزرسانی وضعیت دوربین
+        function updateCameraStatus(cameraId, status) {
+            cameraStatus[cameraId] = status;
+            const statusElement = document.querySelector(`#${cameraId}`).closest('.camera-card').querySelector('.status-indicator');
+            const statusText = document.querySelector(`#${cameraId}`).closest('.camera-card').querySelector('.status-text');
+            
+            statusElement.className = 'status-indicator ' + status;
+            
+            switch(status) {
+                case 'online':
+                    statusText.textContent = 'آنلاین';
+                    break;
+                case 'loading':
+                    statusText.textContent = 'در حال بارگذاری...';
+                    break;
+                case 'offline':
+                    statusText.textContent = 'آفلاین';
+                    break;
+            }
+        }
+
+        // بررسی وضعیت دوربین‌ها
+        function startCameraStatusCheck() {
+            setInterval(() => {
+                Object.keys(cameraPlayers).forEach(cameraId => {
+                    if (cameraPlayers[cameraId]) {
+                        const player = cameraPlayers[cameraId];
+                        if (player.readyState() >= 2) { // HAVE_CURRENT_DATA
+                            updateCameraStatus(cameraId, 'online');
+                        } else {
+                            updateCameraStatus(cameraId, 'offline');
+                        }
+                    }
+                });
+            }, 10000); // هر 10 ثانیه
+        }
+
+        // شروع همه دوربین‌ها
+        function startAllCameras() {
+            Object.keys(cameraPlayers).forEach(cameraId => {
+                if (cameraPlayers[cameraId]) {
+                    cameraPlayers[cameraId].play().catch(error => {
+                        console.error('خطا در شروع دوربین ' + cameraId + ':', error);
+                    });
+                }
+            });
+        }
+
+        // توقف همه دوربین‌ها
+        function pauseAllCameras() {
+            Object.keys(cameraPlayers).forEach(cameraId => {
+                if (cameraPlayers[cameraId]) {
+                    cameraPlayers[cameraId].pause();
+                }
+            });
+        }
+
+        // بروزرسانی همه دوربین‌ها
+        function refreshAllCameras() {
+            Object.keys(cameraPlayers).forEach(cameraId => {
+                if (cameraPlayers[cameraId]) {
+                    cameraPlayers[cameraId].src({
+                        src: cameraPlayers[cameraId].currentSrc(),
+                        type: 'application/x-rtsp'
+                    });
+                    cameraPlayers[cameraId].load();
+                }
+            });
+        }
+
+        // تمام صفحه کردن دوربین
+        function toggleFullscreen(cameraId) {
+            if (cameraPlayers[cameraId]) {
+                if (cameraPlayers[cameraId].isFullscreen()) {
+                    cameraPlayers[cameraId].exitFullscreen();
+                } else {
+                    cameraPlayers[cameraId].requestFullscreen();
+                }
+            }
+        }
+
+        // عکس‌برداری از دوربین
+        function takeSnapshot() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const video = document.querySelector('#camera1 video');
+            
+            if (video) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+                
+                // ایجاد لینک دانلود
+                const link = document.createElement('a');
+                link.download = 'camera-snapshot-' + new Date().getTime() + '.png';
+                link.href = canvas.toDataURL();
+                link.click();
+                
+                // نمایش پیام موفقیت
+                showNotification('عکس با موفقیت ذخیره شد', 'success');
+            } else {
+                showNotification('خطا در عکس‌برداری', 'error');
+            }
+        }
+
+        // نمایش اعلان
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // حذف خودکار بعد از 3 ثانیه
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // تنظیمات پیشرفته دوربین‌ها
+        function configureCameraSettings(cameraId, settings) {
+            if (cameraPlayers[cameraId]) {
+                const player = cameraPlayers[cameraId];
+                
+                // تنظیم کیفیت
+                if (settings.quality) {
+                    player.qualityLevels().forEach(level => {
+                        if (level.height === settings.quality) {
+                            level.enabled = true;
+                        } else {
+                            level.enabled = false;
+                        }
+                    });
+                }
+                
+                // تنظیم سرعت پخش
+                if (settings.playbackRate) {
+                    player.playbackRate(settings.playbackRate);
+                }
+                
+                // تنظیم حجم صدا
+                if (settings.volume !== undefined) {
+                    player.volume(settings.volume);
+                }
+            }
+        }
+
+        // دریافت آمار دوربین‌ها
+        function getCameraStats() {
+            const stats = {};
+            Object.keys(cameraPlayers).forEach(cameraId => {
+                if (cameraPlayers[cameraId]) {
+                    const player = cameraPlayers[cameraId];
+                    stats[cameraId] = {
+                        status: cameraStatus[cameraId],
+                        duration: player.duration(),
+                        currentTime: player.currentTime(),
+                        volume: player.volume(),
+                        playbackRate: player.playbackRate(),
+                        readyState: player.readyState(),
+                        networkState: player.networkState()
+                    };
+                }
+            });
+            return stats;
+        }
+
+        // لاگ کردن آمار دوربین‌ها (برای دیباگ)
+        function logCameraStats() {
+            console.log('آمار دوربین‌ها:', getCameraStats());
+        }
+
+        // تمیز کردن منابع هنگام بسته شدن صفحه
+        window.addEventListener('beforeunload', function() {
+            Object.keys(cameraPlayers).forEach(cameraId => {
+                if (cameraPlayers[cameraId]) {
+                    cameraPlayers[cameraId].dispose();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
