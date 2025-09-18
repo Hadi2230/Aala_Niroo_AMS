@@ -4,6 +4,10 @@
  * Notification Templates Management
  */
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/config.php';
 
@@ -14,7 +18,7 @@ if (empty($_SESSION['user_id'])) {
 }
 
 // بررسی دسترسی ادمین
-if (!is_admin()) {
+if (!hasPermission('*')) {
     die('دسترسی غیرمجاز - فقط ادمین می‌تواند به این بخش دسترسی داشته باشد');
 }
 
@@ -111,9 +115,72 @@ try {
 }
 
 // دریافت قالب‌ها
-$stmt = $pdo->prepare("SELECT * FROM notification_templates ORDER BY type, name");
-$stmt->execute();
-$templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $stmt = $pdo->prepare("SELECT * FROM notification_templates ORDER BY type, name");
+    $stmt->execute();
+    $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // اگر جدول وجود ندارد، آن را ایجاد کن
+    try {
+        $create_table = "CREATE TABLE IF NOT EXISTS notification_templates (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type ENUM('email', 'sms') NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            subject VARCHAR(500) DEFAULT NULL,
+            content TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
+        
+        $pdo->exec($create_table);
+        
+        // حالا دوباره تلاش کن
+        $stmt = $pdo->prepare("SELECT * FROM notification_templates ORDER BY type, name");
+        $stmt->execute();
+        $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // اگر جدول خالی است، قالب‌های نمونه اضافه کن
+        if (empty($templates)) {
+            $sample_templates = [
+                [
+                    'type' => 'email',
+                    'name' => 'خوش‌آمدگویی مشتری جدید',
+                    'subject' => 'خوش‌آمدید به سیستم مدیریت دارایی‌های آلا نیرو',
+                    'content' => 'سلام {full_name} عزیز،\n\nخوش‌آمدید به سیستم مدیریت دارایی‌های آلا نیرو.\n\nاطلاعات حساب شما:\nنام: {full_name}\nشرکت: {company}\nتلفن: {phone}\n\nبا تشکر\nتیم پشتیبانی آلا نیرو',
+                    'is_active' => 1
+                ],
+                [
+                    'type' => 'sms',
+                    'name' => 'اطلاع‌رسانی تعمیرات',
+                    'subject' => '',
+                    'content' => 'سلام {full_name} عزیز،\nتعمیرات دستگاه شما در تاریخ {date} انجام خواهد شد.\n\nآلا نیرو',
+                    'is_active' => 1
+                ],
+                [
+                    'type' => 'email',
+                    'name' => 'گزارش تعمیرات',
+                    'subject' => 'گزارش تعمیرات دستگاه - {company}',
+                    'content' => 'سلام {full_name} عزیز،\n\nتعمیرات دستگاه شما با موفقیت انجام شد.\n\nجزئیات:\n- تاریخ: {date}\n- اپراتور: {operator_name}\n- وضعیت: تکمیل شده\n\nبا تشکر\nتیم فنی آلا نیرو',
+                    'is_active' => 1
+                ]
+            ];
+            
+            foreach ($sample_templates as $template) {
+                $stmt = $pdo->prepare("INSERT INTO notification_templates (type, name, subject, content, is_active) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$template['type'], $template['name'], $template['subject'], $template['content'], $template['is_active']]);
+            }
+            
+            // دوباره دریافت کن
+            $stmt = $pdo->prepare("SELECT * FROM notification_templates ORDER BY type, name");
+            $stmt->execute();
+            $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (Exception $e2) {
+        $error = "خطا در ایجاد جدول: " . $e2->getMessage();
+        $templates = [];
+    }
+}
 
 $csrf = generate_csrf();
 ?>
@@ -373,11 +440,7 @@ function toggleStatus(id) {
     if (confirm('آیا از تغییر وضعیت این قالب اطمینان دارید؟')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-            <input type="hidden" name="toggle_status" value="1">
-            <input type="hidden" name="template_id" value="${id}">
-        `;
+        form.innerHTML = '<input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="toggle_status" value="1"><input type="hidden" name="template_id" value="' + id + '">';
         document.body.appendChild(form);
         form.submit();
     }
@@ -387,11 +450,7 @@ function deleteTemplate(id) {
     if (confirm('آیا از حذف این قالب اطمینان دارید؟ این عمل قابل بازگشت نیست.')) {
         const form = document.createElement('form');
         form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-            <input type="hidden" name="delete_template" value="1">
-            <input type="hidden" name="template_id" value="${id}">
-        `;
+        form.innerHTML = '<input type="hidden" name="csrf_token" value="<?= h($csrf) ?>"><input type="hidden" name="delete_template" value="1"><input type="hidden" name="template_id" value="' + id + '">';
         document.body.appendChild(form);
         form.submit();
     }
