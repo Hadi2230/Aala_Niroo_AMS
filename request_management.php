@@ -11,6 +11,15 @@ if (!isset($_SESSION['user_id'])) {
 
 require_once 'config.php';
 
+// بررسی وجود توابع مورد نیاز
+if (!function_exists('createRequest')) {
+    die('خطا: تابع createRequest یافت نشد. لطفاً config.php را بررسی کنید.');
+}
+
+if (!function_exists('generateRequestNumber')) {
+    die('خطا: تابع generateRequestNumber یافت نشد. لطفاً config.php را بررسی کنید.');
+}
+
 // فعال کردن نمایش خطاها برای دیباگ
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
