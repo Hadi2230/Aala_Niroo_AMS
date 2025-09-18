@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-require_once 'config_simple_fixed.php';
+require_once 'config_complete.php';
 
 $page_title = 'سیستم حرفه‌ای مدیریت درخواست‌ها';
 

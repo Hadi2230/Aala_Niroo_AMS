@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     $_SESSION['username'] = 'admin';
 }
 
-require_once 'config_simple_fixed.php';
+require_once 'config_complete.php';
 
 echo "<!DOCTYPE html>
 <html dir='rtl' lang='fa'>
