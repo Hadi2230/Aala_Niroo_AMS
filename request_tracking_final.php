@@ -1,6 +1,6 @@
 <?php
 /**
- * request_tracking_final.php - پیگیری درخواست‌ها - نسخه نهایی
+ * request_tracking_final.php - پیگیری درخواست‌ها - نسخه نهایی و پیشرفته
  */
 
 session_start();
@@ -13,6 +13,43 @@ require_once 'config_simple.php';
 
 $page_title = 'پیگیری درخواست‌ها';
 
+// پردازش عملیات
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'update_workflow') {
+        try {
+            $request_id = (int)$_POST['request_id'];
+            $status = sanitizeInput($_POST['status']);
+            $comments = sanitizeInput($_POST['comments']);
+            
+            // به‌روزرسانی وضعیت گردش کار
+            $stmt = $pdo->prepare("
+                UPDATE request_workflow 
+                SET status = ?, comments = ?, action_date = NOW(), updated_at = NOW()
+                WHERE request_id = ? AND assigned_to = ?
+            ");
+            $stmt->execute([$status, $comments, $request_id, $_SESSION['user_id']]);
+            
+            // به‌روزرسانی وضعیت کلی درخواست
+            $stmt = $pdo->prepare("
+                UPDATE requests 
+                SET status = ?, updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$status, $request_id]);
+            
+            // ایجاد اعلان برای درخواست‌دهنده
+            createRequestNotification($pdo, $_SESSION['user_id'], $request_id, 'workflow_update', 
+                "وضعیت درخواست شما به '{$status}' تغییر یافت");
+            
+            $_SESSION['success_message'] = 'وضعیت درخواست با موفقیت به‌روزرسانی شد!';
+            header('Location: request_tracking_final.php');
+            exit();
+        } catch (Exception $e) {
+            $error_message = 'خطا در به‌روزرسانی: ' . $e->getMessage();
+        }
+    }
+}
+
 // دریافت درخواست‌های کاربر
 $requests = [];
 try {
@@ -23,11 +60,11 @@ try {
         FROM requests r
         LEFT JOIN request_files rf ON r.id = rf.request_id
         LEFT JOIN request_workflow rw ON r.id = rw.request_id
-        WHERE r.requester_id = ?
+        WHERE r.requester_id = ? OR rw.assigned_to = ?
         GROUP BY r.id
         ORDER BY r.created_at DESC
     ");
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
     $requests = $stmt->fetchAll();
 } catch (Exception $e) {
     $requests = [];
@@ -39,7 +76,8 @@ $stats = [
     'pending' => 0,
     'approved' => 0,
     'rejected' => 0,
-    'completed' => 0
+    'completed' => 0,
+    'assigned_to_me' => 0
 ];
 
 foreach ($requests as $request) {
@@ -58,6 +96,20 @@ foreach ($requests as $request) {
             $stats['completed']++;
             break;
     }
+}
+
+// شمارش درخواست‌های ارجاع شده به کاربر
+try {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(DISTINCT r.id) as count
+        FROM requests r
+        JOIN request_workflow rw ON r.id = rw.request_id
+        WHERE rw.assigned_to = ? AND rw.status IN ('در انتظار', 'در حال بررسی')
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $stats['assigned_to_me'] = $stmt->fetchColumn();
+} catch (Exception $e) {
+    $stats['assigned_to_me'] = 0;
 }
 ?>
 <!DOCTYPE html>
@@ -156,11 +208,16 @@ foreach ($requests as $request) {
             text-align: center;
             transition: all 0.3s ease;
             height: 100%;
+            cursor: pointer;
         }
 
         .stats-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .stats-card.assigned {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #f39c12 100%);
         }
 
         .stats-number {
@@ -192,6 +249,10 @@ foreach ($requests as $request) {
         .request-item:hover {
             border-color: var(--secondary-color);
             box-shadow: 0 4px 15px rgba(52, 152, 219, 0.1);
+        }
+
+        .request-item.assigned {
+            border-left: 5px solid var(--warning-color);
         }
 
         .request-header {
@@ -227,6 +288,7 @@ foreach ($requests as $request) {
             display: flex;
             gap: 15px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
 
         .meta-item {
@@ -264,6 +326,11 @@ foreach ($requests as $request) {
             color: #0c5460;
         }
 
+        .status-in-progress {
+            background: #cce5ff;
+            color: #004085;
+        }
+
         .priority-badge {
             padding: 4px 8px;
             border-radius: 15px;
@@ -295,6 +362,7 @@ foreach ($requests as $request) {
             display: flex;
             gap: 10px;
             margin-top: 15px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -326,6 +394,16 @@ foreach ($requests as $request) {
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
         }
 
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent-color) 0%, #e67e22 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
         .btn-info {
             background: linear-gradient(135deg, var(--info-color) 0%, #5dade2 100%);
             color: white;
@@ -334,6 +412,16 @@ foreach ($requests as $request) {
         .btn-info:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #f39c12 100%);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         }
 
         .text-primary {
@@ -392,6 +480,78 @@ foreach ($requests as $request) {
             font-size: 0.95rem;
         }
 
+        .workflow-timeline {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .timeline-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 15px;
+            font-size: 1.2rem;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .timeline-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .timeline-comments {
+            margin-top: 8px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #5dade2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .modal-title {
+            font-weight: 600;
+        }
+
+        .btn-close {
+            filter: invert(1);
+        }
+
         @media (max-width: 768px) {
             .page-title {
                 font-size: 2rem;
@@ -428,38 +588,67 @@ foreach ($requests as $request) {
                     پیگیری درخواست‌ها
                 </h1>
                 <p class="page-subtitle">
-                    وضعیت و جزئیات درخواست‌های خود را بررسی کنید
+                    وضعیت و جزئیات درخواست‌ها و گردش کار
                 </p>
             </div>
 
+            <!-- Success/Error Messages -->
+            <?php if (isset($_SESSION['success_message'])): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($error_message)): ?>
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <?php echo $error_message; ?>
+                </div>
+            <?php endif; ?>
+
             <!-- Stats Cards -->
             <div class="row mb-4">
-                <div class="col-lg-3 col-md-6 mb-3">
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                     <div class="stats-card">
                         <div class="stats-number"><?php echo $stats['total']; ?></div>
                         <div class="stats-title">کل درخواست‌ها</div>
-                        <div class="stats-description">همه درخواست‌های شما</div>
+                        <div class="stats-description">همه درخواست‌ها</div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6 mb-3">
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="stats-card assigned">
+                        <div class="stats-number"><?php echo $stats['assigned_to_me']; ?></div>
+                        <div class="stats-title">ارجاع شده به من</div>
+                        <div class="stats-description">نیاز به اقدام</div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                     <div class="stats-card">
                         <div class="stats-number"><?php echo $stats['pending']; ?></div>
                         <div class="stats-title">در انتظار</div>
                         <div class="stats-description">در حال بررسی</div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6 mb-3">
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                     <div class="stats-card">
                         <div class="stats-number"><?php echo $stats['approved']; ?></div>
                         <div class="stats-title">تأیید شده</div>
-                        <div class="stats-description">تأیید شده توسط مدیر</div>
+                        <div class="stats-description">تأیید شده</div>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6 mb-3">
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                     <div class="stats-card">
                         <div class="stats-number"><?php echo $stats['completed']; ?></div>
                         <div class="stats-title">تکمیل شده</div>
                         <div class="stats-description">تحویل داده شده</div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="stats-card">
+                        <div class="stats-number"><?php echo $stats['rejected']; ?></div>
+                        <div class="stats-title">رد شده</div>
+                        <div class="stats-description">رد شده</div>
                     </div>
                 </div>
             </div>
@@ -513,7 +702,7 @@ foreach ($requests as $request) {
                         <div class="no-requests">
                             <i class="fas fa-inbox"></i>
                             <h4>هیچ درخواستی یافت نشد</h4>
-                            <p>شما هنوز درخواستی ایجاد نکرده‌اید.</p>
+                            <p>شما هنوز درخواستی ایجاد نکرده‌اید یا به شما ارجاع نشده است.</p>
                             <a href="request_management_final.php" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>
                                 ایجاد درخواست جدید
@@ -522,7 +711,23 @@ foreach ($requests as $request) {
                     <?php else: ?>
                         <div id="requestsList">
                             <?php foreach ($requests as $request): ?>
-                                <div class="request-item" data-status="<?php echo $request['status']; ?>" data-priority="<?php echo $request['priority']; ?>">
+                                <?php
+                                // بررسی آیا درخواست به کاربر ارجاع شده
+                                $is_assigned = false;
+                                try {
+                                    $stmt = $pdo->prepare("
+                                        SELECT COUNT(*) FROM request_workflow 
+                                        WHERE request_id = ? AND assigned_to = ? AND status IN ('در انتظار', 'در حال بررسی')
+                                    ");
+                                    $stmt->execute([$request['id'], $_SESSION['user_id']]);
+                                    $is_assigned = $stmt->fetchColumn() > 0;
+                                } catch (Exception $e) {
+                                    $is_assigned = false;
+                                }
+                                ?>
+                                <div class="request-item <?php echo $is_assigned ? 'assigned' : ''; ?>" 
+                                     data-status="<?php echo $request['status']; ?>" 
+                                     data-priority="<?php echo $request['priority']; ?>">
                                     <div class="request-header">
                                         <div>
                                             <div class="request-number"><?php echo htmlspecialchars($request['request_number']); ?></div>
@@ -532,12 +737,19 @@ foreach ($requests as $request) {
                                             <span class="status-badge status-<?php echo str_replace(' ', '-', strtolower($request['status'])); ?>">
                                                 <?php echo $request['status']; ?>
                                             </span>
+                                            <?php if ($is_assigned): ?>
+                                                <span class="badge bg-warning ms-2">ارجاع شده به من</span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                     
                                     <div class="request-details">
                                         <div class="request-item-name"><?php echo htmlspecialchars($request['item_name']); ?></div>
                                         <div class="request-meta">
+                                            <div class="meta-item">
+                                                <i class="fas fa-user"></i>
+                                                <span>درخواست‌دهنده: <?php echo htmlspecialchars($request['requester_name']); ?></span>
+                                            </div>
                                             <div class="meta-item">
                                                 <i class="fas fa-hashtag"></i>
                                                 <span>تعداد: <?php echo $request['quantity']; ?></span>
@@ -570,16 +782,28 @@ foreach ($requests as $request) {
                                             <i class="fas fa-eye me-1"></i>
                                             جزئیات
                                         </button>
+                                        <button class="btn btn-primary" onclick="viewWorkflow(<?php echo $request['id']; ?>)">
+                                            <i class="fas fa-route me-1"></i>
+                                            گردش کار
+                                        </button>
+                                        <?php if ($is_assigned): ?>
+                                            <button class="btn btn-success" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'تأیید شده')">
+                                                <i class="fas fa-check me-1"></i>
+                                                تأیید
+                                            </button>
+                                            <button class="btn btn-danger" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'رد شده')">
+                                                <i class="fas fa-times me-1"></i>
+                                                رد
+                                            </button>
+                                            <button class="btn btn-warning" onclick="updateWorkflow(<?php echo $request['id']; ?>, 'در حال بررسی')">
+                                                <i class="fas fa-clock me-1"></i>
+                                                در حال بررسی
+                                            </button>
+                                        <?php endif; ?>
                                         <?php if ($request['file_count'] > 0): ?>
                                             <button class="btn btn-success" onclick="viewFiles(<?php echo $request['id']; ?>)">
                                                 <i class="fas fa-download me-1"></i>
                                                 فایل‌ها
-                                            </button>
-                                        <?php endif; ?>
-                                        <?php if ($request['workflow_count'] > 0): ?>
-                                            <button class="btn btn-primary" onclick="viewWorkflow(<?php echo $request['id']; ?>)">
-                                                <i class="fas fa-route me-1"></i>
-                                                گردش کار
                                             </button>
                                         <?php endif; ?>
                                     </div>
@@ -587,6 +811,69 @@ foreach ($requests as $request) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Workflow Update -->
+    <div class="modal fade" id="workflowModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>
+                        به‌روزرسانی وضعیت درخواست
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="workflowForm">
+                        <input type="hidden" id="workflowRequestId" name="request_id">
+                        <input type="hidden" name="action" value="update_workflow">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">وضعیت جدید</label>
+                            <select class="form-control" id="workflowStatus" name="status" required>
+                                <option value="در انتظار">در انتظار</option>
+                                <option value="در حال بررسی">در حال بررسی</option>
+                                <option value="تأیید شده">تأیید شده</option>
+                                <option value="رد شده">رد شده</option>
+                                <option value="تکمیل شده">تکمیل شده</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">توضیحات</label>
+                            <textarea class="form-control" id="workflowComments" name="comments" rows="4" 
+                                      placeholder="توضیحات خود را وارد کنید..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" class="btn btn-primary" onclick="submitWorkflowUpdate()">
+                        <i class="fas fa-save me-1"></i>
+                        ذخیره تغییرات
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Request Details -->
+    <div class="modal fade" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-info-circle me-2"></i>
+                        جزئیات درخواست
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detailsContent">
+                    <!-- محتوا از طریق AJAX بارگذاری می‌شود -->
                 </div>
             </div>
         </div>
@@ -632,15 +919,60 @@ foreach ($requests as $request) {
         }
 
         function viewDetails(requestId) {
-            alert('جزئیات درخواست #' + requestId + ' - این قابلیت به زودی اضافه خواهد شد');
+            // بارگذاری جزئیات درخواست از طریق AJAX
+            fetch(`get_request_details.php?id=${requestId}`)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('detailsContent').innerHTML = data;
+                    new bootstrap.Modal(document.getElementById('detailsModal')).show();
+                })
+                .catch(error => {
+                    alert('خطا در بارگذاری جزئیات: ' + error);
+                });
+        }
+
+        function viewWorkflow(requestId) {
+            // بارگذاری گردش کار از طریق AJAX
+            fetch(`get_request_workflow.php?id=${requestId}`)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('detailsContent').innerHTML = data;
+                    new bootstrap.Modal(document.getElementById('detailsModal')).show();
+                })
+                .catch(error => {
+                    alert('خطا در بارگذاری گردش کار: ' + error);
+                });
+        }
+
+        function updateWorkflow(requestId, status) {
+            document.getElementById('workflowRequestId').value = requestId;
+            document.getElementById('workflowStatus').value = status;
+            new bootstrap.Modal(document.getElementById('workflowModal')).show();
+        }
+
+        function submitWorkflowUpdate() {
+            const form = document.getElementById('workflowForm');
+            const formData = new FormData(form);
+            
+            fetch('request_tracking_final.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('success_message')) {
+                    location.reload();
+                } else {
+                    alert('خطا در به‌روزرسانی وضعیت');
+                }
+            })
+            .catch(error => {
+                alert('خطا در به‌روزرسانی: ' + error);
+            });
         }
 
         function viewFiles(requestId) {
             alert('فایل‌های درخواست #' + requestId + ' - این قابلیت به زودی اضافه خواهد شد');
-        }
-
-        function viewWorkflow(requestId) {
-            alert('گردش کار درخواست #' + requestId + ' - این قابلیت به زودی اضافه خواهد شد');
         }
     </script>
 </body>
