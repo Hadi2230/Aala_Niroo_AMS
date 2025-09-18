@@ -49,6 +49,126 @@ if (!isset($_SESSION['tables_created'])) {
 }
 
 /**
+ * تولید شماره درخواست خودکار
+ */
+function generateRequestNumber($pdo) {
+    $today = date('Ymd');
+    $prefix = "REQ-{$today}-";
+    
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM requests WHERE request_number LIKE ?");
+        $stmt->execute([$prefix . '%']);
+        $result = $stmt->fetch();
+        
+        $count = ($result['count'] ?? 0) + 1;
+        return $prefix . str_pad($count, 3, '0', STR_PAD_LEFT);
+    } catch (Exception $e) {
+        error_log("Error generating request number: " . $e->getMessage());
+        return $prefix . '001';
+    }
+}
+
+/**
+ * ایجاد درخواست جدید
+ */
+function createRequest($pdo, $data) {
+    try {
+        $request_number = generateRequestNumber($pdo);
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO requests (request_number, requester_id, requester_name, item_name, quantity, price, description, priority, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'در انتظار تأیید')
+        ");
+        
+        $stmt->execute([
+            $request_number,
+            $data['requester_id'],
+            $data['requester_name'],
+            $data['item_name'],
+            $data['quantity'],
+            $data['price'],
+            $data['description'],
+            $data['priority']
+        ]);
+        
+        return $pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log("Error creating request: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * آپلود فایل درخواست
+ */
+function uploadRequestFile($pdo, $request_id, $file, $upload_dir = 'uploads/requests/') {
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    $allowed_types = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+    $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    
+    if (!in_array($file_extension, $allowed_types)) {
+        return false;
+    }
+    
+    $file_name = uniqid() . '_' . $file['name'];
+    $file_path = $upload_dir . $file_name;
+    
+    if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO request_files (request_id, file_name, file_path, file_type, file_size) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $request_id,
+                $file['name'],
+                $file_path,
+                $file['type'],
+                $file['size']
+            ]);
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Error saving file info: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * ایجاد گردش کار درخواست
+ */
+function createRequestWorkflow($pdo, $request_id, $assignments) {
+    try {
+        foreach ($assignments as $index => $assignment) {
+            $stmt = $pdo->prepare("
+                INSERT INTO request_workflow (request_id, step_order, assigned_to, assigned_to_name, department, status) 
+                VALUES (?, ?, ?, ?, ?, 'در انتظار')
+            ");
+            
+            $stmt->execute([
+                $request_id,
+                $index + 1,
+                $assignment['user_id'],
+                $assignment['user_name'],
+                $assignment['department'] ?? ''
+            ]);
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating workflow: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * ایجاد جداول دیتابیس
  */
 function createDatabaseTables($pdo) {
@@ -670,6 +790,75 @@ function createDatabaseTables($pdo) {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
             INDEX idx_setting_key (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول درخواست‌های کالا/خدمات
+        "CREATE TABLE IF NOT EXISTS requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_number VARCHAR(50) NOT NULL UNIQUE,
+            requester_id INT NOT NULL,
+            requester_name VARCHAR(255) NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            quantity INT NOT NULL,
+            price DECIMAL(15,2),
+            description TEXT,
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            status ENUM('در انتظار تأیید', 'در حال بررسی', 'تأیید شده', 'رد شده', 'تکمیل شده') DEFAULT 'در انتظار تأیید',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_number (request_number),
+            INDEX idx_requester_id (requester_id),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول فایل‌های ضمیمه درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_files (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_type VARCHAR(100),
+            file_size INT,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول گردش کار درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_workflow (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            step_order INT NOT NULL,
+            assigned_to INT NOT NULL,
+            assigned_to_name VARCHAR(255) NOT NULL,
+            department VARCHAR(100),
+            status ENUM('در انتظار', 'تأیید شده', 'رد شده') DEFAULT 'در انتظار',
+            comments TEXT,
+            action_date TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id),
+            INDEX idx_assigned_to (assigned_to),
+            INDEX idx_step_order (step_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول اعلان‌های درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            user_id INT NOT NULL,
+            notification_type ENUM('درخواست جدید', 'تأیید', 'رد', 'تکمیل') NOT NULL,
+            message TEXT NOT NULL,
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id),
+            INDEX idx_user_id (user_id),
+            INDEX idx_is_read (is_read)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
