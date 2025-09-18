@@ -1,6 +1,6 @@
 <?php
 /**
- * factory_cameras.php - صفحه مشاهده دوربین‌های مداربسته کارخانه
+ * factory_cameras_earthcam.php - صفحه دوربین‌های کارخانه با EarthCam
  */
 
 session_start();
@@ -134,7 +134,7 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
 
         .camera-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 25px;
             margin-bottom: 30px;
         }
@@ -210,6 +210,7 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
             overflow: hidden;
             background: #000;
             margin-bottom: 15px;
+            min-height: 350px;
         }
 
         .camera-video {
@@ -239,43 +240,6 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
-        }
-
-        .camera-placeholder {
-            width: 100%;
-            height: 250px;
-            background: linear-gradient(45deg, #1f2937, #374151);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #9ca3af;
-            border-radius: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .camera-placeholder::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="camera-pattern" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23camera-pattern)"/></svg>');
-            opacity: 0.3;
-        }
-
-        .camera-placeholder i {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .camera-placeholder span {
-            position: relative;
-            z-index: 2;
         }
 
         .camera-controls {
@@ -327,6 +291,8 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
             max-width: 100%;
             max-height: 100%;
             border-radius: 12px;
+            width: 90vw;
+            height: 90vh;
         }
 
         .fullscreen-close {
@@ -424,9 +390,8 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
                 grid-template-columns: 1fr;
             }
             
-            .camera-video,
-            .camera-placeholder {
-                height: 200px;
+            .camera-video {
+                height: 250px;
             }
         }
     </style>
@@ -449,7 +414,7 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
                     دوربین‌های مداربسته کارخانه
                 </h1>
                 <p class="page-subtitle">
-                    نظارت زنده بر تمام بخش‌های کارخانه
+                    نظارت زنده بر تمام بخش‌های کارخانه با دوربین‌های EarthCam
                 </p>
             </div>
         </div>
@@ -738,7 +703,6 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
 
         // Take snapshot
         function takeSnapshot(cameraId) {
-            // Simulate snapshot
             showNotification(`عکس از ${cameraId} با موفقیت ذخیره شد`, 'success');
         }
 
@@ -765,7 +729,7 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
         // Refresh all cameras
         function refreshAllCameras() {
             Object.keys(cameraStates).forEach(cameraId => {
-                const iframe = document.querySelector(`#${cameraId} iframe`);
+                const iframe = document.getElementById(cameraId);
                 const currentSrc = iframe.src;
                 iframe.src = '';
                 setTimeout(() => {
@@ -825,6 +789,13 @@ $page_title = 'دوربین‌های مداربسته کارخانه';
                     }, 100);
                 }, index * 150);
             });
+
+            // Auto-hide loading indicators after 5 seconds
+            setTimeout(() => {
+                for (let i = 1; i <= 4; i++) {
+                    hideLoading(`loading${i}`);
+                }
+            }, 5000);
         });
     </script>
 </body>
