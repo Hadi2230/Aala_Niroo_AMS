@@ -12,28 +12,77 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
-// تنظیمات دیتابیس
-$host = 'localhost:3306';
-$dbname = 'aala_niroo_ams';
-$username = 'root';
-$password = '';
+// تنظیمات دیتابیس - امتحان تنظیمات مختلف
+$db_configs = [
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3307',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => 'root',
+        'dbname' => 'aala_niroo_ams'
+    ]
+];
 
 // تنظیمات زمانzone
 date_default_timezone_set('Asia/Tehran');
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_persian_ci"
-    ]);
-} catch (PDOException $e) {
-    error_log("[" . date('Y-m-d H:i:s') . "] خطا در اتصال به دیتابیس: " . $e->getMessage());
+$pdo = null;
+$connection_error = '';
+
+// امتحان تنظیمات مختلف
+foreach ($db_configs as $config) {
+    try {
+        $dsn = "mysql:host={$config['host']};port={$config['port']};charset=utf8mb4";
+        $pdo = new PDO($dsn, $config['username'], $config['password'], [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_persian_ci"
+        ]);
+        
+        // تست اتصال به دیتابیس
+        $pdo->exec("USE {$config['dbname']}");
+        
+        // اگر به اینجا رسیدیم، اتصال موفق بوده
+        break;
+        
+    } catch (PDOException $e) {
+        $connection_error = $e->getMessage();
+        $pdo = null;
+        continue;
+    }
+}
+
+// اگر هیچ تنظیماتی کار نکرد
+if (!$pdo) {
+    error_log("[" . date('Y-m-d H:i:s') . "] خطا در اتصال به دیتابیس: " . $connection_error);
     die("<div style='text-align: center; padding: 50px; font-family: Tahoma;'>
-        <h2>خطا در اتصال به سیستم</h2>
-        <p>لطفاً چند دقیقه دیگر تلاش کنید یا با پشتیبانی تماس بگیرید.</p>
-        <p><small>خطای سیستمی: " . $e->getMessage() . "</small></p>
+        <h2>خطا در اتصال به دیتابیس</h2>
+        <p>لطفاً XAMPP را بررسی کنید و MySQL را Start کنید.</p>
+        <p><small>خطای آخر: " . $connection_error . "</small></p>
+        <p><a href='test_mysql_connection.php' class='btn btn-primary'>تست اتصال MySQL</a></p>
+        <p><a href='setup_database.php' class='btn btn-secondary'>راه‌اندازی دیتابیس</a></p>
         </div>");
 }
 
