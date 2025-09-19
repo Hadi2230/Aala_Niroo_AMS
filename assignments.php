@@ -11,7 +11,7 @@ include 'config.php';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['assign_asset'])) {
     $asset_id = $_POST['asset_id'];
     $customer_id = $_POST['customer_id'];
-    $assignment_date = $_POST['assignment_date'];
+    $assignment_date = jalaliToGregorianForDB($_POST['assignment_date']);
     $notes = $_POST['notes'];
 
     try {
@@ -28,21 +28,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['assign_asset'])) {
         $customer = $stmt->fetch();
         
         // ذخیره اطلاعات کامل انتساب
-        $installation_date = $_POST['installation_date'];
+        $installation_date = jalaliToGregorianForDB($_POST['installation_date']);
         $delivery_person = $_POST['delivery_person'];
         $installation_address = $_POST['installation_address'];
-        $warranty_start_date = $_POST['warranty_start_date'];
+        $warranty_start_date = jalaliToGregorianForDB($_POST['warranty_start_date']);
         $warranty_conditions = $_POST['warranty_conditions'];
         $employer_name = $customer['full_name']; // از اطلاعات مشتری
         $employer_phone = $customer['phone']; // از اطلاعات مشتری
         $recipient_name = $_POST['recipient_name'];
         $recipient_phone = $_POST['recipient_phone'];
         $installer_name = $_POST['installer_name'];
-        $installation_start_date = $_POST['installation_start_date'];
-        $installation_end_date = $_POST['installation_end_date'];
-        $temporary_delivery_date = $_POST['temporary_delivery_date'];
-        $permanent_delivery_date = $_POST['permanent_delivery_date'];
-        $first_service_date = $_POST['first_service_date'];
+        $installation_start_date = jalaliToGregorianForDB($_POST['installation_start_date']);
+        $installation_end_date = jalaliToGregorianForDB($_POST['installation_end_date']);
+        $temporary_delivery_date = jalaliToGregorianForDB($_POST['temporary_delivery_date']);
+        $permanent_delivery_date = jalaliToGregorianForDB($_POST['permanent_delivery_date']);
+        $first_service_date = jalaliToGregorianForDB($_POST['first_service_date']);
         $post_installation_commitments = $_POST['post_installation_commitments'];
         $additional_notes = $_POST['additional_notes'];
         
@@ -115,6 +115,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>انتساب دستگاه به مشتری - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <style>
         .assignment-details { display: none; }
         .image-preview {
@@ -210,7 +211,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="assignment_date" class="form-label">تاریخ انتساب *</label>
-                                <input type="date" class="form-control" id="assignment_date" name="assignment_date" required value="<?php echo date('Y-m-d'); ?>">
+                                <input type="text" class="form-control jalali-date" id="assignment_date" name="assignment_date" required value="<?php echo jalali_format(date('Y-m-d')); ?>" readonly>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -240,7 +241,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_date" class="form-label">تاریخ نصب</label>
-                                    <input type="date" class="form-control" id="installation_date" name="installation_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_date" name="installation_date" readonly>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -281,19 +282,19 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="warranty_start_date" class="form-label">تاریخ آغاز گارانتی</label>
-                                    <input type="date" class="form-control" id="warranty_start_date" name="warranty_start_date">
+                                    <input type="text" class="form-control jalali-date" id="warranty_start_date" name="warranty_start_date" readonly>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_start_date" class="form-label">تاریخ آغاز نصب</label>
-                                    <input type="date" class="form-control" id="installation_start_date" name="installation_start_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_start_date" name="installation_start_date" readonly>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="installation_end_date" class="form-label">تاریخ اتمام نصب</label>
-                                    <input type="date" class="form-control" id="installation_end_date" name="installation_end_date">
+                                    <input type="text" class="form-control jalali-date" id="installation_end_date" name="installation_end_date" readonly>
                                 </div>
                             </div>
                         </div>
@@ -302,19 +303,19 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="temporary_delivery_date" class="form-label">تاریخ تحویل موقت</label>
-                                    <input type="date" class="form-control" id="temporary_delivery_date" name="temporary_delivery_date">
+                                    <input type="text" class="form-control jalali-date" id="temporary_delivery_date" name="temporary_delivery_date" readonly>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="permanent_delivery_date" class="form-label">تاریخ تحویل دائم</label>
-                                    <input type="date" class="form-control" id="permanent_delivery_date" name="permanent_delivery_date">
+                                    <input type="text" class="form-control jalali-date" id="permanent_delivery_date" name="permanent_delivery_date" readonly>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="first_service_date" class="form-label">تاریخ سرویس اولیه</label>
-                                    <input type="date" class="form-control" id="first_service_date" name="first_service_date">
+                                    <input type="text" class="form-control jalali-date" id="first_service_date" name="first_service_date" readonly>
                                 </div>
                             </div>
                         </div>
@@ -383,7 +384,7 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                             <td><?php echo $assignment['id']; ?></td>
                             <td><?php echo $assignment['asset_name']; ?></td>
                             <td><?php echo $assignment['customer_name']; ?></td>
-                            <td><?php echo $assignment['assignment_date']; ?></td>
+                            <td><?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?></td>
                             <td><?php echo $assignment['recipient_name']; ?></td>
                             <td><?php echo substr($assignment['installation_address'], 0, 30); ?>...</td>
                             <td>
@@ -428,17 +429,17 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                         <div class="col-md-6">
                             <p><strong>دستگاه:</strong> <?php echo $assignment['asset_name']; ?></p>
                             <p><strong>مشتری:</strong> <?php echo $assignment['customer_name']; ?></p>
-                            <p><strong>تاریخ انتساب:</strong> <?php echo $assignment['assignment_date']; ?></p>
+                            <p><strong>تاریخ انتساب:</strong> <?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?></p>
                             <p><strong>نام تحویل دهنده:</strong> <?php echo $assignment_details['delivery_person']; ?></p>
                             <p><strong>نام تحویل گیرنده:</strong> <?php echo $assignment_details['recipient_name']; ?></p>
                             <p><strong>تلفن تحویل گیرنده:</strong> <?php echo $assignment_details['recipient_phone']; ?></p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>تاریخ نصب:</strong> <?php echo $assignment_details['installation_date']; ?></p>
-                            <p><strong>تاریخ آغاز گارانتی:</strong> <?php echo $assignment_details['warranty_start_date']; ?></p>
+                            <p><strong>تاریخ نصب:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['installation_date']); ?></p>
+                            <p><strong>تاریخ آغاز گارانتی:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['warranty_start_date']); ?></p>
                             <p><strong>نام نصاب:</strong> <?php echo $assignment_details['installer_name']; ?></p>
-                            <p><strong>تاریخ تحویل موقت:</strong> <?php echo $assignment_details['temporary_delivery_date']; ?></p>
-                            <p><strong>تاریخ تحویل دائم:</strong> <?php echo $assignment_details['permanent_delivery_date']; ?></p>
+                            <p><strong>تاریخ تحویل موقت:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['temporary_delivery_date']); ?></p>
+                            <p><strong>تاریخ تحویل دائم:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['permanent_delivery_date']); ?></p>
                         </div>
                     </div>
                     
@@ -528,5 +529,21 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+    });
+    </script>
 </body>
 </html>

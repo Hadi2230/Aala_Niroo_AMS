@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $asset_id = sanitizeInput($_POST['asset_id']);
                 $assignment_id = sanitizeInput($_POST['assignment_id']);
                 $maintenance_type = sanitizeInput($_POST['maintenance_type']);
-                $schedule_date = sanitizeInput($_POST['schedule_date']);
+                $schedule_date = jalaliToGregorianForDB(sanitizeInput($_POST['schedule_date']));
                 $interval_days = sanitizeInput($_POST['interval_days']);
                 $assigned_to = sanitizeInput($_POST['assigned_to']);
                 $notes = sanitizeInput($_POST['notes']);
@@ -116,6 +116,7 @@ $users = $pdo->query("SELECT id, full_name FROM users WHERE is_active = 1 ORDER 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مدیریت تعمیرات دوره‌ای - شرکت اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
@@ -327,7 +328,7 @@ $users = $pdo->query("SELECT id, full_name FROM users WHERE is_active = 1 ORDER 
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">تاریخ برنامه‌ریزی *</label>
-                            <input type="date" class="form-control" name="schedule_date" required>
+                            <input type="text" class="form-control jalali-date" name="schedule_date" required readonly>
                         </div>
                     </div>
                     
@@ -398,6 +399,22 @@ $users = $pdo->query("SELECT id, full_name FROM users WHERE is_active = 1 ORDER 
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+    });
+    </script>
     <script>
         // تنظیم مقادیر در modal تغییر وضعیت
         document.getElementById('updateStatusModal').addEventListener('show.bs.modal', function (event) {

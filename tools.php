@@ -360,6 +360,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $embed_mode ? 'مدیریت ابزارها' : 'مدیریت ابزارها و تجهیزات نصب'; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
@@ -737,7 +738,7 @@ try {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="purchase_date" class="form-label">تاریخ خرید</label>
-                                <input type="date" class="form-control" id="purchase_date" name="purchase_date">
+                                <input type="text" class="form-control jalali-date" id="purchase_date" name="purchase_date" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="purchase_price" class="form-label">قیمت خرید</label>
@@ -753,11 +754,11 @@ try {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="maintenance_date" class="form-label">تاریخ تعمیر</label>
-                                <input type="date" class="form-control" id="maintenance_date" name="maintenance_date">
+                                <input type="text" class="form-control jalali-date" id="maintenance_date" name="maintenance_date" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="next_maintenance_date" class="form-label">تاریخ تعمیر بعدی</label>
-                                <input type="date" class="form-control" id="next_maintenance_date" name="next_maintenance_date">
+                                <input type="text" class="form-control jalali-date" id="next_maintenance_date" name="next_maintenance_date" readonly>
                             </div>
                             <div class="col-12 mb-3">
                                 <label for="condition_notes" class="form-label">یادداشت‌های وضعیت</label>
@@ -818,7 +819,7 @@ try {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_purchase_date" class="form-label">تاریخ خرید</label>
-                                <input type="date" class="form-control" id="edit_purchase_date" name="purchase_date">
+                                <input type="text" class="form-control jalali-date" id="edit_purchase_date" name="purchase_date" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_purchase_price" class="form-label">قیمت خرید</label>
@@ -834,11 +835,11 @@ try {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_maintenance_date" class="form-label">تاریخ تعمیر</label>
-                                <input type="date" class="form-control" id="edit_maintenance_date" name="maintenance_date">
+                                <input type="text" class="form-control jalali-date" id="edit_maintenance_date" name="maintenance_date" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="edit_next_maintenance_date" class="form-label">تاریخ تعمیر بعدی</label>
-                                <input type="date" class="form-control" id="edit_next_maintenance_date" name="next_maintenance_date">
+                                <input type="text" class="form-control jalali-date" id="edit_next_maintenance_date" name="next_maintenance_date" readonly>
                             </div>
                             <div class="col-12 mb-3">
                                 <label for="edit_condition_notes" class="form-label">یادداشت‌های وضعیت</label>
@@ -891,11 +892,11 @@ try {
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="issue_date" class="form-label">تاریخ تحویل *</label>
-                                <input type="date" class="form-control" id="issue_date" name="issue_date" required>
+                                <input type="text" class="form-control jalali-date" id="issue_date" name="issue_date" required readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="expected_return_date" class="form-label">تاریخ بازگشت مورد انتظار</label>
-                                <input type="date" class="form-control" id="expected_return_date" name="expected_return_date">
+                                <input type="text" class="form-control jalali-date" id="expected_return_date" name="expected_return_date" readonly>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -1005,6 +1006,22 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+    });
+    </script>
     <script>
         // بارگذاری داده‌های ابزارها
         function loadToolsData(type) {

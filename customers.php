@@ -351,7 +351,7 @@ try {
 
         for ($i=0; $i < count($dirs); $i++) {
             $dir = in_array($dirs[$i], ['ارسالی','دریافتی'], true) ? $dirs[$i] : 'دریافتی';
-            $corr_date = !empty($dates[$i]) ? sanitize($dates[$i]) : null;
+            $corr_date = !empty($dates[$i]) ? jalaliToGregorianForDB(sanitize($dates[$i])) : null;
             $subject = sanitize($subjects[$i] ?? '');
             $note = sanitize($notes_arr[$i] ?? '');
 
@@ -450,7 +450,7 @@ try {
         require_csrf($_POST['csrf_token'] ?? '');
         $customer_id = (int)$_POST['customer_id'];
         $direction = in_array($_POST['direction'] ?? '', ['ارسالی','دریافتی'], true) ? $_POST['direction'] : 'دریافتی';
-        $corr_date = sanitize($_POST['corr_date'] ?? '') ?: null;
+        $corr_date = sanitize($_POST['corr_date'] ?? '') ? jalaliToGregorianForDB(sanitize($_POST['corr_date'])) : null;
         $subject = sanitize($_POST['subject'] ?? '');
         $notes_c = sanitize($_POST['notes'] ?? '');
 
@@ -553,6 +553,7 @@ $csrf = generate_csrf();
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>مدیریت مشتریان — سیستم ایمیل، SMS و مکاتبات</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
@@ -766,7 +767,7 @@ if (!$embedded && file_exists('navbar.php')) {
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label">تاریخ</label>
-                                            <input type="date" name="correspondence_date[]" class="form-control">
+                                            <input type="text" name="correspondence_date[]" class="form-control jalali-date" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">موضوع</label>
@@ -896,7 +897,7 @@ if (!$embedded && file_exists('navbar.php')) {
                                                                         <strong><?= h($cc['subject'] ?: 'بدون موضوع') ?></strong>
                                                                     </div>
                                                                     <small class="text-muted">
-                                                                        <?= h($cc['corr_date'] ? date('Y/m/d', strtotime($cc['corr_date'])) : date('Y/m/d', strtotime($cc['created_at']))) ?>
+                                                                        <?= h($cc['corr_date'] ? gregorianToJalaliFromDB($cc['corr_date']) : gregorianToJalaliFromDB($cc['created_at'])) ?>
                                                                     </small>
                                                                 </div>
                                                                 <div class="card-body">
@@ -948,7 +949,7 @@ if (!$embedded && file_exists('navbar.php')) {
                                                     </div>
                                                     <div class="col-md-3">
                                                         <label class="form-label">تاریخ</label>
-                                                        <input type="date" name="corr_date" class="form-control">
+                                                        <input type="text" name="corr_date" class="form-control jalali-date" readonly>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">موضوع</label>
@@ -1094,6 +1095,22 @@ if (!$embedded && file_exists('navbar.php')) {
     <?php endif; endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.jalali-date').persianDatepicker({
+        format: 'YYYY/MM/DD',
+        altField: '.jalali-date-alt',
+        altFormat: 'YYYY/MM/DD',
+        observer: true,
+        timePicker: {
+            enabled: false
+        }
+    });
+});
+</script>
 <script>
 (function(){
     // Toggle customer type sections
