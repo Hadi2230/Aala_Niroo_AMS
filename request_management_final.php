@@ -3,13 +3,26 @@
  * request_management_final.php - مدیریت درخواست‌های کالا/خدمات - نسخه نهایی
  */
 
+// فعال کردن نمایش خطاها برای دیباگ
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
 }
 
-require_once 'config.php';
+try {
+    require_once 'config.php';
+} catch (Exception $e) {
+    die("<div style='text-align: center; padding: 50px; font-family: Tahoma;'>
+        <h2>خطا در بارگذاری سیستم</h2>
+        <p>خطا: " . $e->getMessage() . "</p>
+        <p><a href='test_request_debug.php'>تست سیستم</a></p>
+        </div>");
+}
 
 $page_title = 'مدیریت درخواست‌های کالا/خدمات';
 

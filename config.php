@@ -14,7 +14,7 @@ ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
 $host = 'localhost:3306';
-$dbname = 'aala_niroo';
+$dbname = 'aala_niroo_ams';
 $username = 'root';
 $password = '';
 
