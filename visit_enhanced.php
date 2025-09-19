@@ -115,6 +115,7 @@ $current_tab = $_GET['tab'] ?? 'list';
     <title><?php echo $page_title; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <style>
         .status-badge {
             padding: 5px 12px;
@@ -321,13 +322,13 @@ $current_tab = $_GET['tab'] ?? 'list';
                                     </div>
                                     <div class="col-md-2">
                                         <label for="date_from" class="form-label">از تاریخ</label>
-                                        <input type="date" class="form-control" id="date_from" name="date_from" 
-                                               value="<?php echo $filters['date_from']; ?>">
+                                        <input type="text" class="form-control jalali-date" id="date_from" name="date_from" 
+                                               value="<?php echo $filters['date_from']; ?>" readonly>
                                     </div>
                                     <div class="col-md-2">
                                         <label for="date_to" class="form-label">تا تاریخ</label>
-                                        <input type="date" class="form-control" id="date_to" name="date_to" 
-                                               value="<?php echo $filters['date_to']; ?>">
+                                        <input type="text" class="form-control jalali-date" id="date_to" name="date_to" 
+                                               value="<?php echo $filters['date_to']; ?>" readonly>
                                     </div>
                                     <div class="col-md-2">
                                         <label for="company_name" class="form-label">نام شرکت</label>
@@ -677,7 +678,20 @@ $current_tab = $_GET['tab'] ?? 'list';
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     <script>
+        $(document).ready(function() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
+                }
+            });
+        });
+        
         function showChecklist(visitId) {
             // نمایش چک‌لیست بازدید
             alert('چک‌لیست بازدید ID: ' + visitId + ' - در نسخه‌های آینده اضافه خواهد شد');

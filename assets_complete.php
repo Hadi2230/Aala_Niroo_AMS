@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
-        $purchase_date = sanitizeInput($_POST['purchase_date']);
+        $purchase_date = !empty($_POST['purchase_date']) ? jalaliToGregorianForDB($_POST['purchase_date']) : null;
         $status = sanitizeInput($_POST['status']);
         $brand = sanitizeInput($_POST['brand'] ?? '');
         $model = sanitizeInput($_POST['model'] ?? '');
@@ -58,8 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $radiator_capacity = sanitizeInput($_POST['radiator_capacity'] ?? '');
         $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
         $other_items = sanitizeInput($_POST['other_items'] ?? '');
-        $workshop_entry_date = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        $workshop_exit_date = sanitizeInput($_POST['workshop_exit_date'] ?? '');
+        $workshop_entry_date = !empty($_POST['workshop_entry_date']) ? jalaliToGregorianForDB($_POST['workshop_entry_date']) : null;
+        $workshop_exit_date = !empty($_POST['workshop_exit_date']) ? jalaliToGregorianForDB($_POST['workshop_exit_date']) : null;
         $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
         $engine_manual_link = sanitizeInput($_POST['engine_manual_link'] ?? '');
         $alternator_manual_link = sanitizeInput($_POST['alternator_manual_link'] ?? '');
@@ -216,6 +216,7 @@ $filtered_count = count($assets);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <style>
         .card {
             border: none;
@@ -512,7 +513,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="date" class="form-control" id="gen_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="gen_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -765,13 +766,13 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="workshop_entry_date" class="form-label">تاریخ ورود به کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_entry_date" name="workshop_entry_date">
+                                            <input type="text" class="form-control jalali-date" id="workshop_entry_date" name="workshop_entry_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="workshop_exit_date" class="form-label">تاریخ خروج از کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_exit_date" name="workshop_exit_date">
+                                            <input type="text" class="form-control jalali-date" id="workshop_exit_date" name="workshop_exit_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -850,7 +851,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="date" class="form-control" id="motor_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="motor_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -881,7 +882,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="consumable_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="consumable_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -932,7 +933,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="parts_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="parts_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -1076,7 +1077,7 @@ $filtered_count = count($assets);
                                                 ?>
                                                 <span class="badge bg-<?= $status_class ?> badge-status"><?= $asset['status'] ?></span>
                                             </td>
-                                            <td><?= $asset['purchase_date'] ? jalaliDate($asset['purchase_date']) : '--' ?></td>
+                                            <td><?= $asset['purchase_date'] ? gregorianToJalaliFromDB($asset['purchase_date']) : '--' ?></td>
                                             <td class="action-buttons">
                                                 <a href="asset_details.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="مشاهده جزئیات">
                                                     <i class="fas fa-eye"></i>
@@ -1720,5 +1721,19 @@ $filtered_count = count($assets);
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
+                }
+            });
+        });
+    </script>
 </body>
 </html>
