@@ -170,16 +170,6 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                 <h6 class="lang" data-fa="مدیریت بازدیدها" data-en="Visit Management"></h6>
                 <p class="lang" data-fa="ثبت و مدیریت درخواست‌ها" data-en="Create and manage requests"></p>
               </a>
-              <a href="visit_checkin.php" class="menu-card workflow">
-                <i class="fas fa-qr-code"></i>
-                <h6 class="lang" data-fa="Check-in موبایل" data-en="Mobile Check-in"></h6>
-                <p class="lang" data-fa="ورود و خروج بازدیدکنندگان" data-en="Visitor check-in/out"></p>
-              </a>
-              <a href="factory_cameras.php" class="menu-card workflow">
-                <i class="fas fa-video"></i>
-                <h6 class="lang" data-fa="دوربین‌های کارخانه" data-en="Factory Cameras"></h6>
-                <p class="lang" data-fa="مشاهده زنده دوربین‌های مداربسته" data-en="Live camera monitoring"></p>
-              </a>
               <a href="request_management_final.php" class="menu-card workflow">
                 <i class="fas fa-shopping-cart"></i>
                 <h6 class="lang" data-fa="درخواست کالا/خدمات" data-en="Request Management"></h6>
