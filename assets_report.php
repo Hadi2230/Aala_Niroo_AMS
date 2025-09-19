@@ -27,13 +27,13 @@
             <div class="col-md-3">
                 <div class="mb-3">
                     <label class="form-label">تاریخ خرید از</label>
-                    <input type="date" class="form-control filter-input" name="purchase_date_from">
+                    <input type="text" class="form-control filter-input jalali-date" name="purchase_date_from" readonly>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="mb-3">
                     <label class="form-label">تاریخ خرید تا</label>
-                    <input type="date" class="form-control filter-input" name="purchase_date_to">
+                    <input type="text" class="form-control filter-input jalali-date" name="purchase_date_to" readonly>
                 </div>
             </div>
         </div>

@@ -51,7 +51,7 @@ if ($asset['type_id']) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_asset'])) {
     $type_id = $_POST['type_id'];
     $serial_number = $_POST['serial_number'];
-    $purchase_date = $_POST['purchase_date'];
+    $purchase_date = jalaliToGregorianForDB($_POST['purchase_date']);
     $status = $_POST['status'];
     
     // جمع‌آوری داده‌های داینامیک
@@ -181,6 +181,7 @@ foreach ($types as $type) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ویرایش دستگاه - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <style>
         .image-preview {
             max-width: 200px;
@@ -251,8 +252,8 @@ foreach ($types as $type) {
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="purchase_date" class="form-label">تاریخ خرید *</label>
-                                <input type="date" class="form-control" id="purchase_date" name="purchase_date" 
-                                       value="<?php echo $asset['purchase_date']; ?>" required>
+                                <input type="text" class="form-control jalali-date" id="purchase_date" name="purchase_date" 
+                                       value="<?php echo gregorianToJalaliFromDB($asset['purchase_date']); ?>" required readonly>
                             </div>
                         </div>
                     </div>
@@ -384,5 +385,21 @@ foreach ($types as $type) {
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                altField: '.jalali-date-alt',
+                altFormat: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
+                }
+            });
+        });
+    </script>
 </body>
 </html>
