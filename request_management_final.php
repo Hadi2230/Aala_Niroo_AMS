@@ -79,7 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 // ایجاد گردش کار برای همه درخواست‌ها
                 if (!empty($_POST['assignments'])) {
-                    $assignments = json_decode($_POST['assignments'], true);
+                    // اگر assignments به صورت آرایه ارسال شده باشد
+                    if (is_array($_POST['assignments'])) {
+                        $assignments = $_POST['assignments'];
+                    } else {
+                        // اگر به صورت JSON string ارسال شده باشد
+                        $assignments = json_decode($_POST['assignments'], true);
+                    }
+                    
                     if (is_array($assignments)) {
                         foreach ($request_ids as $request_id) {
                             createRequestWorkflow($pdo, $request_id, $assignments);
@@ -138,6 +145,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 // دریافت لیست کاربران
 $users = getUsersForAssignment($pdo);
+
+// اگر کاربری وجود ندارد، کاربران نمونه ایجاد کن
+if (empty($users)) {
+    try {
+        $sample_users = [
+            ['username' => 'admin', 'password' => 'admin123', 'full_name' => 'مدیر سیستم', 'role' => 'admin'],
+            ['username' => 'user1', 'password' => 'user123', 'full_name' => 'کاربر اول', 'role' => 'user'],
+            ['username' => 'user2', 'password' => 'user123', 'full_name' => 'کاربر دوم', 'role' => 'user'],
+            ['username' => 'manager1', 'password' => 'manager123', 'full_name' => 'مدیر بخش', 'role' => 'manager']
+        ];
+        
+        foreach ($sample_users as $user_data) {
+            $hashed_password = password_hash($user_data['password'], PASSWORD_DEFAULT);
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO users (username, password, full_name, role, is_active) 
+                VALUES (?, ?, ?, ?, 1)
+                ON DUPLICATE KEY UPDATE 
+                password = VALUES(password),
+                full_name = VALUES(full_name),
+                role = VALUES(role),
+                is_active = 1
+            ");
+            
+            $stmt->execute([
+                $user_data['username'],
+                $hashed_password,
+                $user_data['full_name'],
+                $user_data['role']
+            ]);
+        }
+        
+        // دریافت مجدد کاربران
+        $users = getUsersForAssignment($pdo);
+    } catch (Exception $e) {
+        error_log("Error creating sample users: " . $e->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
