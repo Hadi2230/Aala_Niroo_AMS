@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-require_once 'config_complete.php';
+require_once 'config.php';
 
 $page_title = 'مدیریت درخواست‌های کالا/خدمات';
 
