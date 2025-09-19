@@ -25,28 +25,39 @@ if (!$pdo) {
         
         if (!empty($username) && !empty($password)) {
             try {
-                $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? AND is_active = 1");
+                // دیباگ: نمایش اطلاعات کاربر
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
                 $stmt->execute([$username]);
                 $user = $stmt->fetch();
                 
-                if ($user && password_verify($password, $user['password'])) {
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
-                    $_SESSION['full_name'] = $user['full_name'];
-                    $_SESSION['role'] = $user['role'];
-                    
-                    // ثبت لاگ ورود
-                    if (function_exists('logAction')) {
-                        logAction($pdo, 'LOGIN_SUCCESS', "ورود موفق کاربر: $username", 'info', 'auth');
+                if ($user) {
+                    // دیباگ: بررسی وضعیت کاربر
+                    if (!$user['is_active']) {
+                        $error = 'حساب کاربری شما غیرفعال است';
+                    } else {
+                        // دیباگ: بررسی رمز عبور
+                        if (password_verify($password, $user['password'])) {
+                            $_SESSION['user_id'] = $user['id'];
+                            $_SESSION['username'] = $user['username'];
+                            $_SESSION['full_name'] = $user['full_name'];
+                            $_SESSION['role'] = $user['role'];
+                            
+                            // ثبت لاگ ورود
+                            if (function_exists('logAction')) {
+                                logAction($pdo, 'LOGIN_SUCCESS', "ورود موفق کاربر: $username", 'info', 'auth');
+                            }
+                            
+                            header("Location: dashboard.php");
+                            exit();
+                        } else {
+                            $error = 'رمز عبور اشتباه است';
+                        }
                     }
-                    
-                    header("Location: dashboard.php");
-                    exit();
                 } else {
-                    $error = 'نام کاربری یا رمز عبور اشتباه است';
+                    $error = 'نام کاربری یافت نشد';
                 }
             } catch (Exception $e) {
-                $error = 'خطا در سیستم. لطفاً دوباره تلاش کنید';
+                $error = 'خطا در سیستم: ' . $e->getMessage();
                 error_log("Login error: " . $e->getMessage());
             }
         } else {
