@@ -7,6 +7,9 @@ if (!hasPermission('visit_management')) {
 
 $page_title = 'مدیریت بازدید کارخانه';
 
+// ثبت لاگ مشاهده صفحه
+logAction($pdo, 'VIEW_VISIT_MANAGEMENT', 'مشاهده صفحه مدیریت بازدید کارخانه');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_visit') {
     try {
         $visit_data = [
@@ -27,9 +30,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $visit_id = createVisitRequest($pdo, $visit_data);
         $_SESSION['success_message'] = 'درخواست بازدید با موفقیت ثبت شد';
+        
+        // ثبت لاگ موفقیت
+        logAction($pdo, 'ADD_VISIT_REQUEST', "افزودن درخواست بازدید جدید: {$visit_data['company_name']} (ID: $visit_id)", 'info', 'VISITS', [
+            'visit_id' => $visit_id,
+            'company_name' => $visit_data['company_name'],
+            'contact_person' => $visit_data['contact_person']
+        ]);
+        
         redirect('visit_management.php');
     } catch (Exception $e) {
         $_SESSION['error_message'] = 'خطا: ' . $e->getMessage();
+        
+        // ثبت لاگ خطا
+        logAction($pdo, 'ADD_VISIT_REQUEST_ERROR', "خطا در افزودن درخواست بازدید: " . $e->getMessage(), 'error', 'VISITS', [
+            'company_name' => $visit_data['company_name'] ?? '',
+            'error' => $e->getMessage()
+        ]);
     }
 }
 

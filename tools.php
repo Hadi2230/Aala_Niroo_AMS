@@ -5,6 +5,11 @@ require_once 'config.php';
 // بررسی embed mode
 $embed_mode = isset($_GET['embed']) && $_GET['embed'] == '1';
 
+// ثبت لاگ مشاهده صفحه
+if (!$embed_mode) {
+    logAction($pdo, 'VIEW_TOOLS', 'مشاهده صفحه مدیریت ابزارها');
+}
+
 // بررسی دسترسی
 if (!isset($_SESSION['user_id'])) {
     if ($embed_mode) {

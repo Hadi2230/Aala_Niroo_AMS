@@ -7,6 +7,9 @@ if (!isset($_SESSION['user_id'])) {
 
 include 'config.php';
 
+// ثبت لاگ مشاهده صفحه
+logAction($pdo, 'VIEW_ASSIGNMENTS', 'مشاهده صفحه انتساب دستگاه‌ها');
+
 // انتساب دستگاه به مشتری
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['assign_asset'])) {
     $asset_id = $_POST['asset_id'];
@@ -85,9 +88,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['assign_asset'])) {
         
         $pdo->commit();
         $success = "دستگاه با موفقیت به مشتری منتسب شد و اطلاعات نصب ثبت گردید!";
+        
+        // ثبت لاگ موفقیت
+        logAction($pdo, 'ADD_ASSIGNMENT', "افزودن انتساب جدید: دستگاه ID $asset_id به مشتری ID $customer_id", 'info', 'ASSIGNMENTS', [
+            'asset_id' => $asset_id,
+            'customer_id' => $customer_id,
+            'assignment_id' => $assignment_id
+        ]);
     } catch (Exception $e) {
         $pdo->rollBack();
         $error = "خطا در انتساب دستگاه: " . $e->getMessage();
+        
+        // ثبت لاگ خطا
+        logAction($pdo, 'ADD_ASSIGNMENT_ERROR', "خطا در افزودن انتساب: " . $e->getMessage(), 'error', 'ASSIGNMENTS', [
+            'asset_id' => $asset_id,
+            'customer_id' => $customer_id,
+            'error' => $e->getMessage()
+        ]);
     }
 }
 

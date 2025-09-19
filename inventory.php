@@ -7,6 +7,9 @@ if (!isset($_SESSION['user_id'])) {
 
 include 'config.php';
 
+// ثبت لاگ مشاهده صفحه
+logAction($pdo, 'VIEW_INVENTORY', 'مشاهده صفحه مدیریت انبار');
+
 // بررسی دسترسی
 if (!hasPermission('inventory.view')) {
     header('Location: dashboard.php');
@@ -65,11 +68,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $pdo->commit();
             $alerts[] = ['type' => 'success', 'text' => 'آیتم با موفقیت ایجاد شد.'];
+            
+            // ثبت لاگ موفقیت
+            logAction($pdo, 'ADD_INVENTORY_ITEM', "افزودن آیتم جدید به انبار: $name (ID: $asset_id)", 'info', 'INVENTORY', [
+                'asset_id' => $asset_id,
+                'name' => $name,
+                'type_id' => $type_id,
+                'initial_qty' => $initial_qty
+            ]);
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             $alerts[] = ['type' => 'danger', 'text' => 'خطا در ایجاد آیتم: ' . $e->getMessage()];
+            
+            // ثبت لاگ خطا
+            logAction($pdo, 'ADD_INVENTORY_ITEM_ERROR', "خطا در افزودن آیتم به انبار: " . $e->getMessage(), 'error', 'INVENTORY', [
+                'name' => $name ?? '',
+                'error' => $e->getMessage()
+            ]);
         }
     }
     
@@ -83,8 +100,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->execute([$asset_id, $delta, $reason, $_SESSION['user_id']]);
 
             $alerts[] = ['type' => 'success', 'text' => 'ثبت موجودی انجام شد.'];
+            
+            // ثبت لاگ موفقیت
+            logAction($pdo, 'INVENTORY_MOVEMENT', "تغییر موجودی: $reason (تغییر: $delta)", 'info', 'INVENTORY', [
+                'asset_id' => $asset_id,
+                'delta' => $delta,
+                'reason' => $reason
+            ]);
         } catch (Exception $e) {
             $alerts[] = ['type' => 'danger', 'text' => 'خطا در ثبت موجودی: ' . $e->getMessage()];
+            
+            // ثبت لاگ خطا
+            logAction($pdo, 'INVENTORY_MOVEMENT_ERROR', "خطا در تغییر موجودی: " . $e->getMessage(), 'error', 'INVENTORY', [
+                'asset_id' => $asset_id,
+                'delta' => $delta,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }
