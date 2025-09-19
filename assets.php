@@ -31,14 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         error_log("Name: $name, Type ID: $type_id, Serial: $serial_number");
         $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
 
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $purchase_date_input)) {
-            // اگر کاربر تاریخ جلالی فرستاده بود، آن را به میلادی تبدیل کن
-            list($jy, $jm, $jd) = explode('/', $purchase_date_input);
-            $g = jalali_to_gregorian((int)$jy, (int)$jm, (int)$jd);
-            $purchase_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        if (!empty($purchase_date_input)) {
+            // تبدیل تاریخ شمسی به میلادی برای ذخیره در دیتابیس
+            $purchase_date = jalaliToGregorianForDB($purchase_date_input);
         } else {
-            // فرض کن یا میلادی است یا رشته خالی
-            $purchase_date = $purchase_date_input;
+            $purchase_date = null;
         }
 
         $status = sanitizeInput($_POST['status']);
@@ -82,21 +79,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
         $other_items = sanitizeInput($_POST['other_items'] ?? '');
         $workshop_entry_date_input = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_entry_date_input)) {
-            list($jy,$jm,$jd) = explode('/', $workshop_entry_date_input);
-            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
-            $workshop_entry_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        if (!empty($workshop_entry_date_input)) {
+            $workshop_entry_date = jalaliToGregorianForDB($workshop_entry_date_input);
         } else {
-            $workshop_entry_date = $workshop_entry_date_input;
+            $workshop_entry_date = null;
         }
 
         $workshop_exit_date_input = sanitizeInput($_POST['workshop_exit_date'] ?? '');
-        if (preg_match('/^\d{4}\/\d{1,2}\/\d{1,2}$/', $workshop_exit_date_input)) {
-            list($jy,$jm,$jd) = explode('/', $workshop_exit_date_input);
-            $g = jalali_to_gregorian((int)$jy,(int)$jm,(int)$jd);
-            $workshop_exit_date = sprintf('%04d-%02d-%02d', $g[0], $g[1], $g[2]);
+        if (!empty($workshop_exit_date_input)) {
+            $workshop_exit_date = jalaliToGregorianForDB($workshop_exit_date_input);
         } else {
-            $workshop_exit_date = $workshop_exit_date_input;
+            $workshop_exit_date = null;
         }
 
         $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
@@ -1224,7 +1217,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="text" class="form-control persian-date" id="gen_purchase_date" name="purchase_date" autocomplete="off">
+                                            <input type="text" class="form-control jalali-date" id="gen_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                 </div>
