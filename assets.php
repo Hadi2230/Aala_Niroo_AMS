@@ -254,12 +254,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_tool'])) {
             sanitizeInput($_POST['tool_brand'] ?? ''),
             sanitizeInput($_POST['tool_model'] ?? ''),
             sanitizeInput($_POST['tool_serial'] ?? ''),
-            $_POST['tool_purchase_date'] ?: null,
+            jalaliToGregorianForDB($_POST['tool_purchase_date']),
             $_POST['tool_price'] ?: null,
             sanitizeInput($_POST['tool_supplier'] ?? ''),
             sanitizeInput($_POST['tool_location'] ?? ''),
             sanitizeInput($_POST['tool_notes'] ?? ''),
-            $_POST['tool_next_maintenance'] ?: null
+            jalaliToGregorianForDB($_POST['tool_next_maintenance'])
         ]);
         
         $pdo->commit();
@@ -283,8 +283,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['issue_tool'])) {
         
         $tool_id = (int)$_POST['tool_id'];
         $issued_to = sanitizeInput($_POST['issued_to']);
-        $issue_date = $_POST['issue_date'];
-        $expected_return_date = $_POST['expected_return_date'] ?: null;
+        $issue_date = jalaliToGregorianForDB($_POST['issue_date']);
+        $expected_return_date = jalaliToGregorianForDB($_POST['expected_return_date']);
         $purpose = sanitizeInput($_POST['purpose'] ?? '');
         $condition_before = sanitizeInput($_POST['condition_before'] ?? '');
         $notes = sanitizeInput($_POST['notes'] ?? '');
@@ -584,6 +584,7 @@ $filtered_count = count($assets);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مدیریت دارایی‌ها - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
     <style>
@@ -1545,13 +1546,13 @@ $filtered_count = count($assets);
                                     <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ورود به کارگاه</label>
-                                            <input type="date" class="form-control" id="gen_workshop_entry_date" name="workshop_entry_date">
+                                            <input type="text" class="form-control jalali-date" id="gen_workshop_entry_date" name="workshop_entry_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خروج از کارگاه</label>
-                                            <input type="date" class="form-control" id="gen_workshop_exit_date" name="workshop_exit_date">
+                                            <input type="text" class="form-control jalali-date" id="gen_workshop_exit_date" name="workshop_exit_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -1609,7 +1610,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="date" class="form-control" id="motor_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="motor_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1640,7 +1641,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="consumable_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="consumable_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1703,7 +1704,7 @@ $filtered_count = count($assets);
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="parts_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="parts_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -3026,7 +3027,7 @@ function remindReturn(issueId) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">تاریخ خرید</label>
-                            <input type="date" class="form-control" name="tool_purchase_date">
+                            <input type="text" class="form-control jalali-date" name="tool_purchase_date" readonly>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">قیمت خرید (ریال)</label>
@@ -3042,7 +3043,7 @@ function remindReturn(issueId) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">تاریخ تعمیر بعدی</label>
-                            <input type="date" class="form-control" name="tool_next_maintenance">
+                            <input type="text" class="form-control jalali-date" name="tool_next_maintenance" readonly>
                         </div>
                         <div class="col-12">
                             <label class="form-label">یادداشت‌ها</label>
@@ -3087,11 +3088,11 @@ function remindReturn(issueId) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">تاریخ تحویل *</label>
-                            <input type="date" class="form-control" name="issue_date" value="<?php echo date('Y-m-d'); ?>" required>
+                            <input type="text" class="form-control jalali-date" name="issue_date" value="<?php echo jalali_format(date('Y-m-d')); ?>" required readonly>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">تاریخ برگشت مورد انتظار</label>
-                            <input type="date" class="form-control" name="expected_return_date">
+                            <input type="text" class="form-control jalali-date" name="expected_return_date" readonly>
                         </div>
                         <div class="col-12">
                             <label class="form-label">هدف استفاده</label>
@@ -3119,5 +3120,21 @@ function remindReturn(issueId) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.jalali-date').persianDatepicker({
+        format: 'YYYY/MM/DD',
+        altField: '.jalali-date-alt',
+        altFormat: 'YYYY/MM/DD',
+        observer: true,
+        timePicker: {
+            enabled: false
+        }
+    });
+});
+</script>
 </body>
 </html>

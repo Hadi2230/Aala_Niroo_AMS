@@ -1136,6 +1136,60 @@ function jalali_format($datetime, $format = 'Y/m/d H:i', $use_fa_digits = true) 
     return $result;
 }
 
+// تابع تبدیل تاریخ شمسی به میلادی
+function jalali_to_gregorian($jy, $jm, $jd) {
+    $jy += 1595;
+    $days = -355668 + (365 * $jy) + ((int)($jy / 33)) * 8 + ((int)(((($jy % 33) + 3) / 4))) + $jd + (($jm < 7) ? ($jm - 1) * 31 : (($jm - 7) * 30) + 186);
+    $gy = 400 * ((int)($days / 146097));
+    $days %= 146097;
+    if ($days > 36524) {
+        $gy += 100 * ((int)(--$days / 36524));
+        $days %= 36524;
+        if ($days >= 365) $days++;
+    }
+    $gy += 4 * ((int)($days / 1461));
+    $days %= 1461;
+    if ($days > 365) {
+        $gy += ((int)(($days - 1) / 365));
+        $days = ($days - 1) % 365;
+    }
+    $gd = $days + 1;
+    $sal_a = [0, 31, (($gy % 4 == 0 and $gy % 100 != 0) or ($gy % 400 == 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for ($gm = 0; $gm < 13 and $gd > $sal_a[$gm]; $gm++) $gd -= $sal_a[$gm];
+    return [$gy, $gm, $gd];
+}
+
+// تابع تبدیل تاریخ شمسی به فرمت میلادی برای دیتابیس
+function jalaliToGregorianForDB($jalali_date) {
+    if (empty($jalali_date)) return null;
+    
+    // تبدیل فرمت تاریخ شمسی به آرایه
+    $parts = explode('/', $jalali_date);
+    if (count($parts) != 3) return null;
+    
+    $jy = (int)$parts[0];
+    $jm = (int)$parts[1];
+    $jd = (int)$parts[2];
+    
+    $gregorian = jalali_to_gregorian($jy, $jm, $jd);
+    return sprintf('%04d-%02d-%02d', $gregorian[0], $gregorian[1], $gregorian[2]);
+}
+
+// تابع تبدیل تاریخ میلادی دیتابیس به شمسی
+function gregorianToJalaliFromDB($gregorian_date) {
+    if (empty($gregorian_date)) return '--';
+    
+    $parts = explode('-', $gregorian_date);
+    if (count($parts) != 3) return '--';
+    
+    $gy = (int)$parts[0];
+    $gm = (int)$parts[1];
+    $gd = (int)$parts[2];
+    
+    $jalali = gregorian_to_jalali($gy, $gm, $gd);
+    return sprintf('%04d/%02d/%02d', $jalali[0], $jalali[1], $jalali[2]);
+}
+
 // بررسی دسترسی کاربر
 function hasPermission($permission) {
     if (!isset($_SESSION['user_id'])) return false;
