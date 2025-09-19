@@ -19,56 +19,56 @@ $db_configs = [
         'port' => '3306',
         'username' => 'root',
         'password' => '',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => 'localhost',
         'port' => '3306',
         'username' => 'root',
         'password' => 'root',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => 'localhost',
         'port' => '3306',
         'username' => 'root',
         'password' => 'password',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => 'localhost',
         'port' => '3306',
         'username' => 'root',
         'password' => 'admin',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => '127.0.0.1',
         'port' => '3306',
         'username' => 'root',
         'password' => '',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => '127.0.0.1',
         'port' => '3306',
         'username' => 'root',
         'password' => 'root',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => 'localhost',
         'port' => '3307',
         'username' => 'root',
         'password' => '',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ],
     [
         'host' => 'localhost',
         'port' => '3307',
         'username' => 'root',
         'password' => 'root',
-        'dbname' => 'aala_niroo_ams'
+        'dbname' => 'aala_niroo_ams_final'
     ]
 ];
 
