@@ -979,20 +979,60 @@ function jsonResponse($data, $status = 200) {
 }
 
 // ثبت لاگ سیستم
-function logAction($pdo, $action, $description = '') {
-    $user_id = $_SESSION['user_id'] ?? null;
-    $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    
-    $stmt = $pdo->prepare("INSERT INTO system_logs (user_id, action, description, ip_address, user_agent) 
-                          VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$user_id, $action, $description, $ip_address, $user_agent]);
+function logAction($pdo, $action, $description = '', $severity = 'info', $module = null, $request_data = null, $response_data = null) {
+    try {
+        $user_id = $_SESSION['user_id'] ?? null;
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $session_id = session_id();
+        $request_method = $_SERVER['REQUEST_METHOD'] ?? '';
+        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+        $referer = $_SERVER['HTTP_REFERER'] ?? null;
+        
+        // اطلاعات فایل و خط
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+        $file_path = $backtrace[1]['file'] ?? null;
+        $line_number = $backtrace[1]['line'] ?? null;
+        
+        // Stack trace برای خطاها
+        $stack_trace = null;
+        if ($severity === 'error' || $severity === 'critical') {
+            $stack_trace = json_encode($backtrace, JSON_UNESCAPED_UNICODE);
+        }
+        
+        // زمان اجرا و حافظه
+        $execution_time = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $memory_usage = memory_get_usage(true);
+        
+        $stmt = $pdo->prepare("INSERT INTO system_logs 
+            (user_id, action, description, ip_address, user_agent, session_id, 
+             request_method, request_uri, referer, file_path, line_number, 
+             stack_trace, execution_time, memory_usage, severity, module, 
+             request_data, response_data) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $user_id, $action, $description, $ip_address, $user_agent, $session_id,
+            $request_method, $request_uri, $referer, $file_path, $line_number,
+            $stack_trace, $execution_time, $memory_usage, $severity, $module,
+            $request_data ? json_encode($request_data, JSON_UNESCAPED_UNICODE) : null,
+            $response_data ? json_encode($response_data, JSON_UNESCAPED_UNICODE) : null
+        ]);
+    } catch (Exception $e) {
+        // اگر لاگ‌گیری خودش خطا داشته باشد، آن را در فایل لاگ بنویسیم
+        error_log("خطا در logAction: " . $e->getMessage());
+    }
 }
 
 // نام مستعار برای logAction
 function log_action($action, $description = '') {
     global $pdo;
     logAction($pdo, $action, $description);
+}
+
+// Include auto logger
+if (file_exists(__DIR__ . '/auto_logger.php')) {
+    require_once __DIR__ . '/auto_logger.php';
 }
 
 // آپلود فایل با اعتبارسنجی

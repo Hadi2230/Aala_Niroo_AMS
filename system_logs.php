@@ -22,7 +22,7 @@ if (empty($_SESSION['user_id']) || !$is_admin) {
     exit();
 }
 
-// ایجاد جدول system_logs اگر وجود ندارد
+// ایجاد جدول system_logs پیشرفته اگر وجود ندارد
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS system_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,12 +35,23 @@ try {
         response_data JSON NULL,
         severity ENUM('info','warning','error','critical') DEFAULT 'info',
         module VARCHAR(50) NULL,
+        session_id VARCHAR(128) NULL,
+        request_method VARCHAR(10) NULL,
+        request_uri TEXT NULL,
+        referer TEXT NULL,
+        file_path VARCHAR(255) NULL,
+        line_number INT NULL,
+        stack_trace TEXT NULL,
+        execution_time DECIMAL(10,4) NULL,
+        memory_usage BIGINT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_user_id (user_id),
         INDEX idx_action (action),
         INDEX idx_severity (severity),
         INDEX idx_module (module),
-        INDEX idx_created_at (created_at)
+        INDEX idx_created_at (created_at),
+        INDEX idx_session_id (session_id),
+        INDEX idx_ip_address (ip_address)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Exception $e) {
     // جدول ممکن است قبلاً وجود داشته باشد
@@ -55,8 +66,11 @@ $date_from     = isset($_GET['date_from']) ? trim((string)$_GET['date_from']) : 
 $date_to       = isset($_GET['date_to']) ? trim((string)$_GET['date_to']) : '';
 $search        = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
 
-// کوئری لاگ‌ها
-$query  = "SELECT sl.*, u.username, u.full_name FROM system_logs sl LEFT JOIN users u ON sl.user_id = u.id WHERE 1=1";
+// کوئری لاگ‌ها با جزئیات کامل
+$query  = "SELECT sl.*, u.username, u.full_name, u.role 
+           FROM system_logs sl 
+           LEFT JOIN users u ON sl.user_id = u.id 
+           WHERE 1=1";
 $params = [];
 
 if ($user_filter !== '')  { 
@@ -590,6 +604,8 @@ if (isset($_POST['cleanup_logs'])) {
                                                 <th>ماژول</th>
                                                 <th>توضیحات</th>
                                                 <th>IP</th>
+                                                <th>زمان اجرا</th>
+                                                <th>حافظه</th>
                                                 <th>زمان</th>
                                                 <th>عملیات</th>
                                             </tr>
@@ -642,6 +658,20 @@ if (isset($_POST['cleanup_logs'])) {
                                                     </td>
                                                     <td>
                                                         <code><?php echo htmlspecialchars($row['ip_address'] ?? '-', ENT_QUOTES, 'UTF-8'); ?></code>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($row['execution_time']): ?>
+                                                            <span class="badge bg-info"><?php echo number_format($row['execution_time'], 4); ?>s</span>
+                                                        <?php else: ?>
+                                                            <span class="text-muted">-</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($row['memory_usage']): ?>
+                                                            <span class="badge bg-secondary"><?php echo formatBytes($row['memory_usage']); ?></span>
+                                                        <?php else: ?>
+                                                            <span class="text-muted">-</span>
+                                                        <?php endif; ?>
                                                     </td>
                                                     <td>
                                                         <div><?php echo jalali_format($row['created_at'] ?? '-'); ?></div>
@@ -718,7 +748,6 @@ if (isset($_POST['cleanup_logs'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function showLogDetails(logId) {
-            // اینجا می‌توانید AJAX call برای دریافت جزئیات لاگ اضافه کنید
             document.getElementById('logDetailsContent').innerHTML = `
                 <div class="text-center">
                     <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
@@ -729,22 +758,121 @@ if (isset($_POST['cleanup_logs'])) {
             const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
             modal.show();
             
-            // شبیه‌سازی بارگذاری جزئیات
-            setTimeout(() => {
-                document.getElementById('logDetailsContent').innerHTML = `
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        جزئیات کامل لاگ با شناسه ${logId} در اینجا نمایش داده می‌شود.
+            // دریافت جزئیات لاگ از سرور
+            fetch(`get_log_details.php?id=${logId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayLogDetails(data.log);
+                    } else {
+                        document.getElementById('logDetailsContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                خطا در بارگذاری جزئیات: ${data.message}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('logDetailsContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            خطا در ارتباط با سرور: ${error.message}
+                        </div>
+                    `;
+                });
+        }
+        
+        function displayLogDetails(log) {
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-user me-2"></i>اطلاعات کاربر</h6>
+                        <p><strong>نام:</strong> ${log.full_name || log.username || 'سیستم'}</p>
+                        <p><strong>نقش:</strong> ${log.role || 'نامشخص'}</p>
+                        <p><strong>شناسه:</strong> ${log.user_id || 'نامشخص'}</p>
                     </div>
-                    <p>این بخش می‌تواند شامل اطلاعات اضافی مانند:</p>
-                    <ul>
-                        <li>داده‌های درخواست (Request Data)</li>
-                        <li>داده‌های پاسخ (Response Data)</li>
-                        <li>جزئیات خطا (Error Details)</li>
-                        <li>اطلاعات مرورگر (Browser Info)</li>
-                    </ul>
-                `;
-            }, 1000);
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-info-circle me-2"></i>اطلاعات عملیات</h6>
+                        <p><strong>عملیات:</strong> ${log.action}</p>
+                        <p><strong>سطح:</strong> <span class="badge severity-${log.severity}">${getSeverityLabel(log.severity)}</span></p>
+                        <p><strong>ماژول:</strong> ${log.module || 'نامشخص'}</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-globe me-2"></i>اطلاعات شبکه</h6>
+                        <p><strong>IP:</strong> <code>${log.ip_address || 'نامشخص'}</code></p>
+                        <p><strong>مرورگر:</strong> ${log.user_agent || 'نامشخص'}</p>
+                        <p><strong>Session ID:</strong> <code>${log.session_id || 'نامشخص'}</code></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-clock me-2"></i>اطلاعات زمان</h6>
+                        <p><strong>زمان ایجاد:</strong> ${log.created_at}</p>
+                        <p><strong>زمان اجرا:</strong> ${log.execution_time ? log.execution_time + 's' : 'نامشخص'}</p>
+                        <p><strong>حافظه:</strong> ${log.memory_usage ? formatBytes(log.memory_usage) : 'نامشخص'}</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-file-alt me-2"></i>توضیحات</h6>
+                        <div class="alert alert-light">${log.description || 'بدون توضیحات'}</div>
+                    </div>
+                </div>
+                
+                ${log.request_data ? `
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-arrow-right me-2"></i>داده‌های درخواست</h6>
+                        <pre class="bg-light p-3 rounded"><code>${JSON.stringify(JSON.parse(log.request_data), null, 2)}</code></pre>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${log.response_data ? `
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-arrow-left me-2"></i>داده‌های پاسخ</h6>
+                        <pre class="bg-light p-3 rounded"><code>${JSON.stringify(JSON.parse(log.response_data), null, 2)}</code></pre>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${log.stack_trace ? `
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-bug me-2"></i>Stack Trace</h6>
+                        <pre class="bg-danger text-white p-3 rounded"><code>${log.stack_trace}</code></pre>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+            
+            document.getElementById('logDetailsContent').innerHTML = content;
+        }
+        
+        function getSeverityLabel(severity) {
+            const labels = {
+                'info': 'اطلاعات',
+                'warning': 'هشدار',
+                'error': 'خطا',
+                'critical': 'بحرانی'
+            };
+            return labels[severity] || 'نامشخص';
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
         // Auto-hide alerts
