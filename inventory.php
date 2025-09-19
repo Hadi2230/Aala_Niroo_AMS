@@ -132,6 +132,7 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     <style>
         body { font-family: Vazirmatn, sans-serif; background-color: #f8f9fa; padding-top: 80px; }
         .dark-mode { background-color: #1a1a1a !important; color: #ffffff !important; }
@@ -298,7 +299,20 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     <script>
+        $(document).ready(function() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
+                }
+            });
+        });
+        
         // Auto-hide alerts
         setTimeout(function() {
             const alerts = document.querySelectorAll('.alert');
