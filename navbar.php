@@ -333,7 +333,15 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const clock = document.getElementById('liveClock');
-  if(clock){ const update = ()=> clock.textContent = new Date().toLocaleTimeString('fa-IR',{hour12:false}); update(); setInterval(update,1000); }
+  if(clock){ 
+    const update = ()=> {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('fa-IR',{hour12:false});
+      clock.textContent = timeString;
+    }; 
+    update(); 
+    setInterval(update,1000); 
+  }
 
   const themeBtn = document.getElementById('themeSwitcher');
   const themeIcon = themeBtn && themeBtn.querySelector('i');

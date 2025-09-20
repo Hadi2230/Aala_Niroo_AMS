@@ -1,6 +1,7 @@
 <?php
 /**
- * config_simple.php - نسخه ساده config.php برای تست
+ * config.php - نسخه کامل و حرفه‌ای سیستم مدیریت دارایی‌ها
+ * اعلا نیرو - سیستم مدیریت دارایی‌ها و انتساب دستگاه‌ها
  */
 
 // شروع session اگر شروع نشده
@@ -10,14 +11,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // تنظیمات امنیتی
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
-
-// ایجاد پوشه logs اگر وجود ندارد
-if (!is_dir(__DIR__ . '/logs')) {
-    mkdir(__DIR__ . '/logs', 0755, true);
-}
 
 // تنظیمات دیتابیس
 $host = 'localhost:3306';
@@ -59,6 +55,11 @@ if (!isset($_SESSION['tables_created'])) {
  * ایجاد جداول دیتابیس
  */
 function createDatabaseTables($pdo) {
+    // ایجاد پوشه logs اگر وجود ندارد
+    if (!is_dir(__DIR__ . '/logs')) {
+        mkdir(__DIR__ . '/logs', 0755, true);
+    }
+    
     // ایجاد پوشه uploads اگر وجود ندارد
     if (!is_dir(__DIR__ . '/uploads')) {
         mkdir(__DIR__ . '/uploads', 0755, true);
@@ -312,6 +313,98 @@ function createDatabaseTables($pdo) {
             INDEX idx_request_id (request_id),
             INDEX idx_user_id (user_id),
             INDEX idx_is_read (is_read)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تیکت‌های مشتری
+        "CREATE TABLE IF NOT EXISTS tickets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ticket_number VARCHAR(20) UNIQUE NOT NULL,
+            customer_id INT NOT NULL,
+            asset_id INT,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            status ENUM('جدید', 'در انتظار', 'در حال بررسی', 'در انتظار قطعه', 'تکمیل شده', 'لغو شده') DEFAULT 'جدید',
+            assigned_to INT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP NULL,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_customer_id (customer_id),
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_assigned_to (assigned_to),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول برنامه تعمیرات دوره‌ای
+        "CREATE TABLE IF NOT EXISTS maintenance_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            asset_id INT NOT NULL,
+            assignment_id INT,
+            maintenance_type ENUM('تعمیر دوره‌ای', 'سرویس', 'بازرسی', 'کالیبراسیون') DEFAULT 'تعمیر دوره‌ای',
+            schedule_date DATE NOT NULL,
+            interval_days INT DEFAULT 90,
+            status ENUM('برنامه‌ریزی شده', 'در انتظار', 'در حال انجام', 'تکمیل شده', 'لغو شده') DEFAULT 'برنامه‌ریزی شده',
+            assigned_to INT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP NULL,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE SET NULL,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_schedule_date (schedule_date),
+            INDEX idx_status (status),
+            INDEX idx_assigned_to (assigned_to)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول اعلان‌ها
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(255) NOT NULL,
+            message TEXT NOT NULL,
+            type ENUM('تیکت', 'تعمیرات', 'سیستم', 'پیام') DEFAULT 'سیستم',
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            is_read BOOLEAN DEFAULT false,
+            related_id INT,
+            related_type VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_user_id (user_id),
+            INDEX idx_is_read (is_read),
+            INDEX idx_type (type),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول پیام‌های داخلی
+        "CREATE TABLE IF NOT EXISTS messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            sender_id INT NOT NULL,
+            receiver_id INT NOT NULL,
+            subject VARCHAR(255),
+            message TEXT NOT NULL,
+            is_read BOOLEAN DEFAULT false,
+            related_ticket_id INT,
+            related_maintenance_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP NULL,
+            FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL,
+            INDEX idx_sender_id (sender_id),
+            INDEX idx_receiver_id (receiver_id),
+            INDEX idx_is_read (is_read),
+            INDEX idx_created_at (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
@@ -403,68 +496,78 @@ function createRequest($pdo, $data) {
  * آپلود فایل درخواست
  */
 function uploadRequestFile($pdo, $request_id, $file, $upload_dir = 'uploads/requests/') {
-    try {
-        // ایجاد پوشه آپلود اگر وجود ندارد
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
-        }
-        
-        $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $file_name = uniqid() . '.' . $file_extension;
-        $file_path = $upload_dir . $file_name;
-        
-        if (move_uploaded_file($file['tmp_name'], $file_path)) {
-            $stmt = $pdo->prepare("
-                INSERT INTO request_files (request_id, file_name, file_path, file_type, file_size) 
-                VALUES (?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $request_id,
-                $file['name'],
-                $file_path,
-                $file['type'],
-                $file['size']
-            ]);
-            
-            return true;
-        }
-        
-        return false;
-    } catch (Exception $e) {
-        error_log("Error uploading file: " . $e->getMessage());
-        return false;
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception('خطا در آپلود فایل');
     }
+    
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'];
+    
+    if (!in_array($file_ext, $allowed_types)) {
+        throw new Exception('نوع فایل مجاز نیست');
+    }
+    
+    if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
+        throw new Exception('حجم فایل بیش از حد مجاز است');
+    }
+    
+    $file_name = time() . '_' . uniqid() . '.' . $file_ext;
+    $target_file = $upload_dir . $file_name;
+    
+    if (!move_uploaded_file($file['tmp_name'], $target_file)) {
+        throw new Exception('خطا در ذخیره فایل');
+    }
+    
+    // ثبت در دیتابیس
+    $stmt = $pdo->prepare("
+        INSERT INTO request_files (request_id, file_name, file_path, file_type, file_size) 
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $request_id,
+        $file['name'],
+        $target_file,
+        $file['type'],
+        $file['size']
+    ]);
+    
+    return $target_file;
 }
 
 /**
  * ایجاد گردش کار درخواست
  */
 function createRequestWorkflow($pdo, $request_id, $assignments) {
-    try {
-        foreach ($assignments as $index => $assignment) {
-            $stmt = $pdo->prepare("
-                INSERT INTO request_workflow (request_id, step_order, assigned_to, department, status) 
-                VALUES (?, ?, ?, ?, 'در انتظار')
-            ");
-            
-            $stmt->execute([
-                $request_id,
-                $index + 1,
-                $assignment['user_id'],
-                $assignment['department']
-            ]);
-            
-            // ایجاد اعلان
-            createRequestNotification($pdo, $assignment['user_id'], $request_id, 'assignment', 
-                'درخواست جدید به شما اختصاص یافت');
-        }
+    $step_order = 1;
+    
+    foreach ($assignments as $assignment) {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_workflow (request_id, step_order, assigned_to, assigned_to_name, department, status) 
+            VALUES (?, ?, ?, ?, ?, 'در انتظار')
+        ");
         
-        return true;
-    } catch (Exception $e) {
-        error_log("Error creating workflow: " . $e->getMessage());
-        return false;
+        $stmt->execute([
+            $request_id,
+            $step_order,
+            $assignment['user_id'],
+            $assignment['name'],
+            $assignment['department'] ?? 'عمومی',
+        ]);
+        
+        $step_order++;
     }
+}
+
+/**
+ * ایجاد اعلان درخواست
+ */
+function createRequestNotification($pdo, $request_id, $user_id, $type, $message) {
+    $stmt = $pdo->prepare("
+        INSERT INTO request_notifications (request_id, user_id, notification_type, message) 
+        VALUES (?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([$request_id, $user_id, $type, $message]);
 }
 
 /**
@@ -472,140 +575,12 @@ function createRequestWorkflow($pdo, $request_id, $assignments) {
  */
 function getUsersForAssignment($pdo) {
     try {
-        $stmt = $pdo->query("
-            SELECT id, username, full_name, role, is_active 
-            FROM users 
-            WHERE is_active = 1 
-            ORDER BY full_name, username
-        ");
+        $stmt = $pdo->query("SELECT id, username, full_name, role FROM users WHERE is_active = 1 ORDER BY full_name");
         return $stmt->fetchAll();
     } catch (Exception $e) {
-        error_log("Error fetching users: " . $e->getMessage());
+        error_log("Error getting users for assignment: " . $e->getMessage());
         return [];
     }
-}
-
-/**
- * ایجاد اعلان درخواست
- */
-function createRequestNotification($pdo, $user_id, $request_id, $type, $message) {
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO request_notifications (request_id, user_id, notification_type, message) 
-            VALUES (?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([$request_id, $user_id, $type, $message]);
-        return true;
-    } catch (Exception $e) {
-        error_log("Error creating notification: " . $e->getMessage());
-        return false;
-    }
-}
-
-/**
- * تابع sanitizeInput
- */
-function sanitizeInput($input) {
-    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
-}
-
-/**
- * تابع hasPermission
- */
-function hasPermission($permission) {
-    // برای تست، همیشه true برمی‌گرداند
-    return true;
-}
-
-// ایجاد جداول اگر وجود ندارند
-try {
-    // بررسی وجود جدول requests
-    $stmt = $pdo->query("SELECT COUNT(*) FROM requests");
-} catch (Exception $e) {
-    // ایجاد جداول
-    
-    // ابتدا جدول users را ایجاد می‌کنیم
-    $sql_users = "
-    CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        full_name VARCHAR(255),
-        email VARCHAR(255),
-        role VARCHAR(50) DEFAULT 'user',
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_username (username),
-        INDEX idx_role (role)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
-    
-    $pdo->exec($sql_users);
-    $sql_requests = "
-    CREATE TABLE IF NOT EXISTS requests (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_number VARCHAR(50) NOT NULL UNIQUE,
-        requester_id INT NOT NULL,
-        requester_name VARCHAR(255) NOT NULL,
-        item_name VARCHAR(255) NOT NULL,
-        quantity INT NOT NULL,
-        price DECIMAL(15,2),
-        description TEXT,
-        priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
-        status ENUM('در انتظار تأیید', 'در حال بررسی', 'تأیید شده', 'رد شده', 'تکمیل شده') DEFAULT 'در انتظار تأیید',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_request_number (request_number),
-        INDEX idx_requester_id (requester_id),
-        INDEX idx_status (status)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
-    
-    $pdo->exec($sql_requests);
-    
-    $sql_files = "
-    CREATE TABLE IF NOT EXISTS request_files (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT NOT NULL,
-        file_name VARCHAR(255) NOT NULL,
-        file_path VARCHAR(500) NOT NULL,
-        file_type VARCHAR(100),
-        file_size INT,
-        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
-    
-    $pdo->exec($sql_files);
-    
-    $sql_workflow = "
-    CREATE TABLE IF NOT EXISTS request_workflow (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT NOT NULL,
-        step_order INT NOT NULL,
-        assigned_to INT,
-        department VARCHAR(255),
-        status ENUM('در انتظار', 'در حال بررسی', 'تأیید شده', 'رد شده') DEFAULT 'در انتظار',
-        comments TEXT,
-        action_date TIMESTAMP NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
-    
-    $pdo->exec($sql_workflow);
-    
-    $sql_notifications = "
-    CREATE TABLE IF NOT EXISTS request_notifications (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        request_id INT NOT NULL,
-        user_id INT NOT NULL,
-        notification_type VARCHAR(50) NOT NULL,
-        message TEXT NOT NULL,
-        is_read BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci";
-    
-    $pdo->exec($sql_notifications);
 }
 
 // توابع تاریخ شمسی
@@ -860,6 +835,46 @@ function cleanOldFiles($directory, $days = 30) {
             unlink($file);
         }
     }
+}
+
+// ثبت لاگ سیستم
+function logAction($pdo, $action, $description = '', $severity = 'info', $module = 'SYSTEM', $data = []) {
+    $user_id = $_SESSION['user_id'] ?? null;
+    $ip_address = getRealUserIP();
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $session_id = session_id();
+    $request_method = $_SERVER['REQUEST_METHOD'] ?? '';
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    $file_path = $_SERVER['SCRIPT_NAME'] ?? '';
+    $line_number = 0;
+    $stack_trace = '';
+    $execution_time = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+    $memory_usage = memory_get_usage(true);
+    $request_data = json_encode($_POST ?? []);
+    $response_data = '';
+    
+    $stmt = $pdo->prepare("
+        INSERT INTO system_logs (
+            user_id, action, description, ip_address, user_agent, session_id, 
+            request_method, request_uri, referer, file_path, line_number, 
+            stack_trace, execution_time, memory_usage, severity, module, 
+            request_data, response_data
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $user_id, $action, $description, $ip_address, $user_agent, $session_id,
+        $request_method, $request_uri, $referer, $file_path, $line_number,
+        $stack_trace, $execution_time, $memory_usage, $severity, $module,
+        $request_data, $response_data
+    ]);
+}
+
+// نام مستعار برای logAction
+function log_action($action, $description = '') {
+    global $pdo;
+    logAction($pdo, $action, $description);
 }
 
 // Include auto logger
