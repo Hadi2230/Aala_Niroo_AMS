@@ -384,6 +384,22 @@ try {
         .jalali-date:focus {
             background-color: white;
         }
+
+        .btn-new-assignment {
+            background: linear-gradient(135deg, var(--success-color) 0%, #56ab2f 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 2rem;
+            font-weight: bold;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-new-assignment:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(86, 171, 47, 0.4);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -401,7 +417,7 @@ try {
                         <p class="mb-0 mt-2">انتساب دستگاه‌ها به مشتریان و مدیریت جزئیات نصب</p>
                     </div>
                     <div class="col-md-4 text-end">
-                        <button class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#assignmentModal">
+                        <button class="btn btn-new-assignment btn-lg" onclick="openAssignmentModal()">
                             <i class="fas fa-plus me-2"></i>انتساب جدید
                         </button>
                     </div>
@@ -542,16 +558,16 @@ try {
     </div>
 
     <!-- Assignment Modal -->
-    <div class="modal fade" id="assignmentModal" tabindex="-1">
+    <div class="modal fade" id="assignmentModal" tabindex="-1" aria-labelledby="assignmentModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
+                    <h5 class="modal-title" id="assignmentModalLabel">
                         <i class="fas fa-plus me-2"></i>انتساب دستگاه جدید
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" enctype="multipart/form-data">
+                <form method="POST" enctype="multipart/form-data" id="assignmentForm">
                     <div class="modal-body">
                         <div class="row">
                             <!-- انتخاب دستگاه -->
@@ -794,14 +810,14 @@ try {
     </div>
 
     <!-- Assignment Details Modal -->
-    <div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
+                    <h5 class="modal-title" id="detailsModalLabel">
                         <i class="fas fa-eye me-2"></i>جزئیات انتساب
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="detailsContent">
                     <!-- محتوا از طریق AJAX بارگذاری می‌شود -->
@@ -811,14 +827,14 @@ try {
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
+                    <h5 class="modal-title" id="deleteModalLabel">
                         <i class="fas fa-exclamation-triangle me-2"></i>تأیید حذف
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p>آیا از حذف این انتساب اطمینان دارید؟</p>
@@ -844,7 +860,16 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
+    let assignmentModal;
+    let detailsModal;
+    let deleteModal;
+
     $(document).ready(function() {
+        // Initialize modals
+        assignmentModal = new bootstrap.Modal(document.getElementById('assignmentModal'));
+        detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
         // Initialize Persian DatePicker
         $('.jalali-date').persianDatepicker({
             format: 'YYYY/MM/DD',
@@ -856,6 +881,19 @@ try {
             }
         });
     });
+
+    // Open assignment modal
+    function openAssignmentModal() {
+        // Reset form
+        document.getElementById('assignmentForm').reset();
+        document.getElementById('assetInfo').style.display = 'none';
+        document.getElementById('customerInfo').style.display = 'none';
+        
+        // Set default assignment date
+        document.getElementById('assignment_date').value = '<?php echo jalali_format(date('Y-m-d')); ?>';
+        
+        assignmentModal.show();
+    }
 
     // Load asset details when asset is selected
     function loadAssetDetails() {
@@ -900,7 +938,7 @@ try {
         .then(response => response.text())
         .then(data => {
             document.getElementById('detailsContent').innerHTML = data;
-            new bootstrap.Modal(document.getElementById('detailsModal')).show();
+            detailsModal.show();
         })
         .catch(error => {
             console.error('Error:', error);
@@ -917,7 +955,7 @@ try {
     // Delete assignment
     function deleteAssignment(assignmentId) {
         document.getElementById('deleteAssignmentId').value = assignmentId;
-        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        deleteModal.show();
     }
     </script>
 </body>
