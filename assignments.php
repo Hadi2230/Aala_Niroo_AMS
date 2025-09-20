@@ -848,30 +848,11 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
-    let detailsModal;
-    let deleteModal;
-
-    $(document).ready(function() {
-        // Initialize modals
-        detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
-        deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-
-        // Initialize Persian DatePicker
-        $('.jalali-date').persianDatepicker({
-            format: 'YYYY/MM/DD',
-            altField: '.jalali-date-alt',
-            altFormat: 'YYYY/MM/DD',
-            observer: true,
-            timePicker: {
-                enabled: false
-            }
-        });
-    });
-
     // Toggle assignment form
     function toggleAssignmentForm() {
+        console.log('Toggle function called'); // Debug log
         const form = document.getElementById('assignmentForm');
-        if (form.style.display === 'none') {
+        if (form.style.display === 'none' || form.style.display === '') {
             form.style.display = 'block';
             // Reset form
             document.getElementById('assignmentFormElement').reset();
@@ -931,7 +912,8 @@ try {
         .then(response => response.text())
         .then(data => {
             document.getElementById('detailsContent').innerHTML = data;
-            detailsModal.show();
+            const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+            modal.show();
         })
         .catch(error => {
             console.error('Error:', error);
@@ -941,15 +923,33 @@ try {
 
     // Edit assignment
     function editAssignment(assignmentId) {
-        // Implement edit functionality
         alert('قابلیت ویرایش در حال توسعه است');
     }
 
     // Delete assignment
     function deleteAssignment(assignmentId) {
         document.getElementById('deleteAssignmentId').value = assignmentId;
-        deleteModal.show();
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
     }
+
+    // Initialize Persian DatePicker when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, initializing datepickers'); // Debug log
+        
+        // Initialize Persian DatePicker
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+        
+        console.log('Datepickers initialized'); // Debug log
+    });
     </script>
 </body>
 </html>
