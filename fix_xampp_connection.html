@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حل مشکل اتصال XAMPP</title>
+    <style>
+        body {
+            font-family: 'Tahoma', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            direction: rtl;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #d32f2f;
+            text-align: center;
+            border-bottom: 3px solid #d32f2f;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #1976d2;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #388e3c;
+            margin-top: 20px;
+        }
+        .step {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-right: 4px solid #1976d2;
+            border-radius: 5px;
+        }
+        .error {
+            background: #ffebee;
+            border-right: 4px solid #d32f2f;
+            color: #c62828;
+        }
+        .success {
+            background: #e8f5e8;
+            border-right: 4px solid #388e3c;
+            color: #2e7d32;
+        }
+        .warning {
+            background: #fff3e0;
+            border-right: 4px solid #f57c00;
+            color: #ef6c00;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .button {
+            display: inline-block;
+            background: #1976d2;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #1565c0;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .checklist li:before {
+            content: "✓ ";
+            color: #388e3c;
+            font-weight: bold;
+        }
+        .screenshot {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 حل مشکل اتصال XAMPP</h1>
+        
+        <div class="step error">
+            <h2>مشکل فعلی:</h2>
+            <p><strong>ERR_CONNECTION_REFUSED</strong> - localhost refused to connect</p>
+            <p>این خطا به معنای آن است که XAMPP در حال اجرا نیست یا Apache شروع نشده است.</p>
+        </div>
+
+        <h2>🔧 راه‌حل‌های مرحله‌ای:</h2>
+
+        <div class="step">
+            <h3>مرحله 1: بررسی XAMPP Control Panel</h3>
+            <ol>
+                <li>XAMPP Control Panel را باز کنید</li>
+                <li>مطمئن شوید که <strong>Apache</strong> و <strong>MySQL</strong> در حال اجرا هستند</li>
+                <li>اگر قرمز هستند، روی <strong>Start</strong> کلیک کنید</li>
+            </ol>
+            <div class="screenshot">
+                <p>📸 در XAMPP Control Panel باید این وضعیت را ببینید:</p>
+                <p>Apache: <span style="color: green;">Running</span> | MySQL: <span style="color: green;">Running</span></p>
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>مرحله 2: بررسی پورت‌ها</h3>
+            <p>ممکن است پورت 8080 توسط برنامه دیگری استفاده شود:</p>
+            <ol>
+                <li>در XAMPP Control Panel روی <strong>Config</strong> کنار Apache کلیک کنید</li>
+                <li><strong>Apache (httpd.conf)</strong> را انتخاب کنید</li>
+                <li>خط <code>Listen 8080</code> را پیدا کنید</li>
+                <li>اگر این خط وجود ندارد، آن را اضافه کنید</li>
+                <li>Apache را Restart کنید</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>مرحله 3: تست پورت‌های مختلف</h3>
+            <p>این آدرس‌ها را امتحان کنید:</p>
+            <ul>
+                <li><a href="http://localhost" target="_blank">http://localhost</a></li>
+                <li><a href="http://localhost:80" target="_blank">http://localhost:80</a></li>
+                <li><a href="http://127.0.0.1" target="_blank">http://127.0.0.1</a></li>
+                <li><a href="http://127.0.0.1:8080" target="_blank">http://127.0.0.1:8080</a></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>مرحله 4: بررسی فایروال</h3>
+            <ol>
+                <li>Windows Firewall را باز کنید</li>
+                <li>Allow an app or feature through Windows Firewall</li>
+                <li>XAMPP را پیدا کنید و Allow کنید</li>
+                <li>یا موقتاً فایروال را خاموش کنید</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>مرحله 5: بررسی سرویس‌های Windows</h3>
+            <ol>
+                <li>Windows + R را فشار دهید</li>
+                <li><code>services.msc</code> را تایپ کنید</li>
+                <li>سرویس‌های زیر را پیدا کنید و Start کنید:</li>
+                <ul>
+                    <li>Apache2.4</li>
+                    <li>MySQL</li>
+                </ul>
+            </ol>
+        </div>
+
+        <div class="step warning">
+            <h3>مرحله 6: راه‌حل اضطراری</h3>
+            <p>اگر هیچ‌کدام کار نکرد:</p>
+            <ol>
+                <li>XAMPP را کاملاً ببندید</li>
+                <li>Task Manager را باز کنید</li>
+                <li>تمام فرآیندهای <code>httpd.exe</code> و <code>mysqld.exe</code> را End Task کنید</li>
+                <li>XAMPP را دوباره اجرا کنید</li>
+                <li>Apache و MySQL را Start کنید</li>
+            </ol>
+        </div>
+
+        <h2>🔍 تشخیص مشکل:</h2>
+        
+        <div class="step">
+            <h3>بررسی وضعیت XAMPP:</h3>
+            <ul class="checklist">
+                <li>XAMPP Control Panel باز است؟</li>
+                <li>Apache Status: Running (سبز)؟</li>
+                <li>MySQL Status: Running (سبز)؟</li>
+                <li>پورت 8080 آزاد است؟</li>
+                <li>فایروال مانع نیست؟</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>تست اتصال:</h3>
+            <p>این دستورات را در Command Prompt اجرا کنید:</p>
+            <code>netstat -an | findstr :8080</code><br>
+            <code>netstat -an | findstr :80</code><br>
+            <code>telnet localhost 8080</code>
+        </div>
+
+        <h2>🚀 پس از حل مشکل:</h2>
+        
+        <div class="step success">
+            <h3>تست نهایی:</h3>
+            <ol>
+                <li><a href="http://localhost:8080" target="_blank">http://localhost:8080</a> - صفحه اصلی XAMPP</li>
+                <li><a href="http://localhost:8080/Aala_Niroo_AMS" target="_blank">http://localhost:8080/Aala_Niroo_AMS</a> - پروژه شما</li>
+                <li><a href="http://localhost:8080/Aala_Niroo_AMS/mysql_fix_simple.php" target="_blank">http://localhost:8080/Aala_Niroo_AMS/mysql_fix_simple.php</a> - تست MySQL</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>لاگین به سیستم:</h3>
+            <p>پس از حل مشکل، به این آدرس بروید:</p>
+            <p><a href="http://localhost:8080/Aala_Niroo_AMS/login.php" target="_blank" class="button">ورود به سیستم</a></p>
+            <p><strong>نام کاربری:</strong> admin | <strong>رمز عبور:</strong> admin</p>
+        </div>
+
+        <h2>📞 اگر مشکل ادامه داشت:</h2>
+        
+        <div class="step error">
+            <h3>گزینه‌های دیگر:</h3>
+            <ol>
+                <li><strong>تغییر پورت:</strong> از 8080 به 80 یا 8081</li>
+                <li><strong>نصب مجدد XAMPP:</strong> نسخه جدید دانلود کنید</li>
+                <li><strong>استفاده از WAMP:</strong> جایگزین XAMPP</li>
+                <li><strong>استفاده از MAMP:</strong> برای Mac</li>
+            </ol>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <p><strong>💡 نکته:</strong> پس از حل مشکل، XAMPP را همیشه در حالت Administrator اجرا کنید.</p>
+        </div>
+    </div>
+</body>
+</html>
