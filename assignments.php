@@ -848,8 +848,8 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
-    // Global functions
-    function toggleAssignmentForm() {
+    // Global functions - تعریف توابع در scope سراسری
+    window.toggleAssignmentForm = function() {
         console.log('Toggle function called');
         const form = document.getElementById('assignmentForm');
         if (form.style.display === 'none' || form.style.display === '') {
@@ -867,9 +867,9 @@ try {
         } else {
             form.style.display = 'none';
         }
-    }
+    };
 
-    function loadAssetDetails() {
+    window.loadAssetDetails = function() {
         const select = document.getElementById('asset_id');
         const option = select.options[select.selectedIndex];
         
@@ -884,9 +884,9 @@ try {
         } else {
             document.getElementById('assetInfo').style.display = 'none';
         }
-    }
+    };
 
-    function loadCustomerInfo() {
+    window.loadCustomerInfo = function() {
         const select = document.getElementById('customer_id');
         const option = select.options[select.selectedIndex];
         
@@ -902,9 +902,9 @@ try {
         } else {
             document.getElementById('customerInfo').style.display = 'none';
         }
-    }
+    };
 
-    function viewAssignmentDetails(assignmentId) {
+    window.viewAssignmentDetails = function(assignmentId) {
         fetch(`get_assignment_details.php?id=${assignmentId}`)
         .then(response => response.text())
         .then(data => {
@@ -916,41 +916,86 @@ try {
             console.error('Error:', error);
             alert('خطا در بارگذاری جزئیات');
         });
-    }
+    };
 
-    function editAssignment(assignmentId) {
+    window.editAssignment = function(assignmentId) {
         alert('قابلیت ویرایش در حال توسعه است');
-    }
+    };
 
-    function deleteAssignment(assignmentId) {
+    window.deleteAssignment = function(assignmentId) {
         document.getElementById('deleteAssignmentId').value = assignmentId;
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
-    }
+    };
 
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Page loaded, initializing...');
         
-        // Add event listeners
-        document.getElementById('newAssignmentBtn').addEventListener('click', toggleAssignmentForm);
-        document.getElementById('cancelBtn').addEventListener('click', toggleAssignmentForm);
-        document.getElementById('asset_id').addEventListener('change', loadAssetDetails);
-        document.getElementById('customer_id').addEventListener('change', loadCustomerInfo);
-        
-        // Initialize Persian DatePicker
-        $('.jalali-date').persianDatepicker({
-            format: 'YYYY/MM/DD',
-            altField: '.jalali-date-alt',
-            altFormat: 'YYYY/MM/DD',
-            observer: true,
-            timePicker: {
-                enabled: false
+        try {
+            // Add event listeners
+            const newAssignmentBtn = document.getElementById('newAssignmentBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const assetSelect = document.getElementById('asset_id');
+            const customerSelect = document.getElementById('customer_id');
+            
+            if (newAssignmentBtn) {
+                newAssignmentBtn.addEventListener('click', window.toggleAssignmentForm);
+                console.log('New assignment button listener added');
             }
-        });
-        
-        console.log('Initialization complete');
+            
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', window.toggleAssignmentForm);
+                console.log('Cancel button listener added');
+            }
+            
+            if (assetSelect) {
+                assetSelect.addEventListener('change', window.loadAssetDetails);
+                console.log('Asset select listener added');
+            }
+            
+            if (customerSelect) {
+                customerSelect.addEventListener('change', window.loadCustomerInfo);
+                console.log('Customer select listener added');
+            }
+            
+            // Initialize Persian DatePicker
+            if (typeof $ !== 'undefined' && $.fn.persianDatepicker) {
+                $('.jalali-date').persianDatepicker({
+                    format: 'YYYY/MM/DD',
+                    altField: '.jalali-date-alt',
+                    altFormat: 'YYYY/MM/DD',
+                    observer: true,
+                    timePicker: {
+                        enabled: false
+                    }
+                });
+                console.log('Persian DatePicker initialized');
+            } else {
+                console.warn('jQuery or Persian DatePicker not loaded');
+            }
+            
+            console.log('Initialization complete');
+        } catch (error) {
+            console.error('Error during initialization:', error);
+        }
     });
+
+    // Fallback: اگر DOMContentLoaded کار نکرد
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded fallback triggered');
+        });
+    } else {
+        console.log('Document already loaded, running initialization immediately');
+        // اجرای فوری اگر صفحه قبلاً بارگذاری شده
+        setTimeout(function() {
+            const newAssignmentBtn = document.getElementById('newAssignmentBtn');
+            if (newAssignmentBtn) {
+                newAssignmentBtn.addEventListener('click', window.toggleAssignmentForm);
+            }
+        }, 100);
+    }
     </script>
 </body>
 </html>
