@@ -432,8 +432,11 @@ try {
                         <p class="mb-0 mt-2">انتساب دستگاه‌ها به مشتریان و مدیریت جزئیات نصب</p>
                     </div>
                     <div class="col-md-4 text-end">
-                        <button class="btn btn-new-assignment btn-lg" id="newAssignmentBtn">
+                        <button class="btn btn-new-assignment btn-lg" id="newAssignmentBtn" onclick="toggleAssignmentForm()">
                             <i class="fas fa-plus me-2"></i>انتساب جدید
+                        </button>
+                        <button class="btn btn-warning btn-sm ms-2" onclick="testFunction()">
+                            <i class="fas fa-bug me-1"></i>تست
                         </button>
                     </div>
                 </div>
@@ -465,7 +468,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">دستگاه</label>
-                                <select class="form-select" id="asset_id" name="asset_id" required>
+                                <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($assets as $asset): ?>
                                     <option value="<?php echo $asset['id']; ?>" 
@@ -497,7 +500,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">مشتری</label>
-                                <select class="form-select" id="customer_id" name="customer_id" required>
+                                <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($customers as $customer): ?>
                                     <option value="<?php echo $customer['id']; ?>" 
@@ -673,7 +676,7 @@ try {
                     </div>
 
                     <div class="text-end">
-                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn">انصراف</button>
+                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn" onclick="toggleAssignmentForm()">انصراف</button>
                         <button type="submit" name="assign_asset" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>ثبت انتساب
                         </button>
@@ -848,32 +851,59 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
-    // Global functions - تعریف توابع در scope سراسری
-    window.toggleAssignmentForm = function() {
-        console.log('Toggle function called');
+    // تعریف توابع در scope سراسری
+    function toggleAssignmentForm() {
+        console.log('Toggle function called - START');
         const form = document.getElementById('assignmentForm');
-        if (form.style.display === 'none' || form.style.display === '') {
-            form.style.display = 'block';
-            // Reset form
-            document.getElementById('assignmentFormElement').reset();
-            document.getElementById('assetInfo').style.display = 'none';
-            document.getElementById('customerInfo').style.display = 'none';
-            
-            // Set default assignment date
-            document.getElementById('assignment_date').value = '<?php echo jalali_format(date('Y-m-d')); ?>';
-            
-            // Scroll to form
-            form.scrollIntoView({ behavior: 'smooth' });
+        console.log('Form element:', form);
+        
+        if (form) {
+            if (form.style.display === 'none' || form.style.display === '') {
+                console.log('Showing form');
+                form.style.display = 'block';
+                
+                // Reset form
+                const formElement = document.getElementById('assignmentFormElement');
+                if (formElement) {
+                    formElement.reset();
+                }
+                
+                // Hide info sections
+                const assetInfo = document.getElementById('assetInfo');
+                const customerInfo = document.getElementById('customerInfo');
+                if (assetInfo) assetInfo.style.display = 'none';
+                if (customerInfo) customerInfo.style.display = 'none';
+                
+                // Set default assignment date
+                const assignmentDate = document.getElementById('assignment_date');
+                if (assignmentDate) {
+                    assignmentDate.value = '<?php echo jalali_format(date('Y-m-d')); ?>';
+                }
+                
+                // Scroll to form
+                form.scrollIntoView({ behavior: 'smooth' });
+                console.log('Form shown successfully');
+            } else {
+                console.log('Hiding form');
+                form.style.display = 'none';
+            }
         } else {
-            form.style.display = 'none';
+            console.error('Form element not found!');
         }
-    };
+    }
 
-    window.loadAssetDetails = function() {
+    function loadAssetDetails() {
+        console.log('Loading asset details');
         const select = document.getElementById('asset_id');
+        if (!select) {
+            console.error('Asset select not found');
+            return;
+        }
+        
         const option = select.options[select.selectedIndex];
         
         if (option.value) {
+            console.log('Asset selected:', option.value);
             document.getElementById('deviceSerial').textContent = option.dataset.serial || '-';
             document.getElementById('deviceBrand').textContent = option.dataset.brand || '-';
             document.getElementById('deviceModel').textContent = option.dataset.model || '-';
@@ -884,13 +914,20 @@ try {
         } else {
             document.getElementById('assetInfo').style.display = 'none';
         }
-    };
+    }
 
-    window.loadCustomerInfo = function() {
+    function loadCustomerInfo() {
+        console.log('Loading customer info');
         const select = document.getElementById('customer_id');
+        if (!select) {
+            console.error('Customer select not found');
+            return;
+        }
+        
         const option = select.options[select.selectedIndex];
         
         if (option.value) {
+            console.log('Customer selected:', option.value);
             document.getElementById('customerPhone').textContent = option.dataset.phone || '-';
             document.getElementById('customerCompany').textContent = option.dataset.company || '-';
             document.getElementById('customerType').textContent = option.dataset.type || '-';
@@ -902,9 +939,10 @@ try {
         } else {
             document.getElementById('customerInfo').style.display = 'none';
         }
-    };
+    }
 
-    window.viewAssignmentDetails = function(assignmentId) {
+    function viewAssignmentDetails(assignmentId) {
+        console.log('Viewing assignment details:', assignmentId);
         fetch(`get_assignment_details.php?id=${assignmentId}`)
         .then(response => response.text())
         .then(data => {
@@ -916,85 +954,47 @@ try {
             console.error('Error:', error);
             alert('خطا در بارگذاری جزئیات');
         });
-    };
+    }
 
-    window.editAssignment = function(assignmentId) {
+    function editAssignment(assignmentId) {
+        console.log('Edit assignment:', assignmentId);
         alert('قابلیت ویرایش در حال توسعه است');
-    };
+    }
 
-    window.deleteAssignment = function(assignmentId) {
+    function deleteAssignment(assignmentId) {
+        console.log('Delete assignment:', assignmentId);
         document.getElementById('deleteAssignmentId').value = assignmentId;
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
-    };
+    }
 
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('Page loaded, initializing...');
+        console.log('DOMContentLoaded - Page loaded, initializing...');
         
-        try {
-            // Add event listeners
-            const newAssignmentBtn = document.getElementById('newAssignmentBtn');
-            const cancelBtn = document.getElementById('cancelBtn');
-            const assetSelect = document.getElementById('asset_id');
-            const customerSelect = document.getElementById('customer_id');
-            
-            if (newAssignmentBtn) {
-                newAssignmentBtn.addEventListener('click', window.toggleAssignmentForm);
-                console.log('New assignment button listener added');
-            }
-            
-            if (cancelBtn) {
-                cancelBtn.addEventListener('click', window.toggleAssignmentForm);
-                console.log('Cancel button listener added');
-            }
-            
-            if (assetSelect) {
-                assetSelect.addEventListener('change', window.loadAssetDetails);
-                console.log('Asset select listener added');
-            }
-            
-            if (customerSelect) {
-                customerSelect.addEventListener('change', window.loadCustomerInfo);
-                console.log('Customer select listener added');
-            }
-            
-            // Initialize Persian DatePicker
-            if (typeof $ !== 'undefined' && $.fn.persianDatepicker) {
-                $('.jalali-date').persianDatepicker({
-                    format: 'YYYY/MM/DD',
-                    altField: '.jalali-date-alt',
-                    altFormat: 'YYYY/MM/DD',
-                    observer: true,
-                    timePicker: {
-                        enabled: false
-                    }
-                });
-                console.log('Persian DatePicker initialized');
-            } else {
-                console.warn('jQuery or Persian DatePicker not loaded');
-            }
-            
-            console.log('Initialization complete');
-        } catch (error) {
-            console.error('Error during initialization:', error);
+        // Initialize Persian DatePicker
+        if (typeof $ !== 'undefined' && $.fn.persianDatepicker) {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                altField: '.jalali-date-alt',
+                altFormat: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
+                }
+            });
+            console.log('Persian DatePicker initialized');
+        } else {
+            console.warn('jQuery or Persian DatePicker not loaded');
         }
+        
+        console.log('Initialization complete');
     });
 
-    // Fallback: اگر DOMContentLoaded کار نکرد
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMContentLoaded fallback triggered');
-        });
-    } else {
-        console.log('Document already loaded, running initialization immediately');
-        // اجرای فوری اگر صفحه قبلاً بارگذاری شده
-        setTimeout(function() {
-            const newAssignmentBtn = document.getElementById('newAssignmentBtn');
-            if (newAssignmentBtn) {
-                newAssignmentBtn.addEventListener('click', window.toggleAssignmentForm);
-            }
-        }, 100);
+    // Test function - برای تست
+    function testFunction() {
+        console.log('Test function called');
+        alert('Test function works!');
     }
     </script>
 </body>
