@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست JavaScript</title>
+    <style>
+        body { font-family: Tahoma; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .test-btn { background: #28a745; color: white; border: none; border-radius: 5px; }
+        .form { display: none; background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>تست JavaScript</h1>
+    
+    <button class="test-btn" onclick="testFunction()">تست JavaScript</button>
+    <button class="test-btn" onclick="toggleForm()">نمایش/مخفی کردن فرم</button>
+    
+    <div id="testForm" class="form">
+        <h3>فرم تست</h3>
+        <p>اگر این فرم را می‌بینید، JavaScript کار می‌کند!</p>
+        <input type="text" placeholder="نام" style="padding: 5px; margin: 5px;">
+        <input type="text" placeholder="ایمیل" style="padding: 5px; margin: 5px;">
+    </div>
+    
+    <script>
+    function testFunction() {
+        console.log('Test function called');
+        alert('JavaScript کار می‌کند!');
+    }
+    
+    function toggleForm() {
+        console.log('Toggle form called');
+        var form = document.getElementById('testForm');
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'block';
+            console.log('Form shown');
+        } else {
+            form.style.display = 'none';
+            console.log('Form hidden');
+        }
+    }
+    
+    console.log('JavaScript loaded successfully');
+    </script>
+</body>
+</html>

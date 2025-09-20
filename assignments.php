@@ -850,7 +850,7 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
-    <!-- Inline JavaScript - کاملاً ساده و مطمئن -->
+    <!-- JavaScript کاملاً ساده و بدون وابستگی -->
     <script>
     // Test function - برای تست
     function testFunction() {
@@ -861,7 +861,7 @@ try {
     // Toggle assignment form
     function toggleAssignmentForm() {
         console.log('Toggle function called - START');
-        const form = document.getElementById('assignmentForm');
+        var form = document.getElementById('assignmentForm');
         console.log('Form element:', form);
         
         if (form) {
@@ -870,19 +870,19 @@ try {
                 form.style.display = 'block';
                 
                 // Reset form
-                const formElement = document.getElementById('assignmentFormElement');
+                var formElement = document.getElementById('assignmentFormElement');
                 if (formElement) {
                     formElement.reset();
                 }
                 
                 // Hide info sections
-                const assetInfo = document.getElementById('assetInfo');
-                const customerInfo = document.getElementById('customerInfo');
+                var assetInfo = document.getElementById('assetInfo');
+                var customerInfo = document.getElementById('customerInfo');
                 if (assetInfo) assetInfo.style.display = 'none';
                 if (customerInfo) customerInfo.style.display = 'none';
                 
                 // Set default assignment date
-                const assignmentDate = document.getElementById('assignment_date');
+                var assignmentDate = document.getElementById('assignment_date');
                 if (assignmentDate) {
                     assignmentDate.value = '<?php echo jalali_format(date('Y-m-d')); ?>';
                 }
@@ -902,13 +902,13 @@ try {
     // Load asset details
     function loadAssetDetails() {
         console.log('Loading asset details');
-        const select = document.getElementById('asset_id');
+        var select = document.getElementById('asset_id');
         if (!select) {
             console.error('Asset select not found');
             return;
         }
         
-        const option = select.options[select.selectedIndex];
+        var option = select.options[select.selectedIndex];
         
         if (option.value) {
             console.log('Asset selected:', option.value);
@@ -927,13 +927,13 @@ try {
     // Load customer info
     function loadCustomerInfo() {
         console.log('Loading customer info');
-        const select = document.getElementById('customer_id');
+        var select = document.getElementById('customer_id');
         if (!select) {
             console.error('Customer select not found');
             return;
         }
         
-        const option = select.options[select.selectedIndex];
+        var option = select.options[select.selectedIndex];
         
         if (option.value) {
             console.log('Customer selected:', option.value);
@@ -953,14 +953,16 @@ try {
     // View assignment details
     function viewAssignmentDetails(assignmentId) {
         console.log('Viewing assignment details:', assignmentId);
-        fetch(`get_assignment_details.php?id=${assignmentId}`)
-        .then(response => response.text())
-        .then(data => {
+        fetch('get_assignment_details.php?id=' + assignmentId)
+        .then(function(response) {
+            return response.text();
+        })
+        .then(function(data) {
             document.getElementById('detailsContent').innerHTML = data;
-            const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+            var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
             modal.show();
         })
-        .catch(error => {
+        .catch(function(error) {
             console.error('Error:', error);
             alert('خطا در بارگذاری جزئیات');
         });
@@ -976,7 +978,7 @@ try {
     function deleteAssignment(assignmentId) {
         console.log('Delete assignment:', assignmentId);
         document.getElementById('deleteAssignmentId').value = assignmentId;
-        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        var modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
     }
 
