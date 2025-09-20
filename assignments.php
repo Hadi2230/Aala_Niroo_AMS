@@ -848,6 +848,24 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
+    // Initialize Persian DatePicker when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, initializing datepickers'); // Debug log
+        
+        // Initialize Persian DatePicker
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+        
+        console.log('Datepickers initialized'); // Debug log
+    });
+
     // Toggle assignment form
     function toggleAssignmentForm() {
         console.log('Toggle function called'); // Debug log
@@ -932,24 +950,6 @@ try {
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
     }
-
-    // Initialize Persian DatePicker when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Page loaded, initializing datepickers'); // Debug log
-        
-        // Initialize Persian DatePicker
-        $('.jalali-date').persianDatepicker({
-            format: 'YYYY/MM/DD',
-            altField: '.jalali-date-alt',
-            altFormat: 'YYYY/MM/DD',
-            observer: true,
-            timePicker: {
-                enabled: false
-            }
-        });
-        
-        console.log('Datepickers initialized'); // Debug log
-    });
     </script>
 </body>
 </html>
