@@ -432,10 +432,10 @@ try {
                         <p class="mb-0 mt-2">انتساب دستگاه‌ها به مشتریان و مدیریت جزئیات نصب</p>
                     </div>
                     <div class="col-md-4 text-end">
-                        <button class="btn btn-new-assignment btn-lg" id="newAssignmentBtn" onclick="toggleAssignmentForm()">
+                        <button class="btn btn-new-assignment btn-lg" id="newAssignmentBtn" onclick="window.toggleAssignmentForm()">
                             <i class="fas fa-plus me-2"></i>انتساب جدید
                         </button>
-                        <button class="btn btn-warning btn-sm ms-2" onclick="testFunction()">
+                        <button class="btn btn-warning btn-sm ms-2" onclick="window.testFunction()">
                             <i class="fas fa-bug me-1"></i>تست
                         </button>
                     </div>
@@ -468,7 +468,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">دستگاه</label>
-                                <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
+                                <select class="form-select" id="asset_id" name="asset_id" required onchange="window.loadAssetDetails()">
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($assets as $asset): ?>
                                     <option value="<?php echo $asset['id']; ?>" 
@@ -500,7 +500,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">مشتری</label>
-                                <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
+                                <select class="form-select" id="customer_id" name="customer_id" required onchange="window.loadCustomerInfo()">
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($customers as $customer): ?>
                                     <option value="<?php echo $customer['id']; ?>" 
@@ -676,7 +676,7 @@ try {
                     </div>
 
                     <div class="text-end">
-                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn" onclick="toggleAssignmentForm()">انصراف</button>
+                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn" onclick="window.toggleAssignmentForm()">انصراف</button>
                         <button type="submit" name="assign_asset" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>ثبت انتساب
                         </button>
@@ -851,8 +851,8 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
-    // تعریف توابع در scope سراسری
-    function toggleAssignmentForm() {
+    // تعریف توابع در scope سراسری - بدون وابستگی به DOMContentLoaded
+    window.toggleAssignmentForm = function() {
         console.log('Toggle function called - START');
         const form = document.getElementById('assignmentForm');
         console.log('Form element:', form);
@@ -890,9 +890,9 @@ try {
         } else {
             console.error('Form element not found!');
         }
-    }
+    };
 
-    function loadAssetDetails() {
+    window.loadAssetDetails = function() {
         console.log('Loading asset details');
         const select = document.getElementById('asset_id');
         if (!select) {
@@ -914,9 +914,9 @@ try {
         } else {
             document.getElementById('assetInfo').style.display = 'none';
         }
-    }
+    };
 
-    function loadCustomerInfo() {
+    window.loadCustomerInfo = function() {
         console.log('Loading customer info');
         const select = document.getElementById('customer_id');
         if (!select) {
@@ -939,9 +939,9 @@ try {
         } else {
             document.getElementById('customerInfo').style.display = 'none';
         }
-    }
+    };
 
-    function viewAssignmentDetails(assignmentId) {
+    window.viewAssignmentDetails = function(assignmentId) {
         console.log('Viewing assignment details:', assignmentId);
         fetch(`get_assignment_details.php?id=${assignmentId}`)
         .then(response => response.text())
@@ -954,19 +954,25 @@ try {
             console.error('Error:', error);
             alert('خطا در بارگذاری جزئیات');
         });
-    }
+    };
 
-    function editAssignment(assignmentId) {
+    window.editAssignment = function(assignmentId) {
         console.log('Edit assignment:', assignmentId);
         alert('قابلیت ویرایش در حال توسعه است');
-    }
+    };
 
-    function deleteAssignment(assignmentId) {
+    window.deleteAssignment = function(assignmentId) {
         console.log('Delete assignment:', assignmentId);
         document.getElementById('deleteAssignmentId').value = assignmentId;
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
-    }
+    };
+
+    // Test function - برای تست
+    window.testFunction = function() {
+        console.log('Test function called');
+        alert('Test function works!');
+    };
 
     // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
@@ -991,10 +997,11 @@ try {
         console.log('Initialization complete');
     });
 
-    // Test function - برای تست
-    function testFunction() {
-        console.log('Test function called');
-        alert('Test function works!');
+    // Fallback - اگر DOMContentLoaded کار نکرد
+    if (document.readyState === 'loading') {
+        console.log('Document is still loading');
+    } else {
+        console.log('Document already loaded');
     }
     </script>
 </body>
