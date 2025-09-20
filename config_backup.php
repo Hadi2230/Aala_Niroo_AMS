@@ -8,28 +8,109 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // تنظیمات امنیتی
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
-// تنظیمات دیتابیس
-$db_path = __DIR__ . '/aala_niroo_ams.db';
+// تنظیمات دیتابیس - امتحان تنظیمات مختلف
+$db_configs = [
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => 'root',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => 'password',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => 'admin',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => '127.0.0.1',
+        'port' => '3306',
+        'username' => 'root',
+        'password' => 'root',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3307',
+        'username' => 'root',
+        'password' => '',
+        'dbname' => 'aala_niroo_ams'
+    ],
+    [
+        'host' => 'localhost',
+        'port' => '3307',
+        'username' => 'root',
+        'password' => 'root',
+        'dbname' => 'aala_niroo_ams'
+    ]
+];
 
 // تنظیمات زمانzone
 date_default_timezone_set('Asia/Tehran');
 
-try {
-    $pdo = new PDO("sqlite:$db_path", null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
-} catch (PDOException $e) {
-    error_log("[" . date('Y-m-d H:i:s') . "] خطا در اتصال به دیتابیس: " . $e->getMessage());
+$pdo = null;
+$connection_error = '';
+
+// امتحان تنظیمات مختلف
+foreach ($db_configs as $config) {
+    try {
+        $dsn = "mysql:host={$config['host']};port={$config['port']};charset=utf8mb4";
+        $pdo = new PDO($dsn, $config['username'], $config['password'], [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_persian_ci"
+        ]);
+        
+        // تست اتصال به دیتابیس
+        $pdo->exec("USE {$config['dbname']}");
+        
+        // اگر به اینجا رسیدیم، اتصال موفق بوده
+        break;
+        
+    } catch (PDOException $e) {
+        $connection_error = $e->getMessage();
+        $pdo = null;
+        continue;
+    }
+}
+
+// اگر هیچ تنظیماتی کار نکرد
+if (!$pdo) {
+    error_log("[" . date('Y-m-d H:i:s') . "] خطا در اتصال به دیتابیس: " . $connection_error);
     die("<div style='text-align: center; padding: 50px; font-family: Tahoma;'>
-        <h2>خطا در اتصال به سیستم</h2>
-        <p>لطفاً چند دقیقه دیگر تلاش کنید یا با پشتیبانی تماس بگیرید.</p>
-        <p><small>خطای سیستمی: " . $e->getMessage() . "</small></p>
+        <h2>خطا در اتصال به دیتابیس</h2>
+        <p>لطفاً XAMPP را بررسی کنید و MySQL را Start کنید.</p>
+        <p><small>خطای آخر: " . $connection_error . "</small></p>
+        <p><a href='test_mysql_connection.php' class='btn btn-primary'>تست اتصال MySQL</a></p>
+        <p><a href='setup_database.php' class='btn btn-secondary'>راه‌اندازی دیتابیس</a></p>
         </div>");
 }
 
@@ -38,29 +119,152 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// تابع بررسی دسترسی‌ها
-function hasPermission($permission) {
-    if (!isset($_SESSION['user_id'])) {
+// ایجاد جداول فقط یک بار در طول session
+if (!isset($_SESSION['tables_created'])) {
+    createDatabaseTables($pdo);
+    $_SESSION['tables_created'] = true;
+}
+
+/**
+ * تولید شماره درخواست خودکار
+ */
+function generateRequestNumber($pdo) {
+    $today = date('Ymd');
+    $prefix = "REQ-{$today}-";
+    
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM requests WHERE request_number LIKE ?");
+        $stmt->execute([$prefix . '%']);
+        $result = $stmt->fetch();
+        
+        $count = ($result['count'] ?? 0) + 1;
+        return $prefix . str_pad($count, 3, '0', STR_PAD_LEFT);
+    } catch (Exception $e) {
+        error_log("Error generating request number: " . $e->getMessage());
+        return $prefix . '001';
+    }
+}
+
+/**
+ * ایجاد درخواست جدید
+ */
+function createRequest($pdo, $data) {
+    try {
+        $request_number = generateRequestNumber($pdo);
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO requests (request_number, requester_id, requester_name, item_name, quantity, price, description, priority, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'در انتظار تأیید')
+        ");
+        
+        $stmt->execute([
+            $request_number,
+            $data['requester_id'],
+            $data['requester_name'],
+            $data['item_name'],
+            $data['quantity'],
+            $data['price'],
+            $data['description'],
+            $data['priority']
+        ]);
+        
+        return $pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log("Error creating request: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * آپلود فایل درخواست
+ */
+function uploadRequestFile($pdo, $request_id, $file, $upload_dir = 'uploads/requests/') {
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    $allowed_types = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+    $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    
+    if (!in_array($file_extension, $allowed_types)) {
         return false;
     }
     
-    // مدیران همه دسترسی‌ها را دارند
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'مدیر') {
-        return true;
-    }
+    $file_name = uniqid() . '_' . $file['name'];
+    $file_path = $upload_dir . $file_name;
     
-    // بررسی دسترسی‌های سفارشی
-    if (isset($_SESSION['permissions']) && is_array($_SESSION['permissions'])) {
-        return in_array($permission, $_SESSION['permissions']) || in_array('*', $_SESSION['permissions']);
+    if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO request_files (request_id, file_name, file_path, file_type, file_size) 
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $request_id,
+                $file['name'],
+                $file_path,
+                $file['type'],
+                $file['size']
+            ]);
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Error saving file info: " . $e->getMessage());
+            return false;
+        }
     }
     
     return false;
 }
 
-// ایجاد جداول فقط یک بار در طول session
-if (!isset($_SESSION['tables_created'])) {
-    createDatabaseTables($pdo);
-    $_SESSION['tables_created'] = true;
+/**
+ * ایجاد گردش کار درخواست
+ */
+function createRequestWorkflow($pdo, $request_id, $assignments) {
+    try {
+        foreach ($assignments as $index => $assignment) {
+            $stmt = $pdo->prepare("
+                INSERT INTO request_workflow (request_id, step_order, assigned_to, assigned_to_name, department, status) 
+                VALUES (?, ?, ?, ?, ?, 'در انتظار')
+            ");
+            
+            $stmt->execute([
+                $request_id,
+                $index + 1,
+                $assignment['user_id'],
+                $assignment['user_name'],
+                $assignment['department'] ?? ''
+            ]);
+            
+            // ایجاد اعلان برای کاربر
+            createRequestNotification($pdo, $assignment['user_id'], $request_id, 'درخواست جدید', 
+                'درخواست جدیدی برای بررسی به شما ارسال شده است');
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating workflow: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * ایجاد اعلان درخواست
+ */
+function createRequestNotification($pdo, $user_id, $request_id, $type, $message) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_notifications (request_id, user_id, notification_type, message, is_read) 
+            VALUES (?, ?, ?, ?, 0)
+        ");
+        
+        $stmt->execute([$request_id, $user_id, $type, $message]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating request notification: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**
@@ -113,18 +317,14 @@ function createDatabaseTables($pdo) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             type_id INT NOT NULL,
-            serial_number VARCHAR(255) UNIQUE NULL,
+            serial_number VARCHAR(255) UNIQUE,
             purchase_date DATE,
             status ENUM('فعال', 'غیرفعال', 'در حال تعمیر', 'آماده بهره‌برداری') DEFAULT 'فعال',
-            
-            -- فیلدهای عمومی
             brand VARCHAR(255),
             model VARCHAR(255),
             power_capacity VARCHAR(100),
             engine_type VARCHAR(100),
             consumable_type VARCHAR(100),
-            
-            -- فیلدهای خاص ژنراتور
             engine_model VARCHAR(255),
             engine_serial VARCHAR(255),
             alternator_model VARCHAR(255),
@@ -148,22 +348,11 @@ function createDatabaseTables($pdo) {
             alternator_manual_link VARCHAR(500),
             control_panel_manual_link VARCHAR(500),
             description TEXT,
-            
-            -- فیلدهای پارت نامبر
             oil_filter_part VARCHAR(100),
             fuel_filter_part VARCHAR(100),
             water_fuel_filter_part VARCHAR(100),
             air_filter_part VARCHAR(100),
             water_filter_part VARCHAR(100),
-            
-            -- فیلدهای جدید
-            device_identifier VARCHAR(255),
-            supply_method VARCHAR(255),
-            location VARCHAR(255),
-            quantity INT DEFAULT 0,
-            supplier_name VARCHAR(255),
-            supplier_contact VARCHAR(255),
-            
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE,
@@ -211,7 +400,7 @@ function createDatabaseTables($pdo) {
             username VARCHAR(50) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
             full_name VARCHAR(255),
-            role ENUM('ادمین', 'کاربر عادی', 'اپراتور') DEFAULT 'کاربر عادی',
+            role ENUM('ادمین', 'کاربر عادی', 'اپراتور', 'مدیر عملیات', 'تکنسین', 'پشتیبانی') DEFAULT 'کاربر عادی',
             is_active BOOLEAN DEFAULT true,
             last_login TIMESTAMP NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -266,54 +455,6 @@ function createDatabaseTables($pdo) {
             FOREIGN KEY (assignment_id) REFERENCES asset_assignments(id) ON DELETE CASCADE,
             INDEX idx_assignment_id (assignment_id),
             INDEX idx_installation_date (installation_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
-        
-        // جدول سرویس‌های دارایی
-        "CREATE TABLE IF NOT EXISTS asset_services (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            service_date DATE,
-            service_type VARCHAR(255),
-            performed_by VARCHAR(255),
-            summary TEXT,
-            cost DECIMAL(10,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_service_date (service_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
-        
-        // جدول تسک‌های نگهداری
-        "CREATE TABLE IF NOT EXISTS maintenance_tasks (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            title VARCHAR(255) NOT NULL,
-            assigned_to VARCHAR(255),
-            planned_date DATE,
-            status ENUM('pending', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_status (status),
-            INDEX idx_planned_date (planned_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
-        
-        // جدول مکاتبات دارایی
-        "CREATE TABLE IF NOT EXISTS asset_correspondence (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            asset_id INT NOT NULL,
-            letter_date DATE,
-            subject VARCHAR(500),
-            notes TEXT,
-            file_path VARCHAR(500),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-            INDEX idx_asset_id (asset_id),
-            INDEX idx_letter_date (letter_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
         
         // جدول گزارشات و لاگ‌ها
@@ -402,24 +543,25 @@ function createDatabaseTables($pdo) {
         
         // جدول پیام‌های داخلی
         "CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id INTEGER NOT NULL,
-            receiver_id INTEGER NOT NULL,
-            subject TEXT,
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            sender_id INT NOT NULL,
+            receiver_id INT NOT NULL,
+            subject VARCHAR(255),
             message TEXT NOT NULL,
-            attachment_path TEXT,
-            attachment_name TEXT,
-            attachment_type TEXT,
-            is_read BOOLEAN DEFAULT 0,
-            related_ticket_id INTEGER,
-            related_maintenance_id INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            read_at DATETIME NULL,
+            is_read BOOLEAN DEFAULT false,
+            related_ticket_id INT,
+            related_maintenance_id INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP NULL,
             FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
-            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL
-        )",
+            FOREIGN KEY (related_maintenance_id) REFERENCES maintenance_schedules(id) ON DELETE SET NULL,
+            INDEX idx_sender_id (sender_id),
+            INDEX idx_receiver_id (receiver_id),
+            INDEX idx_is_read (is_read),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
         
         // جدول تاریخچه وضعیت تیکت‌ها
         "CREATE TABLE IF NOT EXISTS ticket_status_history (
@@ -450,6 +592,17 @@ function createDatabaseTables($pdo) {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE KEY unique_user_settings (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول نقش‌های سفارشی
+        "CREATE TABLE IF NOT EXISTS custom_roles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            role_name VARCHAR(100) NOT NULL,
+            permissions TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_user_role (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
         
         // جدول نظرسنجی‌ها
@@ -540,6 +693,271 @@ function createDatabaseTables($pdo) {
             INDEX idx_phone (phone),
             INDEX idx_status (status),
             INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول درخواست‌های بازدید
+        "CREATE TABLE IF NOT EXISTS visit_requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_number VARCHAR(20) UNIQUE NOT NULL,
+            company_name VARCHAR(255) NOT NULL,
+            contact_person VARCHAR(255) NOT NULL,
+            contact_phone VARCHAR(20) NOT NULL,
+            contact_email VARCHAR(255),
+            visitor_count INT DEFAULT 1,
+            visit_purpose ENUM('دیداری', 'تست', 'خرید', 'بازرسی', 'آموزش', 'سایر') DEFAULT 'دیداری',
+            visit_type ENUM('مشتری', 'ارگان', 'داخلی', 'تامین_کننده') DEFAULT 'مشتری',
+            request_method ENUM('تماس', 'ایمیل', 'حضوری', 'آنلاین') DEFAULT 'تماس',
+            preferred_dates JSON,
+            confirmed_date DATETIME NULL,
+            visit_duration INT DEFAULT 60,
+            requires_nda BOOLEAN DEFAULT false,
+            nda_signed BOOLEAN DEFAULT false,
+            nda_signed_at TIMESTAMP NULL,
+            special_requirements TEXT,
+            status ENUM('new', 'documents_required', 'reviewed', 'scheduled', 'reserved', 'ready_for_visit', 'checked_in', 'onsite', 'completed', 'cancelled', 'archived') DEFAULT 'new',
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            created_by INT NOT NULL,
+            assigned_to INT NULL,
+            host_id INT NULL,
+            security_officer_id INT NULL,
+            qr_code VARCHAR(100) NULL,
+            check_in_time TIMESTAMP NULL,
+            check_out_time TIMESTAMP NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (host_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (security_officer_id) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_request_number (request_number),
+            INDEX idx_company_name (company_name),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority),
+            INDEX idx_created_by (created_by),
+            INDEX idx_assigned_to (assigned_to),
+            INDEX idx_confirmed_date (confirmed_date),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول دستگاه‌های موردنظر برای بازدید
+        "CREATE TABLE IF NOT EXISTS visit_request_devices (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            asset_id INT NOT NULL,
+            device_purpose TEXT,
+            special_instructions TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_asset_id (asset_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول رزرو دستگاه‌ها
+        "CREATE TABLE IF NOT EXISTS device_reservations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            asset_id INT NOT NULL,
+            reserved_from DATETIME NOT NULL,
+            reserved_to DATETIME NOT NULL,
+            status ENUM('reserved', 'in_use', 'completed', 'cancelled') DEFAULT 'reserved',
+            created_by INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_asset_id (asset_id),
+            INDEX idx_reserved_from (reserved_from),
+            INDEX idx_reserved_to (reserved_to),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول مدارک بازدید
+        "CREATE TABLE IF NOT EXISTS visit_documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            document_type ENUM('company_registration', 'introduction_letter', 'permit', 'nda', 'id_copy', 'other') NOT NULL,
+            document_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INT,
+            mime_type VARCHAR(100),
+            uploaded_by INT NOT NULL,
+            is_verified BOOLEAN DEFAULT false,
+            verified_by INT NULL,
+            verified_at TIMESTAMP NULL,
+            verification_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_document_type (document_type),
+            INDEX idx_is_verified (is_verified)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول چک‌لیست بازدید
+        "CREATE TABLE IF NOT EXISTS visit_checklists (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            checklist_type ENUM('pre_visit', 'onsite', 'post_visit') NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            is_completed BOOLEAN DEFAULT false,
+            completed_by INT NULL,
+            completed_at TIMESTAMP NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_checklist_type (checklist_type),
+            INDEX idx_is_completed (is_completed)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول عکس‌های بازدید
+        "CREATE TABLE IF NOT EXISTS visit_photos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            photo_type ENUM('check_in', 'onsite', 'equipment', 'visitor', 'signature', 'other') NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INT,
+            mime_type VARCHAR(100),
+            caption TEXT,
+            taken_by INT NOT NULL,
+            taken_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (taken_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_photo_type (photo_type),
+            INDEX idx_taken_at (taken_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول گزارش‌های بازدید
+        "CREATE TABLE IF NOT EXISTS visit_reports (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            report_type ENUM('onsite', 'final', 'technical') NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            equipment_tested JSON,
+            visitor_feedback TEXT,
+            recommendations TEXT,
+            follow_up_required BOOLEAN DEFAULT false,
+            follow_up_date DATE NULL,
+            lead_created BOOLEAN DEFAULT false,
+            lead_id INT NULL,
+            pdf_path VARCHAR(500) NULL,
+            signed_by_visitor BOOLEAN DEFAULT false,
+            visitor_signature_path VARCHAR(500) NULL,
+            created_by INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_report_type (report_type),
+            INDEX idx_follow_up_required (follow_up_required),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تاریخچه بازدید
+        "CREATE TABLE IF NOT EXISTS visit_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            visit_request_id INT NOT NULL,
+            action VARCHAR(100) NOT NULL,
+            old_status VARCHAR(50) NULL,
+            new_status VARCHAR(50) NULL,
+            description TEXT,
+            performed_by INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (visit_request_id) REFERENCES visit_requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_visit_request_id (visit_request_id),
+            INDEX idx_action (action),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول تنظیمات بازدید
+        "CREATE TABLE IF NOT EXISTS visit_settings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            setting_key VARCHAR(100) UNIQUE NOT NULL,
+            setting_value TEXT,
+            description TEXT,
+            updated_by INT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_setting_key (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول درخواست‌های کالا/خدمات
+        "CREATE TABLE IF NOT EXISTS requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_number VARCHAR(50) NOT NULL UNIQUE,
+            requester_id INT NOT NULL,
+            requester_name VARCHAR(255) NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            quantity INT NOT NULL,
+            price DECIMAL(15,2),
+            description TEXT,
+            priority ENUM('کم', 'متوسط', 'بالا', 'فوری') DEFAULT 'متوسط',
+            status ENUM('در انتظار تأیید', 'در حال بررسی', 'تأیید شده', 'رد شده', 'تکمیل شده') DEFAULT 'در انتظار تأیید',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_number (request_number),
+            INDEX idx_requester_id (requester_id),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول فایل‌های ضمیمه درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_files (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_type VARCHAR(100),
+            file_size INT,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول گردش کار درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_workflow (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            step_order INT NOT NULL,
+            assigned_to INT NOT NULL,
+            assigned_to_name VARCHAR(255) NOT NULL,
+            department VARCHAR(100),
+            status ENUM('در انتظار', 'تأیید شده', 'رد شده') DEFAULT 'در انتظار',
+            comments TEXT,
+            action_date TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id),
+            INDEX idx_assigned_to (assigned_to),
+            INDEX idx_step_order (step_order)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول اعلان‌های درخواست‌ها
+        "CREATE TABLE IF NOT EXISTS request_notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            request_id INT NOT NULL,
+            user_id INT NOT NULL,
+            notification_type ENUM('درخواست جدید', 'تأیید', 'رد', 'تکمیل') NOT NULL,
+            message TEXT NOT NULL,
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_request_id (request_id),
+            INDEX idx_user_id (user_id),
+            INDEX idx_is_read (is_read)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
@@ -549,25 +967,6 @@ function createDatabaseTables($pdo) {
         } catch (PDOException $e) {
             error_log("[" . date('Y-m-d H:i:s') . "] خطا در ایجاد جدول: " . $e->getMessage());
         }
-    }
-    
-    // اضافه کردن ستون‌های فایل ضمیمه به جدول messages اگر وجود نداشته باشند
-    try {
-        // بررسی وجود ستون‌های فایل ضمیمه
-        $stmt = $pdo->query("PRAGMA table_info(messages)");
-        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        if (!in_array('attachment_path', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_path TEXT");
-        }
-        if (!in_array('attachment_name', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_name TEXT");
-        }
-        if (!in_array('attachment_type', $columns)) {
-            $pdo->exec("ALTER TABLE messages ADD COLUMN attachment_type TEXT");
-        }
-    } catch (PDOException $e) {
-        error_log("[" . date('Y-m-d H:i:s') . "] خطا در اضافه کردن ستون‌های فایل ضمیمه: " . $e->getMessage());
     }
     
     // درج داده‌های اولیه اگر وجود ندارند
@@ -614,15 +1013,17 @@ function createDatabaseTables($pdo) {
 }
 
 /**
- * توابع کمکی
+ * توابع کمکی اصلی
  */
 
 // پاکسازی و اعتبارسنجی ورودی‌ها
-function sanitizeInput($data) {
-    if (is_array($data)) {
-        return array_map('sanitizeInput', $data);
+if (!function_exists('sanitizeInput')) {
+    function sanitizeInput($data) {
+        if (is_array($data)) {
+            return array_map('sanitizeInput', $data);
+        }
+        return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
     }
-    return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
 }
 
 // اعتبارسنجی شماره تلفن
@@ -656,21 +1057,48 @@ function jsonResponse($data, $status = 200) {
 
 // ثبت لاگ سیستم
 function logAction($pdo, $action, $description = '', $severity = 'info', $module = null, $request_data = null, $response_data = null) {
-    $user_id = $_SESSION['user_id'] ?? null;
-    $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-    
-    // تبدیل داده‌ها به JSON اگر آرایه باشند
-    if (is_array($request_data)) {
-        $request_data = json_encode($request_data, JSON_UNESCAPED_UNICODE);
+    try {
+        $user_id = $_SESSION['user_id'] ?? null;
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $session_id = session_id();
+        $request_method = $_SERVER['REQUEST_METHOD'] ?? '';
+        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+        $referer = $_SERVER['HTTP_REFERER'] ?? null;
+        
+        // اطلاعات فایل و خط
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+        $file_path = $backtrace[1]['file'] ?? null;
+        $line_number = $backtrace[1]['line'] ?? null;
+        
+        // Stack trace برای خطاها
+        $stack_trace = null;
+        if ($severity === 'error' || $severity === 'critical') {
+            $stack_trace = json_encode($backtrace, JSON_UNESCAPED_UNICODE);
+        }
+        
+        // زمان اجرا و حافظه
+        $execution_time = microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+        $memory_usage = memory_get_usage(true);
+        
+        $stmt = $pdo->prepare("INSERT INTO system_logs 
+            (user_id, action, description, ip_address, user_agent, session_id, 
+             request_method, request_uri, referer, file_path, line_number, 
+             stack_trace, execution_time, memory_usage, severity, module, 
+             request_data, response_data) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $user_id, $action, $description, $ip_address, $user_agent, $session_id,
+            $request_method, $request_uri, $referer, $file_path, $line_number,
+            $stack_trace, $execution_time, $memory_usage, $severity, $module,
+            $request_data ? json_encode($request_data, JSON_UNESCAPED_UNICODE) : null,
+            $response_data ? json_encode($response_data, JSON_UNESCAPED_UNICODE) : null
+        ]);
+    } catch (Exception $e) {
+        // اگر لاگ‌گیری خودش خطا داشته باشد، آن را در فایل لاگ بنویسیم
+        error_log("خطا در logAction: " . $e->getMessage());
     }
-    if (is_array($response_data)) {
-        $response_data = json_encode($response_data, JSON_UNESCAPED_UNICODE);
-    }
-    
-    $stmt = $pdo->prepare("INSERT INTO system_logs (user_id, action, description, ip_address, user_agent, request_data, response_data, severity, module) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$user_id, $action, $description, $ip_address, $user_agent, $request_data, $response_data, $severity, $module]);
 }
 
 // نام مستعار برای logAction
@@ -679,33 +1107,9 @@ function log_action($action, $description = '') {
     logAction($pdo, $action, $description);
 }
 
-// تابع تبدیل تاریخ میلادی به شمسی
-function jalali_format($date) {
-    if (empty($date) || $date === '-') {
-        return '-';
-    }
-    
-    try {
-        $timestamp = strtotime($date);
-        if ($timestamp === false) {
-            return $date;
-        }
-        
-        // تبدیل ساده به شمسی (برای نمایش)
-        $year = date('Y', $timestamp);
-        $month = date('m', $timestamp);
-        $day = date('d', $timestamp);
-        
-        // تبدیل تقریبی (برای نمایش بهتر)
-        $jalali_year = $year - 621;
-        if ($month > 3) {
-            $jalali_year++;
-        }
-        
-        return $jalali_year . '/' . $month . '/' . $day;
-    } catch (Exception $e) {
-        return $date;
-    }
+// Include auto logger
+if (file_exists(__DIR__ . '/auto_logger.php')) {
+    require_once __DIR__ . '/auto_logger.php';
 }
 
 // آپلود فایل با اعتبارسنجی
@@ -734,17 +1138,15 @@ function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 
 }
 
 // بررسی CSRF token
-function verifyCsrfToken() {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-            die('درخواست نامعتبر است - CSRF Token validation failed');
+if (!function_exists('verifyCsrfToken')) {
+    function verifyCsrfToken($token = null) {
+        if ($token === null) {
+            $token = $_POST['csrf_token'] ?? '';
+        }
+        if (!isset($_SESSION['csrf_token']) || $token !== $_SESSION['csrf_token']) {
+            die("Invalid CSRF token");
         }
     }
-}
-
-// تولید فیلد CSRF
-function csrf_field() {
-    echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
 }
 
 // بررسی دسترسی کاربر
@@ -767,6 +1169,13 @@ function require_auth($required_role = 'کاربر عادی') {
     checkPermission($required_role);
 }
 
+// تولید فیلد CSRF
+if (!function_exists('csrf_field')) {
+    function csrf_field() {
+        return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+    }
+}
+
 // فرمت تاریخ شمسی
 function jalaliDate($date = null) {
     if (!$date) $date = time();
@@ -781,154 +1190,914 @@ function jalaliDate($date = null) {
     return $jalali[0] . '/' . $jalali[1] . '/' . $jalali[2];
 }
 
-// تابع تبدیل تاریخ میلادی به شمسی
-function gregorian_to_jalali($gy, $gm, $gd) {
-    $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    $gy2 = ($gm > 2) ? ($gy + 1) : $gy;
-    $days = 355666 + (365 * $gy) + ((int)(($gy2 + 3) / 4)) - ((int)(($gy2 + 99) / 100)) + ((int)(($gy2 + 399) / 400)) + $gd + $g_d_m[$gm - 1];
-    $jy = -1595 + (33 * ((int)($days / 12053)));
-    $days %= 12053;
-    $jy += 4 * ((int)($days / 1461));
-    $days %= 1461;
-    if ($days > 365) {
-        $jy += (int)(($days - 1) / 365);
-        $days = ($days - 1) % 365;
-    }
-    $jm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
-    $jd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
-    return [$jy, $jm, $jd];
+// تبدیل اعداد انگلیسی به فارسی
+function en2fa_digits($input) {
+    $en = array('0','1','2','3','4','5','6','7','8','9');
+    $fa = array('۰','۱','۲','۳','۴','۵','۶','۷','۸','۹');
+    return str_replace($en, $fa, (string)$input);
 }
 
-/**
- * توابع مدیریت Workflow و اعلان‌ها
- */
+// تبدیل تاریخ میلادی به شمسی
+function gregorian_to_jalali($gy, $gm, $gd) {
+    $g_d_m = array(0,31,59,90,120,151,181,212,243,273,304,334);
+    $gy2 = ($gm > 2) ? ($gy + 1) : $gy;
+    $days = 355666 + (365 * $gy) + intval(($gy2 + 3) / 4) - intval(($gy2 + 99) / 100) + intval(($gy2 + 399) / 400) + $gd + $g_d_m[$gm - 1];
+    $jy = -1595 + (33 * intval($days / 12053));
+    $days %= 12053;
+    $jy += 4 * intval($days / 1461);
+    $days %= 1461;
+    if ($days > 365) {
+        $jy += intval(($days - 1) / 365);
+        $days = ($days - 1) % 365;
+    }
+    if ($days < 186) {
+        $jm = 1 + intval($days / 31);
+        $jd = 1 + ($days % 31);
+    } else {
+        $jm = 7 + intval(($days - 186) / 30);
+        $jd = 1 + (($days - 186) % 30);
+    }
+    return array($jy, $jm, $jd);
+}
 
+// فرمت کردن تاریخ شمسی
+function jalali_format($datetime, $format = 'Y/m/d H:i', $use_fa_digits = true) {
+    if (!$datetime || in_array($datetime, array('0000-00-00', '0000-00-00 00:00:00'))) return '';
+    $ts = is_numeric($datetime) ? intval($datetime) : strtotime($datetime);
+    if ($ts === false) return $datetime;
 
+    $gy = intval(date('Y', $ts));
+    $gm = intval(date('n', $ts));
+    $gd = intval(date('j', $ts));
 
+    list($jy, $jm, $jd) = gregorian_to_jalali($gy, $gm, $gd);
 
-// ارسال اعلان
-function sendNotification($pdo, $user_id, $title, $message, $type = 'سیستم', $priority = 'متوسط', $related_id = null, $related_type = null) {
-    $stmt = $pdo->prepare("INSERT INTO notifications (user_id, title, message, type, priority, related_id, related_type) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$user_id, $title, $message, $type, $priority, $related_id, $related_type]);
+    $H = date('H', $ts); $i = date('i', $ts); $s = date('s', $ts);
+
+    $map = array(
+        'Y' => $jy,
+        'm' => sprintf('%02d', $jm),
+        'n' => $jm,
+        'd' => sprintf('%02d', $jd),
+        'j' => $jd,
+        'H' => $H,
+        'i' => $i,
+        's' => $s
+    );
+
+    $result = preg_replace_callback('/Y|m|n|d|j|H|i|s/', function($m) use ($map) {
+        return isset($map[$m[0]]) ? $map[$m[0]] : $m[0];
+    }, $format);
+
+    if ($use_fa_digits) $result = en2fa_digits($result);
+    return $result;
+}
+
+// تابع تبدیل تاریخ شمسی به میلادی
+function jalali_to_gregorian($jy, $jm, $jd) {
+    $jy += 1595;
+    $days = -355668 + (365 * $jy) + ((int)($jy / 33)) * 8 + ((int)(((($jy % 33) + 3) / 4))) + $jd + (($jm < 7) ? ($jm - 1) * 31 : (($jm - 7) * 30) + 186);
+    $gy = 400 * ((int)($days / 146097));
+    $days %= 146097;
+    if ($days > 36524) {
+        $gy += 100 * ((int)(--$days / 36524));
+        $days %= 36524;
+        if ($days >= 365) $days++;
+    }
+    $gy += 4 * ((int)($days / 1461));
+    $days %= 1461;
+    if ($days > 365) {
+        $gy += ((int)(($days - 1) / 365));
+        $days = ($days - 1) % 365;
+    }
+    $gd = $days + 1;
+    $sal_a = [0, 31, (($gy % 4 == 0 and $gy % 100 != 0) or ($gy % 400 == 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for ($gm = 0; $gm < 13 and $gd > $sal_a[$gm]; $gm++) $gd -= $sal_a[$gm];
+    return [$gy, $gm, $gd];
+}
+
+// تابع تبدیل تاریخ شمسی به فرمت میلادی برای دیتابیس
+function jalaliToGregorianForDB($jalali_date) {
+    if (empty($jalali_date)) return null;
     
-    // اگر user_id مشخص باشد، اعلان‌های اضافی ارسال کن
-    if ($user_id) {
-        $settings = getUserNotificationSettings($pdo, $user_id);
-        if ($settings) {
-            // ارسال ایمیل
-            if ($settings['email_notifications']) {
-                sendEmailNotification($user_id, $title, $message);
-            }
-            
-            // ارسال SMS
-            if ($settings['sms_notifications']) {
-                sendSMSNotification($user_id, $title, $message);
-            }
+    // تبدیل فرمت تاریخ شمسی به آرایه
+    $parts = explode('/', $jalali_date);
+    if (count($parts) != 3) return null;
+    
+    $jy = (int)$parts[0];
+    $jm = (int)$parts[1];
+    $jd = (int)$parts[2];
+    
+    $gregorian = jalali_to_gregorian($jy, $jm, $jd);
+    return sprintf('%04d-%02d-%02d', $gregorian[0], $gregorian[1], $gregorian[2]);
+}
+
+// تابع تبدیل تاریخ میلادی دیتابیس به شمسی
+function gregorianToJalaliFromDB($gregorian_date) {
+    if (empty($gregorian_date)) return '--';
+    
+    $parts = explode('-', $gregorian_date);
+    if (count($parts) != 3) return '--';
+    
+    $gy = (int)$parts[0];
+    $gm = (int)$parts[1];
+    $gd = (int)$parts[2];
+    
+    $jalali = gregorian_to_jalali($gy, $gm, $gd);
+    return sprintf('%04d/%02d/%02d', $jalali[0], $jalali[1], $jalali[2]);
+}
+
+// بررسی دسترسی کاربر
+function hasPermission($permission) {
+    if (!isset($_SESSION['user_id'])) return false;
+    
+    $user_role = $_SESSION['role'] ?? 'کاربر عادی';
+    
+    // نقش ادمین دسترسی کامل دارد
+    if ($user_role === 'ادمین') return true;
+    
+    // نقش‌های دیگر بر اساس نیاز تعریف می‌شوند
+    $permissions = [
+        'مدیر عملیات' => ['tickets.*', 'maintenance.*', 'customers.*', 'reports.*'],
+        'تکنسین' => ['tickets.view', 'tickets.edit', 'maintenance.*'],
+        'پشتیبانی' => ['tickets.*', 'customers.*'],
+        'کاربر عادی' => ['tickets.view']
+    ];
+    
+    if (!isset($permissions[$user_role])) return false;
+    
+    $user_permissions = $permissions[$user_role];
+    
+    // بررسی دسترسی کامل
+    foreach ($user_permissions as $perm) {
+        if ($perm === '*') return true;
+        if (strpos($perm, '*') !== false) {
+            $base_perm = str_replace('.*', '', $perm);
+            if (strpos($permission, $base_perm) === 0) return true;
+        }
+        if ($perm === $permission) return true;
+    }
+    
+    return false;
+}
+
+// تولید کد تصادفی
+function generateRandomCode($length = 8) {
+    $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $code = '';
+    for ($i = 0; $i < $length; $i++) {
+        $code .= $characters[rand(0, strlen($characters) - 1)];
+    }
+    return $code;
+}
+
+// تولید شماره سریال
+function generateSerialNumber($prefix = 'SN') {
+    return $prefix . date('Y') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+}
+
+// فرمت کردن شماره تلفن
+function formatPhoneNumber($phone) {
+    $phone = preg_replace('/[^0-9]/', '', $phone);
+    
+    if (strlen($phone) == 11 && substr($phone, 0, 1) == '0') {
+        return substr($phone, 0, 4) . '-' . substr($phone, 4, 3) . '-' . substr($phone, 7, 4);
+    }
+    
+    if (strlen($phone) == 10) {
+        return '0' . substr($phone, 0, 3) . '-' . substr($phone, 3, 3) . '-' . substr($phone, 6, 4);
+    }
+    
+    return $phone;
+}
+
+// تبدیل حجم فایل به فرمت خوانا
+function formatFileSize($bytes) {
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    
+    $bytes /= pow(1024, $pow);
+    
+    return round($bytes, 2) . ' ' . $units[$pow];
+}
+
+// دریافت IP واقعی کاربر
+function getRealUserIP() {
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        return $_SERVER['HTTP_CLIENT_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        return $_SERVER['HTTP_X_FORWARDED_FOR'];
+    } else {
+        return $_SERVER['REMOTE_ADDR'];
+    }
+}
+
+// بررسی اینکه آیا کاربر از موبایل استفاده می‌کند
+function isMobile() {
+    return preg_match('/(android|iphone|ipad|mobile)/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
+}
+
+// تولید QR Code
+function generateQRCode($text, $size = 200) {
+    return "https://api.qrserver.com/v1/create-qr-code/?size={$size}x{$size}&data=" . urlencode($text);
+}
+
+// پاک کردن فایل‌های قدیمی
+function cleanOldFiles($directory, $days = 30) {
+    $files = glob($directory . '/*');
+    $now = time();
+    
+    foreach ($files as $file) {
+        if (is_file($file) && ($now - filemtime($file)) > ($days * 24 * 60 * 60)) {
+            unlink($file);
         }
     }
 }
 
-// دریافت تنظیمات اعلان کاربر
-function getUserNotificationSettings($pdo, $user_id) {
-    $stmt = $pdo->prepare("SELECT * FROM notification_settings WHERE user_id = ?");
-    $stmt->execute([$user_id]);
-    return $stmt->fetch();
-}
+/**
+ * توابع مدیریت بازدید کارخانه
+ */
 
-// ایجاد تنظیمات اعلان برای کاربر جدید
-function createUserNotificationSettings($pdo, $user_id) {
-    $stmt = $pdo->prepare("INSERT INTO notification_settings (user_id) VALUES (?)");
-    $stmt->execute([$user_id]);
-}
-
-// ارسال ایمیل (پیاده‌سازی ساده)
-function sendEmailNotification($user_id, $title, $message) {
-    // اینجا می‌توانید از PHPMailer یا کتابخانه‌های دیگر استفاده کنید
-    error_log("Email notification to user {$user_id}: {$title} - {$message}");
-}
-
-// ارسال SMS (پیاده‌سازی ساده)
-function sendSMSNotification($user_id, $title, $message) {
-    // اینجا می‌توانید از API های SMS استفاده کنید
-    error_log("SMS notification to user {$user_id}: {$title} - {$message}");
-}
-
-// ایجاد برنامه تعمیرات دوره‌ای
-function createMaintenanceSchedule($pdo, $asset_id, $assignment_id, $schedule_date, $interval_days = 90, $maintenance_type = 'تعمیر دوره‌ای', $assigned_to = null) {
-    $stmt = $pdo->prepare("INSERT INTO maintenance_schedules (asset_id, assignment_id, maintenance_type, schedule_date, interval_days, assigned_to) 
-                          VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$asset_id, $assignment_id, $maintenance_type, $schedule_date, $interval_days, $assigned_to]);
+// تولید شماره درخواست بازدید
+function generateVisitRequestNumber($pdo) {
+    $year = date('Y');
+    $prefix = "VR" . $year;
     
-    $maintenance_id = $pdo->lastInsertId();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM visit_requests WHERE request_number LIKE ?");
+    $stmt->execute([$prefix . "%"]);
+    $count = $stmt->fetch()['count'] + 1;
     
-    // ارسال اعلان
-    sendNotification($pdo, $assigned_to, 'برنامه تعمیرات جدید', 
-                    "برنامه تعمیرات دوره‌ای برای تاریخ " . jalaliDate($schedule_date) . " ایجاد شد", 
-                    'تعمیرات', 'متوسط', $maintenance_id, 'maintenance');
-    
-    return $maintenance_id;
+    return $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
 }
 
-// بررسی تعمیرات دوره‌ای نزدیک
-function checkUpcomingMaintenance($pdo, $days_ahead = 7) {
-    $future_date = date('Y-m-d', strtotime("+{$days_ahead} days"));
+// ایجاد درخواست بازدید جدید
+function createVisitRequest($pdo, $data) {
+    $request_number = generateVisitRequestNumber($pdo);
     
     $stmt = $pdo->prepare("
-        SELECT ms.*, a.name as asset_name, c.full_name as customer_name, u.full_name as assigned_user
-        FROM maintenance_schedules ms
-        LEFT JOIN assets a ON ms.asset_id = a.id
-        LEFT JOIN asset_assignments aa ON ms.assignment_id = aa.id
-        LEFT JOIN customers c ON aa.customer_id = c.id
-        LEFT JOIN users u ON ms.assigned_to = u.id
-        WHERE ms.schedule_date <= ? AND ms.status = 'برنامه‌ریزی شده'
-        ORDER BY ms.schedule_date ASC
+        INSERT INTO visit_requests (
+            request_number, company_name, contact_person, contact_phone, contact_email,
+            visitor_count, visit_purpose, visit_type, request_method, preferred_dates,
+            visit_duration, requires_nda, special_requirements, status, priority, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$future_date]);
-    return $stmt->fetchAll();
+    
+    $stmt->execute([
+        $request_number,
+        $data['company_name'],
+        $data['contact_person'],
+        $data['contact_phone'],
+        $data['contact_email'] ?? null,
+        $data['visitor_count'] ?? 1,
+        $data['visit_purpose'] ?? 'دیداری',
+        $data['visit_type'] ?? 'مشتری',
+        $data['request_method'] ?? 'تماس',
+        json_encode($data['preferred_dates'] ?? []),
+        $data['visit_duration'] ?? 60,
+        $data['requires_nda'] ?? false,
+        $data['special_requirements'] ?? null,
+        'new',
+        $data['priority'] ?? 'متوسط',
+        $_SESSION['user_id']
+    ]);
+    
+    $visit_request_id = $pdo->lastInsertId();
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'created', 'درخواست بازدید ایجاد شد');
+    
+    return $visit_request_id;
 }
 
-// ارسال پیام داخلی
-function sendInternalMessage($pdo, $sender_id, $receiver_id, $subject, $message, $related_ticket_id = null, $related_maintenance_id = null) {
-    $stmt = $pdo->prepare("INSERT INTO messages (sender_id, receiver_id, subject, message, related_ticket_id, related_maintenance_id) 
-                          VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$sender_id, $receiver_id, $subject, $message, $related_ticket_id, $related_maintenance_id]);
+// ثبت عمل در تاریخچه بازدید
+function logVisitAction($pdo, $visit_request_id, $action, $description = '', $old_status = null, $new_status = null) {
+    $stmt = $pdo->prepare("
+        INSERT INTO visit_history (visit_request_id, action, description, old_status, new_status, performed_by) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $visit_request_id,
+        $action,
+        $description,
+        $old_status,
+        $new_status,
+        $_SESSION['user_id']
+    ]);
+}
+
+// تغییر وضعیت درخواست بازدید
+function updateVisitStatus($pdo, $visit_request_id, $new_status, $notes = '') {
+    // دریافت وضعیت فعلی
+    $stmt = $pdo->prepare("SELECT status FROM visit_requests WHERE id = ?");
+    $stmt->execute([$visit_request_id]);
+    $visit = $stmt->fetch();
     
-    // ارسال اعلان
-    sendNotification($pdo, $receiver_id, 'پیام جدید', $subject, 'پیام', 'متوسط', $pdo->lastInsertId(), 'message');
+    if (!$visit) return false;
+    
+    $old_status = $visit['status'];
+    
+    // به‌روزرسانی وضعیت
+    $stmt = $pdo->prepare("UPDATE visit_requests SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$new_status, $notes, $visit_request_id]);
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'status_changed', $notes, $old_status, $new_status);
+    
+    return true;
+}
+
+// رزرو دستگاه برای بازدید
+function reserveDeviceForVisit($pdo, $visit_request_id, $asset_id, $reserved_from, $reserved_to) {
+    // بررسی تداخل زمانی
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count FROM device_reservations 
+        WHERE asset_id = ? AND status IN ('reserved', 'in_use') 
+        AND ((reserved_from <= ? AND reserved_to >= ?) OR (reserved_from <= ? AND reserved_to >= ?))
+    ");
+    $stmt->execute([$asset_id, $reserved_from, $reserved_from, $reserved_to, $reserved_to]);
+    $conflict = $stmt->fetch()['count'];
+    
+    if ($conflict > 0) {
+        throw new Exception('دستگاه در این بازه زمانی قبلاً رزرو شده است');
+    }
+    
+    // ایجاد رزرو
+    $stmt = $pdo->prepare("
+        INSERT INTO device_reservations (visit_request_id, asset_id, reserved_from, reserved_to, created_by) 
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([$visit_request_id, $asset_id, $reserved_from, $reserved_to, $_SESSION['user_id']]);
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'device_reserved', "دستگاه رزرو شد");
     
     return $pdo->lastInsertId();
 }
 
-// دریافت اعلان‌های خوانده نشده
-function getUnreadNotifications($pdo, $user_id) {
+// آپلود مدارک بازدید
+function uploadVisitDocument($pdo, $visit_request_id, $file, $document_type, $document_name) {
+    $upload_dir = __DIR__ . '/uploads/visit_documents/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed_types = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+    
+    if (!in_array($file_ext, $allowed_types)) {
+        throw new Exception('نوع فایل مجاز نیست');
+    }
+    
+    if ($file['size'] > 10 * 1024 * 1024) { // 10MB limit
+        throw new Exception('حجم فایل بیش از حد مجاز است');
+    }
+    
+    $file_name = time() . '_' . uniqid() . '.' . $file_ext;
+    $target_file = $upload_dir . $file_name;
+    
+    if (!move_uploaded_file($file['tmp_name'], $target_file)) {
+        throw new Exception('خطا در ذخیره فایل');
+    }
+    
+    // ثبت در دیتابیس
     $stmt = $pdo->prepare("
-        SELECT * FROM notifications 
-        WHERE user_id = ? AND is_read = false 
-        ORDER BY created_at DESC
+        INSERT INTO visit_documents (visit_request_id, document_type, document_name, file_path, file_size, mime_type, uploaded_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
-    $stmt->execute([$user_id]);
+    $stmt->execute([
+        $visit_request_id,
+        $document_type,
+        $document_name,
+        $target_file,
+        $file['size'],
+        $file['type'],
+        $_SESSION['user_id']
+    ]);
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'document_uploaded', "مدرک آپلود شد: $document_name");
+    
+    return $pdo->lastInsertId();
+}
+
+// تایید مدارک
+function verifyVisitDocument($pdo, $document_id, $is_verified, $verification_notes = '') {
+    $stmt = $pdo->prepare("
+        UPDATE visit_documents 
+        SET is_verified = ?, verified_by = ?, verified_at = CURRENT_TIMESTAMP, verification_notes = ? 
+        WHERE id = ?
+    ");
+    $stmt->execute([$is_verified, $_SESSION['user_id'], $verification_notes, $document_id]);
+    
+    // دریافت اطلاعات درخواست
+    $stmt = $pdo->prepare("
+        SELECT vr.id FROM visit_documents vd 
+        JOIN visit_requests vr ON vd.visit_request_id = vr.id 
+        WHERE vd.id = ?
+    ");
+    $stmt->execute([$document_id]);
+    $visit_request_id = $stmt->fetch()['id'];
+    
+    // ثبت در تاریخچه
+    $action = $is_verified ? 'document_verified' : 'document_rejected';
+    $description = $is_verified ? 'مدرک تایید شد' : 'مدرک رد شد';
+    logVisitAction($pdo, $visit_request_id, $action, $description);
+    
+    return true;
+}
+
+// ایجاد چک‌لیست بازدید
+function createVisitChecklist($pdo, $visit_request_id, $checklist_type, $items) {
+    foreach ($items as $item) {
+        $stmt = $pdo->prepare("
+            INSERT INTO visit_checklists (visit_request_id, checklist_type, item_name) 
+            VALUES (?, ?, ?)
+        ");
+        $stmt->execute([$visit_request_id, $checklist_type, $item]);
+    }
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'checklist_created', "چک‌لیست $checklist_type ایجاد شد");
+    
+    return true;
+}
+
+// تکمیل آیتم چک‌لیست
+function completeChecklistItem($pdo, $checklist_id, $notes = '') {
+    $stmt = $pdo->prepare("
+        UPDATE visit_checklists 
+        SET is_completed = true, completed_by = ?, completed_at = CURRENT_TIMESTAMP, notes = ? 
+        WHERE id = ?
+    ");
+    $stmt->execute([$_SESSION['user_id'], $notes, $checklist_id]);
+    
+    // دریافت اطلاعات درخواست
+    $stmt = $pdo->prepare("
+        SELECT vr.id FROM visit_checklists vc 
+        JOIN visit_requests vr ON vc.visit_request_id = vr.id 
+        WHERE vc.id = ?
+    ");
+    $stmt->execute([$checklist_id]);
+    $visit_request_id = $stmt->fetch()['id'];
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'checklist_item_completed', 'آیتم چک‌لیست تکمیل شد');
+    
+    return true;
+}
+
+// آپلود عکس بازدید
+function uploadVisitPhoto($pdo, $visit_request_id, $file, $photo_type, $caption = '') {
+    $upload_dir = __DIR__ . '/uploads/visit_photos/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
+    
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed_types = ['jpg', 'jpeg', 'png'];
+    
+    if (!in_array($file_ext, $allowed_types)) {
+        throw new Exception('نوع فایل مجاز نیست');
+    }
+    
+    if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
+        throw new Exception('حجم فایل بیش از حد مجاز است');
+    }
+    
+    $file_name = time() . '_' . uniqid() . '.' . $file_ext;
+    $target_file = $upload_dir . $file_name;
+    
+    if (!move_uploaded_file($file['tmp_name'], $target_file)) {
+        throw new Exception('خطا در ذخیره فایل');
+    }
+    
+    // ثبت در دیتابیس
+    $stmt = $pdo->prepare("
+        INSERT INTO visit_photos (visit_request_id, photo_type, file_path, file_size, mime_type, caption, taken_by) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $visit_request_id,
+        $photo_type,
+        $target_file,
+        $file['size'],
+        $file['type'],
+        $caption,
+        $_SESSION['user_id']
+    ]);
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'photo_uploaded', "عکس آپلود شد: $photo_type");
+    
+    return $pdo->lastInsertId();
+}
+
+// ایجاد گزارش بازدید
+function createVisitReport($pdo, $visit_request_id, $report_type, $data) {
+    $stmt = $pdo->prepare("
+        INSERT INTO visit_reports (
+            visit_request_id, report_type, title, content, equipment_tested, 
+            visitor_feedback, recommendations, follow_up_required, follow_up_date, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $visit_request_id,
+        $report_type,
+        $data['title'],
+        $data['content'],
+        json_encode($data['equipment_tested'] ?? []),
+        $data['visitor_feedback'] ?? null,
+        $data['recommendations'] ?? null,
+        $data['follow_up_required'] ?? false,
+        $data['follow_up_date'] ?? null,
+        $_SESSION['user_id']
+    ]);
+    
+    // ثبت در تاریخچه
+    logVisitAction($pdo, $visit_request_id, 'report_created', "گزارش $report_type ایجاد شد");
+    
+    return $pdo->lastInsertId();
+}
+
+// Check-in بازدید
+function checkInVisit($pdo, $visit_request_id, $qr_code = null) {
+    $stmt = $pdo->prepare("
+        UPDATE visit_requests 
+        SET check_in_time = CURRENT_TIMESTAMP, status = 'checked_in' 
+        WHERE id = ? AND (qr_code = ? OR ? IS NULL)
+    ");
+    $stmt->execute([$visit_request_id, $qr_code, $qr_code]);
+    
+    if ($stmt->rowCount() > 0) {
+        // ثبت در تاریخچه
+        logVisitAction($pdo, $visit_request_id, 'checked_in', 'بازدیدکننده وارد شد');
+        return true;
+    }
+    
+    return false;
+}
+
+// Check-out بازدید
+function checkOutVisit($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        UPDATE visit_requests 
+        SET check_out_time = CURRENT_TIMESTAMP, status = 'completed' 
+        WHERE id = ?
+    ");
+    $stmt->execute([$visit_request_id]);
+    
+    if ($stmt->rowCount() > 0) {
+        // ثبت در تاریخچه
+        logVisitAction($pdo, $visit_request_id, 'checked_out', 'بازدیدکننده خارج شد');
+        return true;
+    }
+    
+    return false;
+}
+
+// تولید QR Code برای بازدید
+function generateVisitQRCode($pdo, $visit_request_id) {
+    $qr_code = 'VR' . $visit_request_id . '_' . time();
+    
+    $stmt = $pdo->prepare("UPDATE visit_requests SET qr_code = ? WHERE id = ?");
+    $stmt->execute([$qr_code, $visit_request_id]);
+    
+    return $qr_code;
+}
+
+// دریافت آمار بازدیدها
+function getVisitStatistics($pdo, $date_from = null, $date_to = null) {
+    $where_clause = '';
+    $params = [];
+    
+    if ($date_from && $date_to) {
+        $where_clause = 'WHERE created_at BETWEEN ? AND ?';
+        $params = [$date_from, $date_to];
+    }
+    
+    $stats = [];
+    
+    // تعداد کل درخواست‌ها
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM visit_requests $where_clause");
+    $stmt->execute($params);
+    $stats['total_requests'] = $stmt->fetch()['total'];
+    
+    // درخواست‌ها بر اساس وضعیت
+    $stmt = $pdo->prepare("
+        SELECT status, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY status
+    ");
+    $stmt->execute($params);
+    $stats['by_status'] = $stmt->fetchAll();
+    
+    // درخواست‌ها بر اساس نوع
+    $stmt = $pdo->prepare("
+        SELECT visit_type, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_type
+    ");
+    $stmt->execute($params);
+    $stats['by_type'] = $stmt->fetchAll();
+    
+    // درخواست‌ها بر اساس هدف
+    $stmt = $pdo->prepare("
+        SELECT visit_purpose, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_purpose
+    ");
+    $stmt->execute($params);
+    $stats['by_purpose'] = $stmt->fetchAll();
+    
+    return $stats;
+}
+
+// دریافت لیست دستگاه‌های در دسترس
+function getAvailableDevices($pdo, $date_from, $date_to) {
+    $stmt = $pdo->prepare("
+        SELECT a.*, at.display_name as type_name
+        FROM assets a
+        LEFT JOIN asset_types at ON a.type_id = at.id
+        WHERE a.status = 'فعال' 
+        AND a.id NOT IN (
+            SELECT asset_id FROM device_reservations 
+            WHERE status IN ('reserved', 'in_use') 
+            AND ((reserved_from <= ? AND reserved_to >= ?) OR (reserved_from <= ? AND reserved_to >= ?))
+        )
+        ORDER BY a.name
+    ");
+    $stmt->execute([$date_from, $date_from, $date_to, $date_to]);
     return $stmt->fetchAll();
 }
 
-// علامت‌گذاری اعلان به عنوان خوانده شده
-function markNotificationAsRead($pdo, $notification_id) {
-    $stmt = $pdo->prepare("UPDATE notifications SET is_read = true, read_at = CURRENT_TIMESTAMP WHERE id = ?");
-    $stmt->execute([$notification_id]);
-    return $stmt->rowCount() > 0;
-}
-
-// دریافت پیام‌های خوانده نشده
-function getUnreadMessages($pdo, $user_id) {
+// دریافت درخواست‌های بازدید
+function getVisitRequests($pdo, $filters = []) {
+    $where_conditions = [];
+    $params = [];
+    
+    if (!empty($filters['status'])) {
+        $where_conditions[] = "vr.status = ?";
+        $params[] = $filters['status'];
+    }
+    
+    if (!empty($filters['visit_type'])) {
+        $where_conditions[] = "vr.visit_type = ?";
+        $params[] = $filters['visit_type'];
+    }
+    
+    if (!empty($filters['date_from'])) {
+        $where_conditions[] = "vr.created_at >= ?";
+        $params[] = $filters['date_from'];
+    }
+    
+    if (!empty($filters['date_to'])) {
+        $where_conditions[] = "vr.created_at <= ?";
+        $params[] = $filters['date_to'];
+    }
+    
+    if (!empty($filters['company_name'])) {
+        $where_conditions[] = "vr.company_name LIKE ?";
+        $params[] = '%' . $filters['company_name'] . '%';
+    }
+    
+    if (!empty($filters['priority'])) {
+        $where_conditions[] = "vr.priority = ?";
+        $params[] = $filters['priority'];
+    }
+    
+    if (!empty($filters['host_id'])) {
+        $where_conditions[] = "vr.host_id = ?";
+        $params[] = $filters['host_id'];
+    }
+    
+    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    
     $stmt = $pdo->prepare("
-        SELECT m.*, u.full_name as sender_name 
-        FROM messages m
-        LEFT JOIN users u ON m.sender_id = u.id
-        WHERE m.receiver_id = ? AND m.is_read = false 
-        ORDER BY m.created_at DESC
+        SELECT vr.*, 
+               u1.full_name as created_by_name,
+               u2.full_name as assigned_to_name,
+               u3.full_name as host_name
+        FROM visit_requests vr
+        LEFT JOIN users u1 ON vr.created_by = u1.id
+        LEFT JOIN users u2 ON vr.assigned_to = u2.id
+        LEFT JOIN users u3 ON vr.host_id = u3.id
+        $where_clause
+        ORDER BY vr.created_at DESC
     ");
-    $stmt->execute([$user_id]);
+    $stmt->execute($params);
     return $stmt->fetchAll();
 }
+
+// دریافت میزبان‌های در دسترس
+function getAvailableHosts($pdo) {
+    $stmt = $pdo->prepare("
+        SELECT id, full_name, role 
+        FROM users 
+        WHERE role IN ('ادمین', 'مدیر عملیات', 'تکنسین') 
+        AND is_active = 1
+        ORDER BY full_name
+    ");
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+// ایجاد چک‌لیست پیشرفته
+function createEnhancedChecklist($pdo, $visit_request_id) {
+    $checklist_items = [
+        // چک‌لیست قبل از بازدید
+        'pre_visit' => [
+            'تایید مدارک بازدیدکننده',
+            'بررسی مجوزهای امنیتی',
+            'آماده‌سازی تجهیزات',
+            'برنامه‌ریزی مسیر بازدید',
+            'آماده‌سازی مواد آموزشی',
+            'تایید حضور میزبان'
+        ],
+        // چک‌لیست حین بازدید
+        'onsite' => [
+            'استقبال از بازدیدکنندگان',
+            'توزیع کارت‌های شناسایی',
+            'ارائه توضیحات امنیتی',
+            'بازدید از بخش‌های مختلف',
+            'تست تجهیزات',
+            'ثبت نظرات بازدیدکنندگان'
+        ],
+        // چک‌لیست بعد از بازدید
+        'post_visit' => [
+            'جمع‌آوری کارت‌های شناسایی',
+            'تکمیل گزارش بازدید',
+            'ارسال گزارش به مشتری',
+            'آرشیو مدارک',
+            'بررسی بازخورد',
+            'برنامه‌ریزی پیگیری'
+        ]
+    ];
+    
+    foreach ($checklist_items as $type => $items) {
+        foreach ($items as $item) {
+            $stmt = $pdo->prepare("
+                INSERT INTO visit_checklists (visit_request_id, checklist_type, item_name) 
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([$visit_request_id, $type, $item]);
+        }
+    }
+    
+    return true;
+}
+
+// دریافت چک‌لیست بازدید
+function getVisitChecklist($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vc.*, u.full_name as completed_by_name
+        FROM visit_checklists vc
+        LEFT JOIN users u ON vc.completed_by = u.id
+        WHERE vc.visit_request_id = ?
+        ORDER BY vc.checklist_type, vc.id
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت آمار پیشرفته بازدیدها
+function getAdvancedVisitStatistics($pdo, $date_from = null, $date_to = null) {
+    $where_clause = '';
+    $params = [];
+    
+    if ($date_from && $date_to) {
+        $where_clause = 'WHERE created_at BETWEEN ? AND ?';
+        $params = [$date_from, $date_to];
+    }
+    
+    $stats = [];
+    
+    // آمار کلی
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM visit_requests $where_clause");
+    $stmt->execute($params);
+    $stats['total_requests'] = $stmt->fetch()['total'];
+    
+    // آمار بر اساس وضعیت
+    $stmt = $pdo->prepare("
+        SELECT status, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY status
+    ");
+    $stmt->execute($params);
+    $stats['by_status'] = $stmt->fetchAll();
+    
+    // آمار بر اساس نوع
+    $stmt = $pdo->prepare("
+        SELECT visit_type, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_type
+    ");
+    $stmt->execute($params);
+    $stats['by_type'] = $stmt->fetchAll();
+    
+    // آمار بر اساس هدف
+    $stmt = $pdo->prepare("
+        SELECT visit_purpose, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY visit_purpose
+    ");
+    $stmt->execute($params);
+    $stats['by_purpose'] = $stmt->fetchAll();
+    
+    // آمار بر اساس اولویت
+    $stmt = $pdo->prepare("
+        SELECT priority, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY priority
+    ");
+    $stmt->execute($params);
+    $stats['by_priority'] = $stmt->fetchAll();
+    
+    // آمار ماهانه
+    $stmt = $pdo->prepare("
+        SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count 
+        FROM visit_requests $where_clause 
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month DESC
+        LIMIT 12
+    ");
+    $stmt->execute($params);
+    $stats['monthly'] = $stmt->fetchAll();
+    
+    // آمار میزبان‌ها
+    $stmt = $pdo->prepare("
+        SELECT u.full_name as host_name, COUNT(vr.id) as count
+        FROM visit_requests vr
+        LEFT JOIN users u ON vr.host_id = u.id
+        $where_clause
+        GROUP BY vr.host_id, u.full_name
+        ORDER BY count DESC
+    ");
+    $stmt->execute($params);
+    $stats['by_host'] = $stmt->fetchAll();
+    
+    return $stats;
+}
+
+// دریافت گزارش‌های بازدید
+function getVisitReports($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vr.*, u.full_name as created_by_name
+        FROM visit_reports vr
+        LEFT JOIN users u ON vr.created_by = u.id
+        WHERE vr.visit_request_id = ?
+        ORDER BY vr.created_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت عکس‌های بازدید
+function getVisitPhotos($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vp.*, u.full_name as taken_by_name
+        FROM visit_photos vp
+        LEFT JOIN users u ON vp.taken_by = u.id
+        WHERE vp.visit_request_id = ?
+        ORDER BY vp.taken_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+// دریافت مدارک بازدید
+function getVisitDocuments($pdo, $visit_request_id) {
+    $stmt = $pdo->prepare("
+        SELECT vd.*, u1.full_name as uploaded_by_name, u2.full_name as verified_by_name
+        FROM visit_documents vd
+        LEFT JOIN users u1 ON vd.uploaded_by = u1.id
+        LEFT JOIN users u2 ON vd.verified_by = u2.id
+        WHERE vd.visit_request_id = ?
+        ORDER BY vd.created_at DESC
+    ");
+    $stmt->execute([$visit_request_id]);
+    return $stmt->fetchAll();
+}
+
+/**
+ * دریافت کاربران برای انتساب
+ */
+function getUsersForAssignment($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT id, username, full_name, role, is_active 
+            FROM users 
+            WHERE is_active = 1 
+            ORDER BY full_name, username
+        ");
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log("Error fetching users: " . $e->getMessage());
+        return [];
+    }
+}
+
 
 ?>
