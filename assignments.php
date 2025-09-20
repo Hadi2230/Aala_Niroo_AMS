@@ -126,308 +126,625 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
 ?>
 
 <!DOCTYPE html>
-<html dir="rtl" lang="fa">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>انتساب دستگاه به مشتری - اعلا نیرو</title>
+    <title>مدیریت انتساب دستگاه‌ها - اعلا نیرو</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Persian DatePicker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    
     <style>
-        .assignment-details { display: none; }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Tahoma', sans-serif;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .main-content {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+        }
+        
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .page-subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 1.5rem;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn {
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            border: none;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border: none;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            border: none;
+        }
+        
+        .table {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .table thead th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 1rem;
+        }
+        
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: scale(1.01);
+        }
+        
+        .assignment-details {
+            display: none;
+            background-color: #f8f9fa;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+        
         .image-preview {
             max-width: 200px;
             max-height: 200px;
             margin-top: 10px;
             display: none;
+            border-radius: 8px;
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+            padding: 1rem 1.5rem;
+        }
+        
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .stats-number {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .section-title {
+            color: #495057;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .required {
+            color: #dc3545;
+        }
+        
+        .form-section {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            border: 1px solid #e9ecef;
         }
     </style>
 </head>
 <body>
+    <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">اعلا نیرو</a>
+            <a class="navbar-brand" href="dashboard.php">
+                <i class="fas fa-cogs me-2"></i>اعلا نیرو
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">داشبورد</a>
+                        <a class="nav-link" href="dashboard.php">
+                            <i class="fas fa-tachometer-alt me-1"></i>داشبورد
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="assets.php">مدیریت دارایی‌ها</a>
+                        <a class="nav-link" href="assets.php">
+                            <i class="fas fa-boxes me-1"></i>مدیریت دارایی‌ها
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="customers.php">مدیریت مشتریان</a>
+                        <a class="nav-link" href="customers.php">
+                            <i class="fas fa-users me-1"></i>مدیریت مشتریان
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="assignments.php">انتساب دستگاه</a>
+                        <a class="nav-link active" href="assignments.php">
+                            <i class="fas fa-link me-1"></i>انتساب دستگاه
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="reports.php">گزارش‌ها</a>
+                        <a class="nav-link" href="reports.php">
+                            <i class="fas fa-chart-bar me-1"></i>گزارش‌ها
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="logout.php">خروج</a>
+                        <a class="nav-link" href="system_logs.php">
+                            <i class="fas fa-list-alt me-1"></i>لاگ سیستم
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i><?php echo $_SESSION['full_name'] ?? 'کاربر'; ?>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="logout.php"><i class="fas fa-sign-out-alt me-1"></i>خروج</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <h2 class="text-center">انتساب دستگاه به مشتری</h2>
-
-        <?php if (isset($success)): ?>
-            <div class="alert alert-success"><?php echo $success; ?></div>
-        <?php endif; ?>
-        
-        <?php if (isset($error)): ?>
-            <div class="alert alert-danger"><?php echo $error; ?></div>
-        <?php endif; ?>
-
-        <!-- فرم انتساب دستگاه -->
-        <div class="card mt-4">
-            <div class="card-header">انتساب جدید</div>
-            <div class="card-body">
-                <form method="POST" id="assignmentForm" enctype="multipart/form-data">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="customer_id" class="form-label">انتخاب مشتری *</label>
-                                <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
-                                    <option value="">-- انتخاب مشتری --</option>
-                                    <?php foreach ($customers as $customer): ?>
-                                        <option value="<?php echo $customer['id']; ?>" data-phone="<?php echo $customer['phone']; ?>">
-                                            <?php echo $customer['full_name']; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="asset_id" class="form-label">انتخاب دستگاه *</label>
-                                <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
-                                    <option value="">-- انتخاب دستگاه --</option>
-                                    <?php foreach ($assets as $asset): ?>
-                                        <option value="<?php echo $asset['id']; ?>"
-                                                data-model="<?php echo $asset['device_model']; ?>"
-                                                data-serial="<?php echo $asset['device_serial']; ?>"
-                                                data-engine-model="<?php echo $asset['engine_model']; ?>"
-                                                data-engine-serial="<?php echo $asset['engine_serial']; ?>">
-                                            <?php echo $asset['name']; ?> (مدل: <?php echo $asset['device_model']; ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="assignment_date" class="form-label">تاریخ انتساب *</label>
-                                <input type="text" class="form-control jalali-date" id="assignment_date" name="assignment_date" required value="<?php echo jalali_format(date('Y-m-d')); ?>" readonly>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">مدل دستگاه</label>
-                                <input type="text" class="form-control" id="device_model_display" readonly>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">سریال دستگاه</label>
-                                <input type="text" class="form-control" id="device_serial_display" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">توضیحات اولیه (اختیاری)</label>
-                        <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
-                    </div>
-
-                    <!-- اطلاعات کامل انتساب -->
-                    <div id="assignmentDetails" class="assignment-details">
-                        <h4 class="mb-4 mt-4">اطلاعات کامل نصب و راه‌اندازی</h4>
-                        
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="installation_date" class="form-label">تاریخ نصب</label>
-                                    <input type="text" class="form-control jalali-date" id="installation_date" name="installation_date" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="delivery_person" class="form-label">نام تحویل دهنده</label>
-                                    <input type="text" class="form-control" id="delivery_person" name="delivery_person">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="recipient_name" class="form-label">نام تحویل گیرنده</label>
-                                    <input type="text" class="form-control" id="recipient_name" name="recipient_name">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="recipient_phone" class="form-label">شماره تماس تحویل گیرنده</label>
-                                    <input type="text" class="form-control" id="recipient_phone" name="recipient_phone">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="installer_name" class="form-label">نام نصاب</label>
-                                    <input type="text" class="form-control" id="installer_name" name="installer_name">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="installation_address" class="form-label">آدرس محل نصب</label>
-                            <textarea class="form-control" id="installation_address" name="installation_address" rows="3"></textarea>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="warranty_start_date" class="form-label">تاریخ آغاز گارانتی</label>
-                                    <input type="text" class="form-control jalali-date" id="warranty_start_date" name="warranty_start_date" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="installation_start_date" class="form-label">تاریخ آغاز نصب</label>
-                                    <input type="text" class="form-control jalali-date" id="installation_start_date" name="installation_start_date" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="installation_end_date" class="form-label">تاریخ اتمام نصب</label>
-                                    <input type="text" class="form-control jalali-date" id="installation_end_date" name="installation_end_date" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="temporary_delivery_date" class="form-label">تاریخ تحویل موقت</label>
-                                    <input type="text" class="form-control jalali-date" id="temporary_delivery_date" name="temporary_delivery_date" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="permanent_delivery_date" class="form-label">تاریخ تحویل دائم</label>
-                                    <input type="text" class="form-control jalali-date" id="permanent_delivery_date" name="permanent_delivery_date" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="first_service_date" class="form-label">تاریخ سرویس اولیه</label>
-                                    <input type="text" class="form-control jalali-date" id="first_service_date" name="first_service_date" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="warranty_conditions" class="form-label">شرایط گارانتی</label>
-                            <textarea class="form-control" id="warranty_conditions" name="warranty_conditions" rows="3"></textarea>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="post_installation_commitments" class="form-label">تعهدات پس از راه‌اندازی</label>
-                            <textarea class="form-control" id="post_installation_commitments" name="post_installation_commitments" rows="3"></textarea>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="additional_notes" class="form-label">توضیحات تکمیلی</label>
-                            <textarea class="form-control" id="additional_notes" name="additional_notes" rows="3"></textarea>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="installation_photo" class="form-label">عکس نصب نهایی دستگاه</label>
-                            <input type="file" class="form-control" id="installation_photo" name="installation_photo" accept="image/*" onchange="previewImage(this, 'installation_photo_preview')">
-                            <img id="installation_photo_preview" class="image-preview" src="#" alt="پیش‌نمایش عکس نصب">
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="employer_name" class="form-label">نام کارفرما (از اطلاعات مشتری)</label>
-                                    <input type="text" class="form-control" id="employer_name" name="employer_name" readonly>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="employer_phone" class="form-label">شماره تماس کارفرما (از اطلاعات مشتری)</label>
-                                    <input type="text" class="form-control" id="employer_phone" name="employer_phone" readonly>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" name="assign_asset" class="btn btn-primary">انتساب دستگاه و ثبت اطلاعات</button>
-                </form>
+    <div class="container-fluid main-content">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="container">
+                <h1 class="page-title">
+                    <i class="fas fa-link me-3"></i>مدیریت انتساب دستگاه‌ها
+                </h1>
+                <p class="page-subtitle">انتساب دستگاه‌ها به مشتریان و مدیریت اطلاعات نصب و راه‌اندازی</p>
             </div>
         </div>
 
-        <!-- لیست انتساب‌ها -->
-        <div class="card mt-5">
-            <div class="card-header">لیست انتساب‌های انجام شده</div>
-            <div class="card-body">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>دستگاه</th>
-                            <th>مشتری</th>
-                            <th>تاریخ انتساب</th>
-                            <th>تحویل گیرنده</th>
-                            <th>آدرس نصب</th>
-                            <th>عملیات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($assignments as $assignment): ?>
-                        <tr>
-                            <td><?php echo $assignment['id']; ?></td>
-                            <td><?php echo $assignment['asset_name']; ?></td>
-                            <td><?php echo $assignment['customer_name']; ?></td>
-                            <td><?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?></td>
-                            <td><?php echo $assignment['recipient_name']; ?></td>
-                            <td><?php echo substr($assignment['installation_address'], 0, 30); ?>...</td>
-                            <td>
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" 
-                                            data-bs-target="#detailsModal<?php echo $assignment['id']; ?>">
-                                        جزئیات
-                                    </button>
-                                    <a href="edit_assignment.php?id=<?php echo $assignment['id']; ?>" class="btn btn-sm btn-warning">ویرایش</a>
+        <div class="container">
+            <!-- Statistics Cards -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <div class="stats-number"><?php echo count($assignments); ?></div>
+                        <div class="stats-label">کل انتساب‌ها</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <div class="stats-number"><?php echo count($assets); ?></div>
+                        <div class="stats-label">دستگاه‌های فعال</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <div class="stats-number"><?php echo count($customers); ?></div>
+                        <div class="stats-label">مشتریان</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <div class="stats-number"><?php echo count(array_filter($assignments, function($a) { return $a['assignment_status'] == 'فعال'; })); ?></div>
+                        <div class="stats-label">انتساب‌های فعال</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Success/Error Messages -->
+            <?php if (isset($success)): ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i><?php echo $success; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (isset($error)): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i><?php echo $error; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <!-- Assignment Form -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-plus-circle me-2"></i>انتساب جدید دستگاه
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="assignmentForm" enctype="multipart/form-data">
+                        <!-- Basic Assignment Info -->
+                        <div class="form-section">
+                            <h4 class="section-title">
+                                <i class="fas fa-info-circle me-2"></i>اطلاعات پایه انتساب
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="customer_id" class="form-label">
+                                            انتخاب مشتری <span class="required">*</span>
+                                        </label>
+                                        <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
+                                            <option value="">-- انتخاب مشتری --</option>
+                                            <?php foreach ($customers as $customer): ?>
+                                                <option value="<?php echo $customer['id']; ?>" data-phone="<?php echo $customer['phone']; ?>">
+                                                    <?php echo $customer['full_name']; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="asset_id" class="form-label">
+                                            انتخاب دستگاه <span class="required">*</span>
+                                        </label>
+                                        <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
+                                            <option value="">-- انتخاب دستگاه --</option>
+                                            <?php foreach ($assets as $asset): ?>
+                                                <option value="<?php echo $asset['id']; ?>"
+                                                        data-model="<?php echo $asset['device_model']; ?>"
+                                                        data-serial="<?php echo $asset['device_serial']; ?>"
+                                                        data-engine-model="<?php echo $asset['engine_model']; ?>"
+                                                        data-engine-serial="<?php echo $asset['engine_serial']; ?>">
+                                                    <?php echo $asset['name']; ?> (مدل: <?php echo $asset['device_model']; ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="assignment_date" class="form-label">
+                                            تاریخ انتساب <span class="required">*</span>
+                                        </label>
+                                        <input type="text" class="form-control jalali-date" id="assignment_date" name="assignment_date" required value="<?php echo jalali_format(date('Y-m-d')); ?>" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">مدل دستگاه</label>
+                                        <input type="text" class="form-control" id="device_model_display" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">سریال دستگاه</label>
+                                        <input type="text" class="form-control" id="device_serial_display" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">توضیحات اولیه (اختیاری)</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="2" placeholder="توضیحات مربوط به انتساب..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Assignment Info -->
+                        <div id="assignmentDetails" class="assignment-details">
+                            <h4 class="section-title">
+                                <i class="fas fa-cogs me-2"></i>اطلاعات کامل نصب و راه‌اندازی
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="installation_date" class="form-label">تاریخ نصب</label>
+                                        <input type="text" class="form-control jalali-date" id="installation_date" name="installation_date" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="delivery_person" class="form-label">نام تحویل دهنده</label>
+                                        <input type="text" class="form-control" id="delivery_person" name="delivery_person" placeholder="نام شخص تحویل دهنده">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="recipient_name" class="form-label">نام تحویل گیرنده</label>
+                                        <input type="text" class="form-control" id="recipient_name" name="recipient_name" placeholder="نام شخص تحویل گیرنده">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="recipient_phone" class="form-label">شماره تماس تحویل گیرنده</label>
+                                        <input type="text" class="form-control" id="recipient_phone" name="recipient_phone" placeholder="شماره تماس">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="installer_name" class="form-label">نام نصاب</label>
+                                        <input type="text" class="form-control" id="installer_name" name="installer_name" placeholder="نام نصاب">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="installation_address" class="form-label">آدرس محل نصب</label>
+                                <textarea class="form-control" id="installation_address" name="installation_address" rows="3" placeholder="آدرس کامل محل نصب دستگاه..."></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="warranty_start_date" class="form-label">تاریخ آغاز گارانتی</label>
+                                        <input type="text" class="form-control jalali-date" id="warranty_start_date" name="warranty_start_date" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="installation_start_date" class="form-label">تاریخ آغاز نصب</label>
+                                        <input type="text" class="form-control jalali-date" id="installation_start_date" name="installation_start_date" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="installation_end_date" class="form-label">تاریخ اتمام نصب</label>
+                                        <input type="text" class="form-control jalali-date" id="installation_end_date" name="installation_end_date" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="temporary_delivery_date" class="form-label">تاریخ تحویل موقت</label>
+                                        <input type="text" class="form-control jalali-date" id="temporary_delivery_date" name="temporary_delivery_date" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="permanent_delivery_date" class="form-label">تاریخ تحویل دائم</label>
+                                        <input type="text" class="form-control jalali-date" id="permanent_delivery_date" name="permanent_delivery_date" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="first_service_date" class="form-label">تاریخ سرویس اولیه</label>
+                                        <input type="text" class="form-control jalali-date" id="first_service_date" name="first_service_date" readonly>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="warranty_conditions" class="form-label">شرایط گارانتی</label>
+                                <textarea class="form-control" id="warranty_conditions" name="warranty_conditions" rows="3" placeholder="شرایط و قوانین گارانتی..."></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="post_installation_commitments" class="form-label">تعهدات پس از راه‌اندازی</label>
+                                <textarea class="form-control" id="post_installation_commitments" name="post_installation_commitments" rows="3" placeholder="تعهدات و خدمات پس از راه‌اندازی..."></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="additional_notes" class="form-label">توضیحات تکمیلی</label>
+                                <textarea class="form-control" id="additional_notes" name="additional_notes" rows="3" placeholder="توضیحات اضافی..."></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="installation_photo" class="form-label">عکس نصب نهایی دستگاه</label>
+                                <input type="file" class="form-control" id="installation_photo" name="installation_photo" accept="image/*" onchange="previewImage(this, 'installation_photo_preview')">
+                                <img id="installation_photo_preview" class="image-preview" src="#" alt="پیش‌نمایش عکس نصب">
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_name" class="form-label">نام کارفرما (از اطلاعات مشتری)</label>
+                                        <input type="text" class="form-control" id="employer_name" name="employer_name" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="employer_phone" class="form-label">شماره تماس کارفرما (از اطلاعات مشتری)</label>
+                                        <input type="text" class="form-control" id="employer_phone" name="employer_phone" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" name="assign_asset" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i>انتساب دستگاه و ثبت اطلاعات
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Assignments List -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-list me-2"></i>لیست انتساب‌های انجام شده
+                </div>
+                <div class="card-body">
+                    <?php if (empty($assignments)): ?>
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">هیچ انتسابی یافت نشد</h5>
+                            <p class="text-muted">برای شروع، یک انتساب جدید ایجاد کنید.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th><i class="fas fa-hashtag me-1"></i>#</th>
+                                        <th><i class="fas fa-box me-1"></i>دستگاه</th>
+                                        <th><i class="fas fa-user me-1"></i>مشتری</th>
+                                        <th><i class="fas fa-calendar me-1"></i>تاریخ انتساب</th>
+                                        <th><i class="fas fa-user-check me-1"></i>تحویل گیرنده</th>
+                                        <th><i class="fas fa-map-marker-alt me-1"></i>آدرس نصب</th>
+                                        <th><i class="fas fa-cogs me-1"></i>عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($assignments as $assignment): ?>
+                                    <tr>
+                                        <td><span class="badge bg-primary"><?php echo $assignment['id']; ?></span></td>
+                                        <td>
+                                            <strong><?php echo $assignment['asset_name']; ?></strong>
+                                        </td>
+                                        <td><?php echo $assignment['customer_name']; ?></td>
+                                        <td>
+                                            <span class="badge bg-info">
+                                                <?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo $assignment['recipient_name'] ?? '--'; ?></td>
+                                        <td>
+                                            <?php if ($assignment['installation_address']): ?>
+                                                <?php echo substr($assignment['installation_address'], 0, 30); ?>...
+                                            <?php else: ?>
+                                                --
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" 
+                                                        data-bs-target="#detailsModal<?php echo $assignment['id']; ?>">
+                                                    <i class="fas fa-eye me-1"></i>جزئیات
+                                                </button>
+                                                <a href="edit_assignment.php?id=<?php echo $assignment['id']; ?>" class="btn btn-warning btn-sm">
+                                                    <i class="fas fa-edit me-1"></i>ویرایش
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal های جزئیات -->
+    <!-- Detail Modals -->
     <?php foreach ($assignments as $assignment): ?>
     <div class="modal fade" id="detailsModal<?php echo $assignment['id']; ?>" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">جزئیات انتساب #<?php echo $assignment['id']; ?></h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-info-circle me-2"></i>جزئیات انتساب #<?php echo $assignment['id']; ?>
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -444,44 +761,100 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
                     
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>دستگاه:</strong> <?php echo $assignment['asset_name']; ?></p>
-                            <p><strong>مشتری:</strong> <?php echo $assignment['customer_name']; ?></p>
-                            <p><strong>تاریخ انتساب:</strong> <?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?></p>
-                            <p><strong>نام تحویل دهنده:</strong> <?php echo $assignment_details['delivery_person']; ?></p>
-                            <p><strong>نام تحویل گیرنده:</strong> <?php echo $assignment_details['recipient_name']; ?></p>
-                            <p><strong>تلفن تحویل گیرنده:</strong> <?php echo $assignment_details['recipient_phone']; ?></p>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">دستگاه:</label>
+                                <p><?php echo $assignment['asset_name']; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">مشتری:</label>
+                                <p><?php echo $assignment['customer_name']; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تاریخ انتساب:</label>
+                                <p><span class="badge bg-info"><?php echo gregorianToJalaliFromDB($assignment['assignment_date']); ?></span></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">نام تحویل دهنده:</label>
+                                <p><?php echo $assignment_details['delivery_person'] ?? '--'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">نام تحویل گیرنده:</label>
+                                <p><?php echo $assignment_details['recipient_name'] ?? '--'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تلفن تحویل گیرنده:</label>
+                                <p><?php echo $assignment_details['recipient_phone'] ?? '--'; ?></p>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>تاریخ نصب:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['installation_date']); ?></p>
-                            <p><strong>تاریخ آغاز گارانتی:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['warranty_start_date']); ?></p>
-                            <p><strong>نام نصاب:</strong> <?php echo $assignment_details['installer_name']; ?></p>
-                            <p><strong>تاریخ تحویل موقت:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['temporary_delivery_date']); ?></p>
-                            <p><strong>تاریخ تحویل دائم:</strong> <?php echo gregorianToJalaliFromDB($assignment_details['permanent_delivery_date']); ?></p>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تاریخ نصب:</label>
+                                <p><span class="badge bg-success"><?php echo gregorianToJalaliFromDB($assignment_details['installation_date']); ?></span></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تاریخ آغاز گارانتی:</label>
+                                <p><span class="badge bg-warning"><?php echo gregorianToJalaliFromDB($assignment_details['warranty_start_date']); ?></span></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">نام نصاب:</label>
+                                <p><?php echo $assignment_details['installer_name'] ?? '--'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تاریخ تحویل موقت:</label>
+                                <p><span class="badge bg-info"><?php echo gregorianToJalaliFromDB($assignment_details['temporary_delivery_date']); ?></span></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تاریخ تحویل دائم:</label>
+                                <p><span class="badge bg-success"><?php echo gregorianToJalaliFromDB($assignment_details['permanent_delivery_date']); ?></span></p>
+                            </div>
                         </div>
                     </div>
                     
                     <div class="row mt-3">
                         <div class="col-md-12">
-                            <p><strong>آدرس نصب:</strong> <?php echo $assignment_details['installation_address']; ?></p>
-                            <p><strong>شرایط گارانتی:</strong> <?php echo $assignment_details['warranty_conditions']; ?></p>
-                            <p><strong>تعهدات پس از راه‌اندازی:</strong> <?php echo $assignment_details['post_installation_commitments']; ?></p>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">آدرس نصب:</label>
+                                <p><?php echo $assignment_details['installation_address'] ?? '--'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">شرایط گارانتی:</label>
+                                <p><?php echo $assignment_details['warranty_conditions'] ?? '--'; ?></p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">تعهدات پس از راه‌اندازی:</label>
+                                <p><?php echo $assignment_details['post_installation_commitments'] ?? '--'; ?></p>
+                            </div>
                             
                             <?php if (!empty($assignment_details['installation_photo'])): ?>
-                                <p><strong>عکس نصب:</strong></p>
-                                <img src="<?php echo $assignment_details['installation_photo']; ?>" class="img-thumbnail" style="max-width: 300px;">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">عکس نصب:</label>
+                                    <div>
+                                        <img src="<?php echo $assignment_details['installation_photo']; ?>" class="img-thumbnail" style="max-width: 300px;">
+                                    </div>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <a href="edit_assignment.php?id=<?php echo $assignment['id']; ?>" class="btn btn-warning">ویرایش این انتساب</a>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                    <a href="edit_assignment.php?id=<?php echo $assignment['id']; ?>" class="btn btn-warning">
+                        <i class="fas fa-edit me-1"></i>ویرایش این انتساب
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>بستن
+                    </button>
                 </div>
             </div>
         </div>
     </div>
     <?php endforeach; ?>
 
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    
     <script>
     function loadCustomerInfo() {
         const customerSelect = document.getElementById('customer_id');
@@ -543,13 +916,8 @@ $customers = $pdo->query("SELECT id, full_name, phone FROM customers ORDER BY fu
             alert('لطفاً مشتری و دستگاه را انتخاب کنید.');
         }
     });
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
-    <script>
+    
+    // Initialize Persian DatePicker
     $(document).ready(function() {
         $('.jalali-date').persianDatepicker({
             format: 'YYYY/MM/DD',
