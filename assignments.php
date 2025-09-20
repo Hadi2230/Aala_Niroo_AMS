@@ -432,7 +432,7 @@ try {
                         <p class="mb-0 mt-2">انتساب دستگاه‌ها به مشتریان و مدیریت جزئیات نصب</p>
                     </div>
                     <div class="col-md-4 text-end">
-                        <button class="btn btn-new-assignment btn-lg" onclick="toggleAssignmentForm()">
+                        <button class="btn btn-new-assignment btn-lg" id="newAssignmentBtn">
                             <i class="fas fa-plus me-2"></i>انتساب جدید
                         </button>
                     </div>
@@ -465,7 +465,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">دستگاه</label>
-                                <select class="form-select" id="asset_id" name="asset_id" required onchange="loadAssetDetails()">
+                                <select class="form-select" id="asset_id" name="asset_id" required>
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($assets as $asset): ?>
                                     <option value="<?php echo $asset['id']; ?>" 
@@ -497,7 +497,7 @@ try {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">مشتری</label>
-                                <select class="form-select" id="customer_id" name="customer_id" required onchange="loadCustomerInfo()">
+                                <select class="form-select" id="customer_id" name="customer_id" required>
                                     <option value="">انتخاب کنید...</option>
                                     <?php foreach ($customers as $customer): ?>
                                     <option value="<?php echo $customer['id']; ?>" 
@@ -673,7 +673,7 @@ try {
                     </div>
 
                     <div class="text-end">
-                        <button type="button" class="btn btn-secondary me-2" onclick="toggleAssignmentForm()">انصراف</button>
+                        <button type="button" class="btn btn-secondary me-2" id="cancelBtn">انصراف</button>
                         <button type="submit" name="assign_asset" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>ثبت انتساب
                         </button>
@@ -848,27 +848,9 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <script>
-    // Initialize Persian DatePicker when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Page loaded, initializing datepickers'); // Debug log
-        
-        // Initialize Persian DatePicker
-        $('.jalali-date').persianDatepicker({
-            format: 'YYYY/MM/DD',
-            altField: '.jalali-date-alt',
-            altFormat: 'YYYY/MM/DD',
-            observer: true,
-            timePicker: {
-                enabled: false
-            }
-        });
-        
-        console.log('Datepickers initialized'); // Debug log
-    });
-
-    // Toggle assignment form
+    // Global functions
     function toggleAssignmentForm() {
-        console.log('Toggle function called'); // Debug log
+        console.log('Toggle function called');
         const form = document.getElementById('assignmentForm');
         if (form.style.display === 'none' || form.style.display === '') {
             form.style.display = 'block';
@@ -887,7 +869,6 @@ try {
         }
     }
 
-    // Load asset details when asset is selected
     function loadAssetDetails() {
         const select = document.getElementById('asset_id');
         const option = select.options[select.selectedIndex];
@@ -905,7 +886,6 @@ try {
         }
     }
 
-    // Load customer info when customer is selected
     function loadCustomerInfo() {
         const select = document.getElementById('customer_id');
         const option = select.options[select.selectedIndex];
@@ -924,7 +904,6 @@ try {
         }
     }
 
-    // View assignment details
     function viewAssignmentDetails(assignmentId) {
         fetch(`get_assignment_details.php?id=${assignmentId}`)
         .then(response => response.text())
@@ -939,17 +918,39 @@ try {
         });
     }
 
-    // Edit assignment
     function editAssignment(assignmentId) {
         alert('قابلیت ویرایش در حال توسعه است');
     }
 
-    // Delete assignment
     function deleteAssignment(assignmentId) {
         document.getElementById('deleteAssignmentId').value = assignmentId;
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
     }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, initializing...');
+        
+        // Add event listeners
+        document.getElementById('newAssignmentBtn').addEventListener('click', toggleAssignmentForm);
+        document.getElementById('cancelBtn').addEventListener('click', toggleAssignmentForm);
+        document.getElementById('asset_id').addEventListener('change', loadAssetDetails);
+        document.getElementById('customer_id').addEventListener('change', loadCustomerInfo);
+        
+        // Initialize Persian DatePicker
+        $('.jalali-date').persianDatepicker({
+            format: 'YYYY/MM/DD',
+            altField: '.jalali-date-alt',
+            altFormat: 'YYYY/MM/DD',
+            observer: true,
+            timePicker: {
+                enabled: false
+            }
+        });
+        
+        console.log('Initialization complete');
+    });
     </script>
 </body>
 </html>
