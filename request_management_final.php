@@ -396,7 +396,7 @@ function getFilesForRequest($request_files, $request_id) {
     });
 }
 
-function formatFileSize($bytes) {
+function formatFileSizeLocal($bytes) {
     $units = ['B', 'KB', 'MB', 'GB'];
     $bytes = max($bytes, 0);
     $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
@@ -1289,7 +1289,7 @@ function getPriorityColor($priority) {
                             <div class="card">
                                 <div class="card-body">
                                     <h6>${file.original_name}</h6>
-                                    <p class="text-muted">اندازه: ${formatFileSize(file.file_size)}</p>
+                                    <p class="text-muted">اندازه: ${formatFileSizeJS(file.file_size)}</p>
                                     <p class="text-muted">نوع: ${file.file_type}</p>
                                     <a href="${file.file_path}" class="btn btn-primary btn-sm" target="_blank">
                                         <i class="fas fa-download me-1"></i>دانلود
@@ -1321,7 +1321,7 @@ function getPriorityColor($priority) {
             }
         }
 
-        function formatFileSize(bytes) {
+        function formatFileSizeJS(bytes) {
             const units = ['B', 'KB', 'MB', 'GB'];
             bytes = Math.max(bytes, 0);
             const pow = Math.floor((bytes ? Math.log(bytes) : 0) / Math.log(1024));
