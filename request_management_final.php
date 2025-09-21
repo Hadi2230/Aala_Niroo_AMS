@@ -55,929 +55,674 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('حداقل یک آیتم باید وارد شود');
             }
             
-            // ایجاد درخواست برای هر آیتم
-            $request_ids = [];
-            foreach ($items as $item) {
-                $data = [
-                    'requester_id' => $_SESSION['user_id'],
-                    'requester_name' => $_SESSION['username'],
-                    'item_name' => $item['item_name'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'description' => sanitizeInput($_POST['description'] ?? ''),
-                    'priority' => $item['priority']
-                ];
-                
-                $request_id = createRequest($pdo, $data);
-                if ($request_id) {
-                    $request_ids[] = $request_id;
-                }
-            }
+            // ایجاد درخواست
+            $request_id = createRequest($pdo, [
+                'requester_id' => $_SESSION['user_id'],
+                'requester_name' => $_SESSION['username'],
+                'item_name' => implode('، ', array_column($items, 'item_name')),
+                'quantity' => array_sum(array_column($items, 'quantity')),
+                'price' => array_sum(array_column($items, 'price')),
+                'description' => sanitizeInput($_POST['description'] ?? ''),
+                'priority' => sanitizeInput($_POST['priority'] ?? 'متوسط')
+            ]);
             
-            if (!empty($request_ids)) {
-                // آپلود فایل‌ها برای اولین درخواست
-                if (!empty($_FILES['files']['name'][0])) {
-                    foreach ($_FILES['files']['name'] as $key => $name) {
-                        if (!empty($name)) {
-                            $file = [
-                                'name' => $_FILES['files']['name'][$key],
-                                'type' => $_FILES['files']['type'][$key],
-                                'tmp_name' => $_FILES['files']['tmp_name'][$key],
-                                'size' => $_FILES['files']['size'][$key]
-                            ];
-                            uploadRequestFile($pdo, $request_ids[0], $file);
-                        }
-                    }
-                }
+            if ($request_id) {
+                // ایجاد workflow
+                createRequestWorkflow($pdo, $request_id, $_SESSION['user_id'], 'در انتظار تأیید', 'درخواست ایجاد شد');
                 
-                // ایجاد گردش کار برای همه درخواست‌ها
-                if (!empty($_POST['assignments'])) {
-                    // اگر assignments به صورت آرایه ارسال شده باشد
-                    if (is_array($_POST['assignments'])) {
-                        $assignments = $_POST['assignments'];
-                    } else {
-                        // اگر به صورت JSON string ارسال شده باشد
-                        $assignments = json_decode($_POST['assignments'], true);
-                    }
-                    
-                    if (is_array($assignments)) {
-                        foreach ($request_ids as $request_id) {
-                            createRequestWorkflow($pdo, $request_id, $assignments);
-                        }
-                    }
-                } else {
-                    // اگر هیچ انتسابی مشخص نشده، به همه ادمین‌ها ارجاع می‌دهیم
-                    try {
-                        $stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1");
-                        $admins = $stmt->fetchAll();
-                        
-                        if (empty($admins)) {
-                            // اگر ادمینی نباشد، به اولین کاربر ارجاع می‌دهیم
-                            $stmt = $pdo->query("SELECT id FROM users WHERE is_active = 1 ORDER BY id LIMIT 1");
-                            $user = $stmt->fetch();
-                            if ($user) {
-                                $admin_assignments = [
-                                    ['user_id' => $user['id'], 'department' => 'مدیریت']
-                                ];
-                            }
-                        } else {
-                            $admin_assignments = [];
-                            foreach ($admins as $admin) {
-                                $admin_assignments[] = ['user_id' => $admin['id'], 'department' => 'مدیریت'];
-                            }
-                        }
-                        
-                        if (!empty($admin_assignments)) {
-                            foreach ($request_ids as $request_id) {
-                                createRequestWorkflow($pdo, $request_id, $admin_assignments);
-                            }
-                        }
-                    } catch (Exception $e) {
-                        error_log("Error creating default workflow: " . $e->getMessage());
-                    }
-                }
+                // ایجاد notification
+                createRequestNotification($pdo, $request_id, 'درخواست جدید ایجاد شد', 'info');
                 
-                $_SESSION['success_message'] = 'درخواست‌ها با موفقیت ایجاد شدند!';
-                header('Location: request_management_final.php');
-                exit();
+                $_SESSION['success_message'] = 'درخواست با موفقیت ایجاد شد! شماره درخواست: ' . generateRequestNumber($pdo);
             } else {
-                throw new Exception('خطا در ایجاد درخواست‌ها');
+                throw new Exception('خطا در ایجاد درخواست');
             }
-        } catch (Exception $e) {
-            error_log("Error creating request: " . $e->getMessage());
-            $error_message = 'خطا در ایجاد درخواست: ' . $e->getMessage();
             
-            // نمایش جزئیات خطا برای دیباگ
-            if (isset($_POST['debug']) && $_POST['debug'] === '1') {
-                $error_message .= '<br><small>جزئیات خطا: ' . $e->getMessage() . '</small>';
-                $error_message .= '<br><small>Stack trace: ' . $e->getTraceAsString() . '</small>';
-            }
+        } catch (Exception $e) {
+            $error_message = 'خطا در ایجاد درخواست: ' . $e->getMessage();
         }
     }
 }
 
-// دریافت لیست کاربران
-$users = getUsersForAssignment($pdo);
+// دریافت درخواست‌ها
+$requests = [];
+try {
+    $stmt = $pdo->query("
+        SELECT r.*, u.username as requester_name,
+               (SELECT COUNT(*) FROM request_workflow WHERE request_id = r.id) as workflow_count,
+               (SELECT status FROM request_workflow WHERE request_id = r.id ORDER BY created_at DESC LIMIT 1) as current_status
+        FROM requests r
+        LEFT JOIN users u ON r.requester_id = u.id
+        ORDER BY r.created_at DESC
+    ");
+    $requests = $stmt->fetchAll();
+} catch (Exception $e) {
+    $error_message = 'خطا در دریافت درخواست‌ها: ' . $e->getMessage();
+}
 
-// اگر کاربری وجود ندارد، کاربران نمونه ایجاد کن
-if (empty($users)) {
+// دریافت کاربران برای ارجاع
+$users = [];
+try {
+    $stmt = $pdo->query("SELECT id, username, role FROM users WHERE status = 'active' ORDER BY username");
+    $users = $stmt->fetchAll();
+} catch (Exception $e) {
+    // خطا در دریافت کاربران
+}
+
+// توابع کمکی
+function createRequest($pdo, $data) {
     try {
-        $sample_users = [
-            ['username' => 'admin', 'password' => 'admin123', 'full_name' => 'مدیر سیستم', 'role' => 'admin'],
-            ['username' => 'user1', 'password' => 'user123', 'full_name' => 'کاربر اول', 'role' => 'user'],
-            ['username' => 'user2', 'password' => 'user123', 'full_name' => 'کاربر دوم', 'role' => 'user'],
-            ['username' => 'manager1', 'password' => 'manager123', 'full_name' => 'مدیر بخش', 'role' => 'manager']
-        ];
-        
-        foreach ($sample_users as $user_data) {
-            $hashed_password = password_hash($user_data['password'], PASSWORD_DEFAULT);
-            
-            $stmt = $pdo->prepare("
-                INSERT INTO users (username, password, full_name, role, is_active) 
-                VALUES (?, ?, ?, ?, 1)
-                ON DUPLICATE KEY UPDATE 
-                password = VALUES(password),
-                full_name = VALUES(full_name),
-                role = VALUES(role),
-                is_active = 1
-            ");
-            
-            $stmt->execute([
-                $user_data['username'],
-                $hashed_password,
-                $user_data['full_name'],
-                $user_data['role']
-            ]);
-        }
-        
-        // دریافت مجدد کاربران
-        $users = getUsersForAssignment($pdo);
+        $request_number = generateRequestNumber($pdo);
+        $stmt = $pdo->prepare("
+            INSERT INTO requests (request_number, requester_id, requester_name, item_name, quantity, price, description, priority, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'در انتظار تأیید')
+        ");
+        $stmt->execute([
+            $request_number,
+            $data['requester_id'],
+            $data['requester_name'],
+            $data['item_name'],
+            $data['quantity'],
+            $data['price'],
+            $data['description'],
+            $data['priority']
+        ]);
+        return $pdo->lastInsertId();
     } catch (Exception $e) {
-        error_log("Error creating sample users: " . $e->getMessage());
+        error_log("Error creating request: " . $e->getMessage());
+        return false;
     }
+}
+
+function createRequestWorkflow($pdo, $request_id, $user_id, $status, $comments) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_workflow (request_id, assigned_to, status, comments, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+        ");
+        $stmt->execute([$request_id, $user_id, $status, $comments]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating workflow: " . $e->getMessage());
+        return false;
+    }
+}
+
+function createRequestNotification($pdo, $request_id, $message, $type = 'info') {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_notifications (request_id, message, type, created_at)
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->execute([$request_id, $message, $type]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating notification: " . $e->getMessage());
+        return false;
+    }
+}
+
+function generateRequestNumber($pdo) {
+    $today = date('Ymd');
+    $prefix = "REQ-{$today}-";
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM requests WHERE request_number LIKE ?");
+        $stmt->execute([$prefix . '%']);
+        $result = $stmt->fetch();
+        $count = ($result['count'] ?? 0) + 1;
+        return $prefix . str_pad($count, 3, '0', STR_PAD_LEFT);
+    } catch (Exception $e) {
+        error_log("Error generating request number: " . $e->getMessage());
+        return $prefix . '001';
+    }
+}
+
+function sanitizeInput($input) {
+    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}
+
+function is_admin() {
+    return isset($_SESSION['role']) && ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'ادمین');
 }
 ?>
+
 <!DOCTYPE html>
-<html dir="rtl" lang="fa">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?></title>
+    <title><?php echo $page_title; ?> - اعلا نیرو</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Persian Font -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <!-- Persian DatePicker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --accent-color: #e74c3c;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --info-color: #3b82f6;
-            --dark-bg: #1a1a1a;
-            --light-bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-primary: #2c3e50;
-            --text-secondary: #6c757d;
-            --border-color: #e9ecef;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.15);
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #56ab2f;
+            --warning-color: #f093fb;
+            --danger-color: #ff416c;
+            --info-color: #4facfe;
+            --dark-color: #2c3e50;
+            --light-color: #f8f9fa;
         }
 
         body {
-            font-family: 'Vazirmatn', 'Tahoma', sans-serif;
-            background: #f8f9fa;
-            margin: 0;
-            padding: 0;
-            color: var(--text-primary);
-        }
-
-        .main-container {
-            padding-top: 80px;
-            min-height: 100vh;
+            font-family: Vazirmatn, Tahoma, Arial, sans-serif;
+            background-color: var(--light-color);
         }
 
         .page-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #34495e 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
-            padding: 40px 0;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-        }
-
-        .page-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .page-subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border: none;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
             border-radius: 15px;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-            overflow: hidden;
-            margin-bottom: 25px;
-        }
-
-        .card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .card-header {
-            background: linear-gradient(135deg, var(--secondary-color) 0%, #5dade2 100%);
-            color: white;
-            border: none;
-            padding: 20px 25px;
-            font-weight: 600;
-            font-size: 1.2rem;
-        }
-
-        .card-body {
-            padding: 25px;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: var(--text-primary) !important;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
-        }
-
-        .form-control {
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            padding: 12px 16px;
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
-            background: white;
-            color: var(--text-primary) !important;
-        }
-
-        .form-control:focus {
-            border-color: var(--secondary-color);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-            background: white;
-            color: var(--text-primary) !important;
-        }
-
-        .form-control::placeholder {
-            color: var(--text-secondary);
-            opacity: 0.7;
-        }
-
-        .btn {
-            border-radius: 10px;
-            padding: 12px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
-            border: none;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--secondary-color) 0%, #5dade2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
-            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, var(--success-color) 0%, #2ecc71 100%);
-            color: white;
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, var(--accent-color) 0%, #e67e22 100%);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, var(--warning-color) 0%, #f39c12 100%);
-            color: white;
-        }
-
-        .btn-warning:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
-        }
-
-        .item-row {
-            background: #f8f9fa;
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .item-row:hover {
-            border-color: var(--secondary-color);
-            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.1);
-        }
-
-        .file-upload-area {
-            border: 3px dashed var(--border-color);
-            border-radius: 12px;
-            padding: 40px 20px;
-            text-align: center;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .file-upload-area:hover {
-            border-color: var(--secondary-color);
-            background: #e3f2fd;
-        }
-
-        .file-upload-area.dragover {
-            border-color: var(--success-color);
-            background: #e8f5e8;
-        }
-
-        .assignment-item {
-            background: white;
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
-
-        .assignment-item:hover {
-            border-color: var(--secondary-color);
-            box-shadow: 0 2px 10px rgba(52, 152, 219, 0.1);
-        }
-
-        .alert {
-            border: none;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 25px;
-            font-weight: 500;
-        }
-
-        .alert-success {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
-            border-left: 5px solid var(--success-color);
-        }
-
-        .alert-danger {
-            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-            color: #721c24;
-            border-left: 5px solid var(--accent-color);
         }
 
         .stats-card {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #34495e 100%);
-            color: white;
+            background: white;
             border-radius: 15px;
-            padding: 30px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            border: none;
             text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            height: 100%;
         }
 
         .stats-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
         }
 
-        .stats-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 10px;
+        .stats-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            margin: 0 auto 1rem;
         }
 
-        .stats-description {
+        .form-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            border: none;
+        }
+
+        .table-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 2rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color), #56ab2f);
+            border: none;
+            border-radius: 10px;
+            padding: 0.5rem 1.5rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning-color), #f093fb);
+            border: none;
+            border-radius: 10px;
+            padding: 0.5rem 1.5rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #ff6b6b);
+            border: none;
+            border-radius: 10px;
+            padding: 0.5rem 1.5rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
             font-size: 0.9rem;
-            opacity: 0.9;
         }
 
-        .icon-large {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            opacity: 0.8;
+        .status-pending {
+            background: linear-gradient(135deg, var(--warning-color), #f093fb);
+            color: white;
         }
 
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
+        .status-approved {
+            background: linear-gradient(135deg, var(--success-color), #56ab2f);
+            color: white;
         }
 
-        .spinner-border {
-            width: 3rem;
-            height: 3rem;
-            color: var(--secondary-color);
+        .status-rejected {
+            background: linear-gradient(135deg, var(--danger-color), #ff6b6b);
+            color: white;
         }
 
-        .text-muted {
-            color: var(--text-secondary) !important;
+        .priority-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
         }
 
-        .text-primary {
-            color: var(--text-primary) !important;
+        .priority-high {
+            background: #ff6b6b;
+            color: white;
         }
 
-        @media (max-width: 768px) {
-            .page-title {
-                font-size: 2rem;
-            }
-            
-            .card-body {
-                padding: 20px;
-            }
-            
-            .stats-card {
-                margin-bottom: 20px;
-            }
+        .priority-medium {
+            background: #ffa726;
+            color: white;
+        }
+
+        .priority-low {
+            background: #66bb6a;
+            color: white;
+        }
+
+        .item-row {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .jalali-date {
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 0.75rem;
+            width: 100%;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .table th {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+
+        .table td {
+            vertical-align: middle;
+            border-color: #e9ecef;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+        }
+
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
 <body>
     <?php include 'navbar.php'; ?>
 
-    <div class="main-container">
-        <div class="container">
-            <!-- Page Header -->
-            <div class="page-header text-center">
-                <h1 class="page-title">
-                    <i class="fas fa-shopping-cart me-3"></i>
-                    مدیریت درخواست‌های کالا/خدمات
-                </h1>
-                <p class="page-subtitle">
-                    سیستم پیشرفته و حرفه‌ای برای مدیریت درخواست‌های داخلی
-                </p>
-            </div>
-
-            <!-- Success/Error Messages -->
-            <?php if (isset($_SESSION['success_message'])): ?>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle me-2"></i>
-                    <?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if (isset($error_message)): ?>
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <?php echo $error_message; ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- Main Cards -->
-            <div class="row mb-5">
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="stats-card" onclick="showCreateForm()">
-                        <i class="fas fa-plus-circle icon-large"></i>
-                        <div class="stats-title">ایجاد درخواست جدید</div>
-                        <p class="stats-description mb-0">درخواست کالا یا خدمات جدید ایجاد کنید</p>
+    <div class="container mt-4">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="mb-0">
+                            <i class="fas fa-clipboard-list me-3"></i><?php echo $page_title; ?>
+                        </h1>
+                        <p class="mb-0 mt-2">مدیریت و پیگیری درخواست‌های کالا و خدمات</p>
                     </div>
-                </div>
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="stats-card" onclick="window.location.href='request_tracking_final.php'">
-                        <i class="fas fa-search icon-large"></i>
-                        <div class="stats-title">پیگیری درخواست‌ها</div>
-                        <p class="stats-description mb-0">وضعیت درخواست‌های خود را بررسی کنید</p>
-                    </div>
-                </div>
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="stats-card" onclick="showReports()">
-                        <i class="fas fa-chart-bar icon-large"></i>
-                        <div class="stats-title">گزارش درخواست‌ها</div>
-                        <p class="stats-description mb-0">گزارش‌های آماری و تحلیلی</p>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newRequestModal">
+                            <i class="fas fa-plus me-2"></i>درخواست جدید
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Create Request Form -->
-            <div class="card" id="createForm" style="display: none;">
-                <div class="card-header">
-                    <i class="fas fa-plus-circle me-2"></i>
-                    ایجاد درخواست جدید
+        <!-- Success/Error Messages -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+
+        <?php if (isset($error_message)): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i><?php echo $error_message; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--info-color), #4facfe);">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3 class="mb-1"><?php echo count($requests); ?></h3>
+                    <p class="text-muted mb-0">کل درخواست‌ها</p>
                 </div>
-                <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data" id="requestForm">
-                        <input type="hidden" name="action" value="create_request">
-                        
-                        <!-- Items Section -->
-                        <div class="mb-4">
-                            <h5 class="mb-3 text-primary">
-                                <i class="fas fa-box me-2"></i>
-                                آیتم‌های درخواست
-                            </h5>
-                            <div id="itemsSection">
-                                <div class="item-row" data-item="0">
-                                    <div class="row">
-                                        <div class="col-md-4">
-                                            <div class="mb-3">
-                                                <label class="form-label">
-                                                    <i class="fas fa-box me-2"></i>
-                                                    نام آیتم
-                                                </label>
-                                                <input type="text" class="form-control" name="items[0][item_name]" required 
-                                                       placeholder="نام کالا یا خدمت مورد نیاز">
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-2">
-                                            <div class="mb-3">
-                                                <label class="form-label">
-                                                    <i class="fas fa-hashtag me-2"></i>
-                                                    تعداد
-                                                </label>
-                                                <input type="number" class="form-control" name="items[0][quantity]" required 
-                                                       placeholder="تعداد" min="1">
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-3">
-                                            <div class="mb-3">
-                                                <label class="form-label">
-                                                    <i class="fas fa-dollar-sign me-2"></i>
-                                                    قیمت (ریال)
-                                                </label>
-                                                <input type="text" class="form-control" name="items[0][price]" 
-                                                       placeholder="قیمت تخمینی" id="priceInput0">
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-2">
-                                            <div class="mb-3">
-                                                <label class="form-label">
-                                                    <i class="fas fa-exclamation-triangle me-2"></i>
-                                                    اولویت
-                                                </label>
-                                                <select class="form-control" name="items[0][priority]" required>
-                                                    <option value="کم">کم</option>
-                                                    <option value="متوسط" selected>متوسط</option>
-                                                    <option value="بالا">بالا</option>
-                                                    <option value="فوری">فوری</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-1">
-                                            <div class="mb-3">
-                                                <label class="form-label">&nbsp;</label>
-                                                <button type="button" class="btn btn-danger remove-item" onclick="removeItem(0)" style="display: none;">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <button type="button" class="btn btn-success" onclick="addItem()">
-                                <i class="fas fa-plus me-2"></i>
-                                اضافه کردن آیتم جدید
-                            </button>
-                        </div>
-                        
-                        <!-- Description -->
-                        <div class="mb-4">
-                            <label class="form-label">
-                                <i class="fas fa-align-right me-2"></i>
-                                توضیحات کلی
-                            </label>
-                            <textarea class="form-control" name="description" rows="4" 
-                                      placeholder="توضیحات کلی درخواست..."></textarea>
-                        </div>
-                        
-                        <!-- File Upload -->
-                        <div class="mb-4">
-                            <label class="form-label">
-                                <i class="fas fa-paperclip me-2"></i>
-                                فایل‌های ضمیمه
-                            </label>
-                            <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
-                                <i class="fas fa-cloud-upload-alt fa-3x mb-3" style="color: var(--secondary-color);"></i>
-                                <h5 class="text-primary">فایل‌ها را اینجا بکشید یا کلیک کنید</h5>
-                                <p class="text-muted">حداکثر 10 فایل، هر فایل تا 5 مگابایت</p>
-                            </div>
-                            <input type="file" id="fileInput" name="files[]" multiple style="display: none;" 
-                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt">
-                            <div id="fileList" class="mt-3"></div>
-                        </div>
-                        
-                        <!-- User Assignments -->
-                        <div class="mb-4">
-                            <label class="form-label">
-                                <i class="fas fa-users me-2"></i>
-                                انتخاب واحدها/کاربران
-                            </label>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <select class="form-control" id="userSelect">
-                                        <option value="">انتخاب کاربر...</option>
-                                        <?php foreach ($users as $user): ?>
-                                            <option value="<?php echo $user['id']; ?>" 
-                                                    data-name="<?php echo htmlspecialchars($user['full_name'] ?: $user['username']); ?>"
-                                                    data-role="<?php echo htmlspecialchars($user['role']); ?>">
-                                                <?php echo htmlspecialchars($user['full_name'] ?: $user['username']); ?> 
-                                                (<?php echo htmlspecialchars($user['role']); ?>)
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <input type="text" class="form-control" id="departmentInput" placeholder="نام واحد/بخش">
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="button" class="btn btn-primary w-100" onclick="addAssignment()">
-                                        <i class="fas fa-plus"></i>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--warning-color), #f093fb);">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3 class="mb-1"><?php echo count(array_filter($requests, function($r) { return $r['status'] === 'در انتظار تأیید'; })); ?></h3>
+                    <p class="text-muted mb-0">در انتظار</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--success-color), #56ab2f);">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h3 class="mb-1"><?php echo count(array_filter($requests, function($r) { return $r['status'] === 'تأیید شده'; })); ?></h3>
+                    <p class="text-muted mb-0">تأیید شده</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-icon" style="background: linear-gradient(135deg, var(--danger-color), #ff6b6b);">
+                        <i class="fas fa-times"></i>
+                    </div>
+                    <h3 class="mb-1"><?php echo count(array_filter($requests, function($r) { return $r['status'] === 'رد شده'; })); ?></h3>
+                    <p class="text-muted mb-0">رد شده</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requests Table -->
+        <div class="table-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">
+                    <i class="fas fa-list me-2"></i>لیست درخواست‌ها
+                </h3>
+                <div>
+                    <button class="btn btn-success" onclick="location.reload()">
+                        <i class="fas fa-sync-alt me-2"></i>تازه‌سازی
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>شماره درخواست</th>
+                            <th>درخواست‌کننده</th>
+                            <th>آیتم</th>
+                            <th>تعداد</th>
+                            <th>قیمت</th>
+                            <th>اولویت</th>
+                            <th>وضعیت</th>
+                            <th>تاریخ ایجاد</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($requests as $request): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars($request['request_number']); ?></strong>
+                            </td>
+                            <td><?php echo htmlspecialchars($request['requester_name']); ?></td>
+                            <td><?php echo htmlspecialchars($request['item_name']); ?></td>
+                            <td><?php echo number_format($request['quantity']); ?></td>
+                            <td><?php echo number_format($request['price']); ?> تومان</td>
+                            <td>
+                                <span class="priority-badge priority-<?php echo strtolower($request['priority']); ?>">
+                                    <?php echo htmlspecialchars($request['priority']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge status-<?php echo str_replace(['در انتظار تأیید', 'تأیید شده', 'رد شده'], ['pending', 'approved', 'rejected'], $request['status']); ?>">
+                                    <?php echo htmlspecialchars($request['status']); ?>
+                                </span>
+                            </td>
+                            <td><?php echo jalali_format($request['created_at']); ?></td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-info btn-sm" onclick="viewRequest(<?php echo $request['id']; ?>)">
+                                        <i class="fas fa-eye"></i>
                                     </button>
+                                    <?php if (is_admin()): ?>
+                                    <button class="btn btn-warning btn-sm" onclick="editRequest(<?php echo $request['id']; ?>)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteRequest(<?php echo $request['id']; ?>)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
-                            </div>
-                            <div id="assignmentsList" class="mt-3"></div>
-                        </div>
-                        
-                        <!-- Debug Mode -->
-                        <div class="mb-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="debug" value="1" id="debugMode">
-                                <label class="form-check-label form-label" for="debugMode">
-                                    <i class="fas fa-bug me-2"></i>
-                                    حالت دیباگ (نمایش جزئیات خطا)
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <!-- Submit Buttons -->
-                        <div class="d-flex gap-3">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-paper-plane me-2"></i>
-                                ارسال درخواست
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="hideCreateForm()">
-                                <i class="fas fa-times me-2"></i>
-                                انصراف
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Loading -->
-            <div class="loading" id="loading">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">در حال بارگذاری...</span>
-                </div>
-                <p class="mt-3 text-primary">در حال پردازش درخواست...</p>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let itemCount = 0;
-        let assignmentCount = 0;
-
-        // نمایش فرم ایجاد درخواست
-        function showCreateForm() {
-            document.getElementById('createForm').style.display = 'block';
-            document.getElementById('createForm').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // مخفی کردن فرم ایجاد درخواست
-        function hideCreateForm() {
-            document.getElementById('createForm').style.display = 'none';
-        }
-
-        // نمایش گزارش‌ها
-        function showReports() {
-            window.location.href = 'request_reports.php';
-        }
-
-        // اضافه کردن آیتم جدید
-        function addItem() {
-            itemCount++;
-            const itemsSection = document.getElementById('itemsSection');
-            const newItem = document.createElement('div');
-            newItem.className = 'item-row';
-            newItem.setAttribute('data-item', itemCount);
-            newItem.innerHTML = `
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <label class="form-label">
-                                <i class="fas fa-box me-2"></i>
-                                نام آیتم
-                            </label>
-                            <input type="text" class="form-control" name="items[${itemCount}][item_name]" required 
-                                   placeholder="نام کالا یا خدمت مورد نیاز">
+    <!-- New Request Modal -->
+    <div class="modal fade" id="newRequestModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus me-2"></i>درخواست جدید
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="create_request">
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">تاریخ درخواست</label>
+                                <input type="text" class="form-control jalali-date" name="request_date" 
+                                       value="<?php echo jalali_format(date('Y-m-d')); ?>" required readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">اولویت</label>
+                                <select class="form-select" name="priority" required>
+                                    <option value="کم">کم</option>
+                                    <option value="متوسط" selected>متوسط</option>
+                                    <option value="بالا">بالا</option>
+                                    <option value="فوری">فوری</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="col-md-2">
+
                         <div class="mb-3">
-                            <label class="form-label">
-                                <i class="fas fa-hashtag me-2"></i>
-                                تعداد
-                            </label>
-                            <input type="number" class="form-control" name="items[${itemCount}][quantity]" required 
-                                   placeholder="تعداد" min="1">
+                            <label class="form-label">توضیحات</label>
+                            <textarea class="form-control" name="description" rows="3" 
+                                      placeholder="توضیحات اضافی در مورد درخواست..."></textarea>
                         </div>
-                    </div>
-                    
-                    <div class="col-md-3">
+
                         <div class="mb-3">
-                            <label class="form-label">
-                                <i class="fas fa-dollar-sign me-2"></i>
-                                قیمت (ریال)
-                            </label>
-                            <input type="text" class="form-control" name="items[${itemCount}][price]" 
-                                   placeholder="قیمت تخمینی" id="priceInput${itemCount}">
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="mb-3">
-                            <label class="form-label">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                اولویت
-                            </label>
-                            <select class="form-control" name="items[${itemCount}][priority]" required>
-                                <option value="کم">کم</option>
-                                <option value="متوسط" selected>متوسط</option>
-                                <option value="بالا">بالا</option>
-                                <option value="فوری">فوری</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-1">
-                        <div class="mb-3">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn btn-danger remove-item" onclick="removeItem(${itemCount})">
-                                <i class="fas fa-times"></i>
+                            <label class="form-label">آیتم‌های درخواست</label>
+                            <div id="items-container">
+                                <div class="item-row">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">نام آیتم</label>
+                                            <input type="text" class="form-control" name="items[0][item_name]" 
+                                                   placeholder="نام کالا یا خدمت" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">تعداد</label>
+                                            <input type="number" class="form-control" name="items[0][quantity]" 
+                                                   value="1" min="1" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">قیمت (تومان)</label>
+                                            <input type="text" class="form-control" name="items[0][price]" 
+                                                   placeholder="0" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">اولویت</label>
+                                            <select class="form-select" name="items[0][priority]">
+                                                <option value="کم">کم</option>
+                                                <option value="متوسط" selected>متوسط</option>
+                                                <option value="بالا">بالا</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-1">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeItem(this)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm" onclick="addItem()">
+                                <i class="fas fa-plus me-2"></i>افزودن آیتم
                             </button>
                         </div>
                     </div>
-                </div>
-            `;
-            itemsSection.appendChild(newItem);
-            updateRemoveButtons();
-        }
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>ایجاد درخواست
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        // حذف آیتم
-        function removeItem(itemIndex) {
-            const item = document.querySelector(`[data-item="${itemIndex}"]`);
-            if (item) {
-                item.remove();
-                updateRemoveButtons();
-            }
-        }
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    
+    <script>
+        let itemIndex = 1;
 
-        // به‌روزرسانی دکمه‌های حذف
-        function updateRemoveButtons() {
-            const items = document.querySelectorAll('.item-row');
-            items.forEach((item, index) => {
-                const removeBtn = item.querySelector('.remove-item');
-                if (items.length > 1) {
-                    removeBtn.style.display = 'block';
-                } else {
-                    removeBtn.style.display = 'none';
+        // Initialize Persian DatePicker
+        $(document).ready(function() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                altField: '.jalali-date-alt',
+                altFormat: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: {
+                    enabled: false
                 }
             });
-        }
+        });
 
-        // اضافه کردن انتساب
-        function addAssignment() {
-            const userSelect = document.getElementById('userSelect');
-            const departmentInput = document.getElementById('departmentInput');
-            const assignmentsList = document.getElementById('assignmentsList');
-            
-            if (userSelect.value && departmentInput.value) {
-                assignmentCount++;
-                const assignment = document.createElement('div');
-                assignment.className = 'assignment-item';
-                assignment.innerHTML = `
-                    <div>
-                        <strong class="text-primary">${userSelect.options[userSelect.selectedIndex].text}</strong>
-                        <br>
-                        <small class="text-muted">${departmentInput.value}</small>
+        function addItem() {
+            const container = document.getElementById('items-container');
+            const newItem = document.createElement('div');
+            newItem.className = 'item-row';
+            newItem.innerHTML = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">نام آیتم</label>
+                        <input type="text" class="form-control" name="items[${itemIndex}][item_name]" 
+                               placeholder="نام کالا یا خدمت" required>
                     </div>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="removeAssignment(${assignmentCount})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <input type="hidden" name="assignments[${assignmentCount}][user_id]" value="${userSelect.value}">
-                    <input type="hidden" name="assignments[${assignmentCount}][department]" value="${departmentInput.value}">
-                `;
-                assignmentsList.appendChild(assignment);
-                
-                userSelect.value = '';
-                departmentInput.value = '';
-            } else {
-                alert('لطفاً کاربر و واحد را انتخاب کنید');
-            }
-        }
-
-        // حذف انتساب
-        function removeAssignment(assignmentIndex) {
-            const assignment = document.querySelector(`[data-assignment="${assignmentIndex}"]`);
-            if (assignment) {
-                assignment.remove();
-            }
-        }
-
-        // مدیریت آپلود فایل
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            
-            Array.from(files).forEach((file, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'alert alert-info d-flex justify-content-between align-items-center';
-                fileItem.innerHTML = `
-                    <div>
-                        <i class="fas fa-file me-2"></i>
-                        <span class="text-primary">${file.name}</span>
-                        <small class="text-muted">(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                    <div class="col-md-2">
+                        <label class="form-label">تعداد</label>
+                        <input type="number" class="form-control" name="items[${itemIndex}][quantity]" 
+                               value="1" min="1" required>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                fileList.appendChild(fileItem);
-            });
-        });
+                    <div class="col-md-3">
+                        <label class="form-label">قیمت (تومان)</label>
+                        <input type="text" class="form-control" name="items[${itemIndex}][price]" 
+                               placeholder="0" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">اولویت</label>
+                        <select class="form-select" name="items[${itemIndex}][priority]">
+                            <option value="کم">کم</option>
+                            <option value="متوسط" selected>متوسط</option>
+                            <option value="بالا">بالا</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeItem(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newItem);
+            itemIndex++;
+        }
 
-        // Drag & Drop برای فایل‌ها
-        const fileUploadArea = document.getElementById('fileUploadArea');
-        
-        fileUploadArea.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            fileUploadArea.classList.add('dragover');
-        });
-        
-        fileUploadArea.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            fileUploadArea.classList.remove('dragover');
-        });
-        
-        fileUploadArea.addEventListener('drop', function(e) {
-            e.preventDefault();
-            fileUploadArea.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            document.getElementById('fileInput').files = files;
-            
-            // Trigger change event
-            const event = new Event('change', { bubbles: true });
-            document.getElementById('fileInput').dispatchEvent(event);
-        });
+        function removeItem(button) {
+            button.closest('.item-row').remove();
+        }
 
-        // فرمت کردن قیمت به فارسی
-        function formatPrice(input) {
-            let value = input.value.replace(/[^\d]/g, ''); // حذف همه کاراکترهای غیر عددی
-            if (value) {
-                // تبدیل به عدد و فرمت با ویرگول
-                let num = parseInt(value);
-                let formatted = num.toLocaleString('fa-IR');
-                input.value = formatted;
+        function viewRequest(id) {
+            // Implementation for viewing request details
+            alert('مشاهده جزئیات درخواست: ' + id);
+        }
+
+        function editRequest(id) {
+            // Implementation for editing request
+            alert('ویرایش درخواست: ' + id);
+        }
+
+        function deleteRequest(id) {
+            if (confirm('آیا مطمئن هستید که می‌خواهید این درخواست را حذف کنید؟')) {
+                // Implementation for deleting request
+                alert('حذف درخواست: ' + id);
             }
         }
-
-        // تبدیل قیمت فارسی به انگلیسی برای ارسال
-        function convertPriceToEnglish(price) {
-            return price.replace(/[۰-۹]/g, function(d) {
-                return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d);
-            }).replace(/,/g, '');
-        }
-
-        // اعمال فرمت قیمت به همه فیلدهای قیمت
-        document.addEventListener('DOMContentLoaded', function() {
-            const priceInputs = document.querySelectorAll('input[name*="[price]"]');
-            priceInputs.forEach(input => {
-                input.addEventListener('blur', function() {
-                    formatPrice(this);
-                });
-            });
-        });
-
-        // ارسال فرم
-        document.getElementById('requestForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // نمایش loading
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('createForm').style.display = 'none';
-            
-            // ارسال فرم به صورت عادی (بدون AJAX)
-            this.submit();
-        });
     </script>
 </body>
 </html>
