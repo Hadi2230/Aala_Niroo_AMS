@@ -304,6 +304,16 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                   <h6 class="lang" data-fa="لاگ سیستم" data-en="System Logs"></h6>
                   <p class="lang" data-fa="مشاهده و تحلیل لاگ‌ها" data-en="View and analyze logs"></p>
                 </a>
+                <a href="system_test.php" class="menu-card">
+                  <i class="fas fa-vial"></i>
+                  <h6 class="lang" data-fa="تست سیستم" data-en="System Test"></h6>
+                  <p class="lang" data-fa="بررسی کامل عملکرد سیستم" data-en="Complete system test"></p>
+                </a>
+                <a href="quick_test.php" class="menu-card">
+                  <i class="fas fa-bolt"></i>
+                  <h6 class="lang" data-fa="تست سریع" data-en="Quick Test"></h6>
+                  <p class="lang" data-fa="بررسی سریع وضعیت سیستم" data-en="Quick system check"></p>
+                </a>
               </div>
             </div>
           </li>
