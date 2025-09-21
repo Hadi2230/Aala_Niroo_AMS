@@ -115,22 +115,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Exception $e) {
             $error_message = 'خطا در ارجاع درخواست: ' . $e->getMessage();
         }
+    } elseif ($_POST['action'] === 'bulk_action') {
+        try {
+            $action = $_POST['bulk_action_type'];
+            $request_ids = $_POST['request_ids'] ?? [];
+            
+            if (empty($request_ids)) {
+                throw new Exception('هیچ درخواستی انتخاب نشده است');
+            }
+            
+            if ($action === 'approve') {
+                foreach ($request_ids as $request_id) {
+                    $stmt = $pdo->prepare("UPDATE requests SET status = 'تأیید شده', updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$request_id]);
+                    
+                    createRequestWorkflow($pdo, $request_id, $_SESSION['user_id'], 'تأیید شده', 'تأیید گروهی');
+                }
+                $_SESSION['success_message'] = 'درخواست‌ها با موفقیت تأیید شدند!';
+            } elseif ($action === 'reject') {
+                foreach ($request_ids as $request_id) {
+                    $stmt = $pdo->prepare("UPDATE requests SET status = 'رد شده', updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$request_id]);
+                    
+                    createRequestWorkflow($pdo, $request_id, $_SESSION['user_id'], 'رد شده', 'رد گروهی');
+                }
+                $_SESSION['success_message'] = 'درخواست‌ها با موفقیت رد شدند!';
+            } elseif ($action === 'delete') {
+                if (!is_admin()) {
+                    throw new Exception('فقط ادمین می‌تواند درخواست‌ها را حذف کند');
+                }
+                foreach ($request_ids as $request_id) {
+                    $stmt = $pdo->prepare("DELETE FROM requests WHERE id = ?");
+                    $stmt->execute([$request_id]);
+                }
+                $_SESSION['success_message'] = 'درخواست‌ها با موفقیت حذف شدند!';
+            }
+            
+            header('Location: request_workflow_professional.php');
+            exit();
+        } catch (Exception $e) {
+            $error_message = 'خطا در عملیات گروهی: ' . $e->getMessage();
+        }
     }
 }
 
-// دریافت درخواست‌ها با جزئیات workflow
+// دریافت درخواست‌ها با جزئیات workflow و فیلتر
 $requests = [];
+$filter_status = $_GET['status'] ?? '';
+$filter_priority = $_GET['priority'] ?? '';
+$filter_user = $_GET['user'] ?? '';
+$search_term = $_GET['search'] ?? '';
+$sort_by = $_GET['sort'] ?? 'created_at';
+$sort_order = $_GET['order'] ?? 'DESC';
+
 try {
-    $stmt = $pdo->query("
+    $where_conditions = [];
+    $params = [];
+    
+    if (!empty($filter_status)) {
+        $where_conditions[] = "r.status = ?";
+        $params[] = $filter_status;
+    }
+    
+    if (!empty($filter_priority)) {
+        $where_conditions[] = "r.priority = ?";
+        $params[] = $filter_priority;
+    }
+    
+    if (!empty($filter_user)) {
+        $where_conditions[] = "r.requester_id = ?";
+        $params[] = $filter_user;
+    }
+    
+    if (!empty($search_term)) {
+        $where_conditions[] = "(r.item_name LIKE ? OR r.description LIKE ? OR r.request_number LIKE ?)";
+        $search_param = "%{$search_term}%";
+        $params[] = $search_param;
+        $params[] = $search_param;
+        $params[] = $search_param;
+    }
+    
+    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    
+    $stmt = $pdo->prepare("
         SELECT r.*, u.username as requester_name,
                (SELECT COUNT(*) FROM request_workflow WHERE request_id = r.id) as workflow_count,
                (SELECT status FROM request_workflow WHERE request_id = r.id ORDER BY created_at DESC LIMIT 1) as current_status,
                (SELECT comments FROM request_workflow WHERE request_id = r.id ORDER BY created_at DESC LIMIT 1) as last_comments,
-               (SELECT created_at FROM request_workflow WHERE request_id = r.id ORDER BY created_at DESC LIMIT 1) as last_workflow_date
+               (SELECT created_at FROM request_workflow WHERE request_id = r.id ORDER BY created_at DESC LIMIT 1) as last_workflow_date,
+               (SELECT assigned_to_name FROM (
+                   SELECT w.assigned_to, u.username as assigned_to_name, w.created_at
+                   FROM request_workflow w
+                   LEFT JOIN users u ON w.assigned_to = u.id
+                   WHERE w.request_id = r.id
+                   ORDER BY w.created_at DESC
+                   LIMIT 1
+               ) as last_assignee) as last_assignee_name
         FROM requests r
         LEFT JOIN users u ON r.requester_id = u.id
-        ORDER BY r.created_at DESC
+        {$where_clause}
+        ORDER BY r.{$sort_by} {$sort_order}
     ");
+    $stmt->execute($params);
     $requests = $stmt->fetchAll();
 } catch (Exception $e) {
     $error_message = 'خطا در دریافت درخواست‌ها: ' . $e->getMessage();
@@ -159,6 +245,35 @@ try {
     // خطا در دریافت workflow
 }
 
+// دریافت آمار کلی
+$stats = [];
+try {
+    $stats['total'] = $pdo->query("SELECT COUNT(*) FROM requests")->fetchColumn();
+    $stats['pending'] = $pdo->query("SELECT COUNT(*) FROM requests WHERE status = 'در انتظار تأیید'")->fetchColumn();
+    $stats['approved'] = $pdo->query("SELECT COUNT(*) FROM requests WHERE status = 'تأیید شده'")->fetchColumn();
+    $stats['rejected'] = $pdo->query("SELECT COUNT(*) FROM requests WHERE status = 'رد شده'")->fetchColumn();
+    $stats['assigned'] = $pdo->query("SELECT COUNT(*) FROM requests WHERE status = 'ارجاع شده'")->fetchColumn();
+    $stats['high_priority'] = $pdo->query("SELECT COUNT(*) FROM requests WHERE priority = 'بالا' OR priority = 'فوری'")->fetchColumn();
+    $stats['my_requests'] = $pdo->prepare("SELECT COUNT(*) FROM requests WHERE requester_id = ?")->execute([$_SESSION['user_id']]) ? $pdo->fetchColumn() : 0;
+} catch (Exception $e) {
+    $stats = ['total' => 0, 'pending' => 0, 'approved' => 0, 'rejected' => 0, 'assigned' => 0, 'high_priority' => 0, 'my_requests' => 0];
+}
+
+// دریافت notifications
+$notifications = [];
+try {
+    $stmt = $pdo->query("
+        SELECT n.*, r.request_number
+        FROM request_notifications n
+        LEFT JOIN requests r ON n.request_id = r.id
+        ORDER BY n.created_at DESC
+        LIMIT 10
+    ");
+    $notifications = $stmt->fetchAll();
+} catch (Exception $e) {
+    // خطا در دریافت notifications
+}
+
 // توابع کمکی
 function is_admin() {
     return isset($_SESSION['role']) && ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'ادمین');
@@ -172,6 +287,87 @@ function getWorkflowForRequest($workflows, $request_id) {
     return array_filter($workflows, function($w) use ($request_id) {
         return $w['request_id'] == $request_id;
     });
+}
+
+function createRequestWorkflow($pdo, $request_id, $user_id, $status, $comments) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO request_workflow (request_id, assigned_to, status, comments, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+        ");
+        $stmt->execute([$request_id, $user_id, $status, $comments]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error creating workflow: " . $e->getMessage());
+        return false;
+    }
+}
+
+function getStatusColor($status) {
+    switch ($status) {
+        case 'در انتظار تأیید':
+            return 'warning';
+        case 'تأیید شده':
+            return 'success';
+        case 'رد شده':
+            return 'danger';
+        case 'ارجاع شده':
+            return 'info';
+        case 'در حال بررسی':
+            return 'primary';
+        default:
+            return 'secondary';
+    }
+}
+
+function getPriorityColor($priority) {
+    switch ($priority) {
+        case 'فوری':
+            return 'danger';
+        case 'بالا':
+            return 'warning';
+        case 'متوسط':
+            return 'primary';
+        case 'کم':
+            return 'success';
+        default:
+            return 'secondary';
+    }
+}
+
+function formatFileSize($bytes) {
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    $bytes /= pow(1024, $pow);
+    return round($bytes, 2) . ' ' . $units[$pow];
+}
+
+function getTimeAgo($datetime) {
+    $time = time() - strtotime($datetime);
+    
+    if ($time < 60) return 'چند ثانیه پیش';
+    if ($time < 3600) return floor($time/60) . ' دقیقه پیش';
+    if ($time < 86400) return floor($time/3600) . ' ساعت پیش';
+    if ($time < 2592000) return floor($time/86400) . ' روز پیش';
+    if ($time < 31536000) return floor($time/2592000) . ' ماه پیش';
+    return floor($time/31536000) . ' سال پیش';
+}
+
+function generateRequestNumber($pdo) {
+    $today = date('Ymd');
+    $prefix = "REQ-{$today}-";
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM requests WHERE request_number LIKE ?");
+        $stmt->execute([$prefix . '%']);
+        $result = $stmt->fetch();
+        $count = ($result['count'] ?? 0) + 1;
+        return $prefix . str_pad($count, 3, '0', STR_PAD_LEFT);
+    } catch (Exception $e) {
+        error_log("Error generating request number: " . $e->getMessage());
+        return $prefix . '001';
+    }
 }
 ?>
 
