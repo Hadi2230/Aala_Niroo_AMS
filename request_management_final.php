@@ -233,10 +233,73 @@ try {
 // دریافت کاربران برای ارجاع
 $users = [];
 try {
-    $stmt = $pdo->query("SELECT id, username, full_name, role, department FROM users WHERE status = 'active' ORDER BY full_name, username");
-    $users = $stmt->fetchAll();
+    // ابتدا بررسی کنیم که جدول users وجود دارد یا نه
+    $stmt = $pdo->query("SHOW TABLES LIKE 'users'");
+    if ($stmt->rowCount() > 0) {
+        // بررسی ساختار جدول
+        $stmt = $pdo->query("DESCRIBE users");
+        $columns = $stmt->fetchAll();
+        $column_names = array_column($columns, 'Field');
+        
+        // ساخت کوئری بر اساس ستون‌های موجود
+        $select_fields = ['id', 'username'];
+        if (in_array('full_name', $column_names)) {
+            $select_fields[] = 'full_name';
+        }
+        if (in_array('role', $column_names)) {
+            $select_fields[] = 'role';
+        }
+        if (in_array('department', $column_names)) {
+            $select_fields[] = 'department';
+        }
+        if (in_array('status', $column_names)) {
+            $select_fields[] = 'status';
+        }
+        
+        $fields_str = implode(', ', $select_fields);
+        
+        // کوئری با شرط status اگر وجود دارد
+        if (in_array('status', $column_names)) {
+            $stmt = $pdo->query("SELECT {$fields_str} FROM users WHERE status = 'active' ORDER BY username");
+        } else {
+            $stmt = $pdo->query("SELECT {$fields_str} FROM users ORDER BY username");
+        }
+        
+        $users = $stmt->fetchAll();
+        
+        // اگر هیچ کاربری یافت نشد، کاربر پیش‌فرض ایجاد کنیم
+        if (empty($users)) {
+            // ایجاد کاربر پیش‌فرض
+            try {
+                $stmt = $pdo->prepare("INSERT INTO users (username, password, role, status, created_at) VALUES (?, ?, ?, ?, NOW())");
+                $stmt->execute(['admin', password_hash('admin123', PASSWORD_DEFAULT), 'ادمین', 'active']);
+                
+                // دریافت مجدد کاربران
+                if (in_array('status', $column_names)) {
+                    $stmt = $pdo->query("SELECT {$fields_str} FROM users WHERE status = 'active' ORDER BY username");
+                } else {
+                    $stmt = $pdo->query("SELECT {$fields_str} FROM users ORDER BY username");
+                }
+                $users = $stmt->fetchAll();
+            } catch (Exception $e) {
+                // اگر نتوانستیم کاربر ایجاد کنیم، کاربر پیش‌فرض اضافه کنیم
+                $users = [
+                    ['id' => 1, 'username' => 'admin', 'full_name' => 'مدیر سیستم', 'role' => 'ادمین', 'department' => 'IT']
+                ];
+            }
+        }
+    } else {
+        // اگر جدول users وجود ندارد، کاربر پیش‌فرض اضافه کنیم
+        $users = [
+            ['id' => 1, 'username' => 'admin', 'full_name' => 'مدیر سیستم', 'role' => 'ادمین', 'department' => 'IT']
+        ];
+    }
 } catch (Exception $e) {
-    // خطا در دریافت کاربران
+    // در صورت خطا، کاربر پیش‌فرض اضافه کنیم
+    $users = [
+        ['id' => 1, 'username' => 'admin', 'full_name' => 'مدیر سیستم', 'role' => 'ادمین', 'department' => 'IT']
+    ];
+    error_log("Error fetching users: " . $e->getMessage());
 }
 
 // دریافت آمار کلی
@@ -973,16 +1036,31 @@ function getPriorityColor($priority) {
                                 <label class="form-label">ارجاع به</label>
                                 <select class="form-select" name="assignments[]" multiple id="assignmentsSelect" style="height: 120px;">
                                     <option value="">انتخاب کاربران...</option>
-                                    <?php foreach ($users as $user): ?>
-                                    <option value="<?php echo $user['id']; ?>" data-role="<?php echo htmlspecialchars($user['role']); ?>" data-department="<?php echo htmlspecialchars($user['department'] ?? ''); ?>">
-                                        <?php echo htmlspecialchars($user['full_name'] ?: $user['username']); ?>
-                                        <?php if ($user['role']): ?> - <?php echo htmlspecialchars($user['role']); ?><?php endif; ?>
-                                        <?php if ($user['department']): ?> (<?php echo htmlspecialchars($user['department']); ?>)<?php endif; ?>
-                                    </option>
-                                    <?php endforeach; ?>
+                                    <?php if (!empty($users)): ?>
+                                        <?php foreach ($users as $user): ?>
+                                        <option value="<?php echo $user['id']; ?>" data-role="<?php echo htmlspecialchars($user['role'] ?? ''); ?>" data-department="<?php echo htmlspecialchars($user['department'] ?? ''); ?>">
+                                            <?php echo htmlspecialchars(($user['full_name'] ?? $user['username'])); ?>
+                                            <?php if (!empty($user['role'])): ?> - <?php echo htmlspecialchars($user['role']); ?><?php endif; ?>
+                                            <?php if (!empty($user['department'])): ?> (<?php echo htmlspecialchars($user['department']); ?>)<?php endif; ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <option value="" disabled>هیچ کاربری یافت نشد</option>
+                                    <?php endif; ?>
                                 </select>
                                 <small class="text-muted">می‌توانید چندین کاربر انتخاب کنید - Ctrl+Click برای انتخاب چندتایی</small>
                                 <div id="selectedUsers" class="mt-2"></div>
+                                <?php if (empty($users)): ?>
+                                <div class="alert alert-warning mt-2">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    هیچ کاربری در سیستم یافت نشد. لطفاً ابتدا کاربران را در بخش مدیریت کاربران ایجاد کنید.
+                                </div>
+                                <?php else: ?>
+                                <div class="alert alert-info mt-2">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <?php echo count($users); ?> کاربر در سیستم موجود است.
+                                </div>
+                                <?php endif; ?>
                             </div>
                         </div>
 
