@@ -175,6 +175,11 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                 <h6 class="lang" data-fa="درخواست کالا/خدمات" data-en="Request Management"></h6>
                 <p class="lang" data-fa="ایجاد درخواست جدید" data-en="Create new request"></p>
               </a>
+              <a href="my_assigned_requests.php" class="menu-card workflow">
+                <i class="fas fa-user-check" style="color: #ffc107;"></i>
+                <h6 class="lang" data-fa="درخواست‌های ارجاع شده" data-en="Assigned Requests"></h6>
+                <p class="lang" data-fa="درخواست‌هایی که به شما ارجاع شده" data-en="Requests assigned to you"></p>
+              </a>
               <a href="request_workflow_professional.php" class="menu-card workflow">
                 <i class="fas fa-cogs"></i>
                 <h6 class="lang" data-fa="سیستم حرفه‌ای درخواست‌ها" data-en="Professional Request System"></h6>

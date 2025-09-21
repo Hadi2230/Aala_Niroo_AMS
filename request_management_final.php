@@ -103,7 +103,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if (is_array($assignments)) {
                         foreach ($request_ids as $request_id) {
                             foreach ($assignments as $assignment) {
-                                createRequestWorkflow($pdo, $request_id, $assignment['user_id'], 'ارجاع شده', $assignment['comments']);
+                                // ایجاد workflow برای هر کاربر ارجاع شده
+                                createRequestWorkflow($pdo, $request_id, $assignment, 'ارجاع شده', 'درخواست به شما ارجاع شده است');
+                                
+                                // ایجاد notification برای کاربر ارجاع شده
+                                createRequestNotification($pdo, $request_id, $assignment, 'assignment', 
+                                    'درخواست جدید به شما ارجاع شده است');
                             }
                         }
                     }
@@ -116,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 // ایجاد notification
                 foreach ($request_ids as $request_id) {
-                    createRequestNotification($pdo, $request_id, 'درخواست جدید ایجاد شد', 'info');
+                    createRequestNotification($pdo, $request_id, $_SESSION['user_id'], 'info', 'درخواست جدید ایجاد شد');
                 }
                 
                 $_SESSION['success_message'] = 'درخواست‌ها با موفقیت ایجاد شدند! تعداد: ' . count($request_ids);
@@ -228,7 +233,7 @@ try {
 // دریافت کاربران برای ارجاع
 $users = [];
 try {
-    $stmt = $pdo->query("SELECT id, username, role FROM users WHERE status = 'active' ORDER BY username");
+    $stmt = $pdo->query("SELECT id, username, full_name, role, department FROM users WHERE status = 'active' ORDER BY full_name, username");
     $users = $stmt->fetchAll();
 } catch (Exception $e) {
     // خطا در دریافت کاربران
@@ -308,13 +313,13 @@ function createRequestWorkflow($pdo, $request_id, $user_id, $status, $comments) 
     }
 }
 
-function createRequestNotification($pdo, $request_id, $message, $type = 'info') {
+function createRequestNotification($pdo, $request_id, $user_id, $type, $message) {
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO request_notifications (request_id, message, type, created_at)
-            VALUES (?, ?, ?, NOW())
+            INSERT INTO request_notifications (request_id, user_id, type, message, created_at)
+            VALUES (?, ?, ?, ?, NOW())
         ");
-        $stmt->execute([$request_id, $message, $type]);
+        $stmt->execute([$request_id, $user_id, $type, $message]);
         return true;
     } catch (Exception $e) {
         error_log("Error creating notification: " . $e->getMessage());
@@ -966,14 +971,18 @@ function getPriorityColor($priority) {
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">ارجاع به</label>
-                                <select class="form-select" name="assignments[]" multiple>
+                                <select class="form-select" name="assignments[]" multiple id="assignmentsSelect" style="height: 120px;">
+                                    <option value="">انتخاب کاربران...</option>
                                     <?php foreach ($users as $user): ?>
-                                    <option value="<?php echo $user['id']; ?>">
-                                        <?php echo htmlspecialchars($user['username']); ?> (<?php echo htmlspecialchars($user['role']); ?>)
+                                    <option value="<?php echo $user['id']; ?>" data-role="<?php echo htmlspecialchars($user['role']); ?>" data-department="<?php echo htmlspecialchars($user['department'] ?? ''); ?>">
+                                        <?php echo htmlspecialchars($user['full_name'] ?: $user['username']); ?>
+                                        <?php if ($user['role']): ?> - <?php echo htmlspecialchars($user['role']); ?><?php endif; ?>
+                                        <?php if ($user['department']): ?> (<?php echo htmlspecialchars($user['department']); ?>)<?php endif; ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <small class="text-muted">می‌توانید چندین کاربر انتخاب کنید</small>
+                                <small class="text-muted">می‌توانید چندین کاربر انتخاب کنید - Ctrl+Click برای انتخاب چندتایی</small>
+                                <div id="selectedUsers" class="mt-2"></div>
                             </div>
                         </div>
 
@@ -1184,7 +1193,32 @@ function getPriorityColor($priority) {
                     enabled: false
                 }
             });
+            
+            // نمایش کاربران انتخاب شده
+            $('#assignmentsSelect').on('change', function() {
+                updateSelectedUsers();
+            });
         });
+        
+        function updateSelectedUsers() {
+            const selectedOptions = $('#assignmentsSelect option:selected');
+            const selectedUsersDiv = $('#selectedUsers');
+            
+            if (selectedOptions.length > 0) {
+                let html = '<div class="alert alert-info"><strong>کاربران انتخاب شده:</strong><br>';
+                selectedOptions.each(function() {
+                    const text = $(this).text();
+                    const value = $(this).val();
+                    if (value) {
+                        html += '<span class="badge bg-primary me-1 mb-1">' + text + '</span>';
+                    }
+                });
+                html += '</div>';
+                selectedUsersDiv.html(html);
+            } else {
+                selectedUsersDiv.html('');
+            }
+        }
 
         function addItem() {
             const container = document.getElementById('items-container');
