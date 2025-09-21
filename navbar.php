@@ -305,12 +305,12 @@ html[data-theme="dark"] .menu-card.workflow p{color:#a0aec0;}
                   <p class="lang" data-fa="مشاهده و تحلیل لاگ‌ها" data-en="View and analyze logs"></p>
                 </a>
                 <a href="system_test.php" class="menu-card">
-                  <i class="fas fa-vial"></i>
+                  <i class="fas fa-stethoscope" style="color: #28a745; font-size: 1.2em;"></i>
                   <h6 class="lang" data-fa="تست سیستم" data-en="System Test"></h6>
                   <p class="lang" data-fa="بررسی کامل عملکرد سیستم" data-en="Complete system test"></p>
                 </a>
                 <a href="quick_test.php" class="menu-card">
-                  <i class="fas fa-bolt"></i>
+                  <i class="fas fa-tachometer-alt" style="color: #ffc107; font-size: 1.2em;"></i>
                   <h6 class="lang" data-fa="تست سریع" data-en="Quick Test"></h6>
                   <p class="lang" data-fa="بررسی سریع وضعیت سیستم" data-en="Quick system check"></p>
                 </a>
