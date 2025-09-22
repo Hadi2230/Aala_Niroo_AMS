@@ -17,6 +17,13 @@ $tasks = [];
 $correspondence = [];
 $assignments = [];
 
+// بررسی وجود assetId
+if ($assetId <= 0) {
+    $_SESSION['error'] = 'شناسه دارایی معتبر نیست.';
+    header('Location: assets.php');
+    exit;
+}
+
 // پردازش فرم‌ها (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -335,7 +342,7 @@ try {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $assetId > 0 ? 'پروفایل دارایی ' . e($assetData['name'] ?? '') : 'لیست دارایی‌ها' ?></title>
+    <title>پروفایل دارایی - <?= e($assetData['name'] ?? 'نامشخص') ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
@@ -497,224 +504,231 @@ try {
     <?php unset($_SESSION['error']); ?>
 <?php endif; ?>
 
-<?php if ($assetId > 0): ?>
-    <?php if ($assetData): ?>
-        <!-- هدر پروفایل -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2 class="mb-1">پروفایل دستگاه</h2>
-                    <?php
-                    // نمایش نام مناسب بر اساس نوع دارایی
-                    $display_name = $assetData['name'] ?? 'بدون نام';
-                    $asset_type_name = $assetData['asset_type_name'] ?? '';
-                    
-                    if ($asset_type_name === 'generator' && !empty($assetData['device_identifier'])) {
-                        $display_name = $assetData['device_identifier'];
-                    } elseif ($asset_type_name === 'power_motor' && !empty($assetData['serial_number'])) {
-                        $display_name = $assetData['serial_number'];
-                    } elseif ($asset_type_name === 'consumable' && !empty($assetData['device_identifier'])) {
-                        $display_name = $assetData['device_identifier'];
-                    } elseif ($asset_type_name === 'parts' && !empty($assetData['device_identifier'])) {
-                        $display_name = $assetData['device_identifier'];
-                    }
-                    ?>
-                    <h4 class="text-primary mb-0"><?= e($display_name) ?></h4>
-                    <?php if ($asset_type_name === 'generator' && !empty($assetData['device_identifier'])): ?>
-                        <small class="text-muted">نام: <?= e($assetData['name'] ?? 'بدون نام') ?></small>
+<?php if ($assetData): ?>
+    <!-- هدر پروفایل -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">پروفایل دستگاه</h2>
+            <h4 class="text-primary mb-0"><?= e($assetData['name'] ?? 'بدون نام') ?></h4>
+            <small class="text-muted">شناسه: <?= e($assetData['id']) ?></small>
+        </div>
+        <div>
+            <a href="assets.php" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-right"></i> بازگشت به لیست
+            </a>
+            <button class="btn btn-warning" onclick="openEditModal()" id="editButton">
+                <i class="fas fa-edit"></i> ویرایش دستگاه
+            </button>
+        </div>
+    </div>
+
+    <!-- اطلاعات کلی دارایی -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات دستگاه</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>نام دستگاه:</strong> <?= e($assetData['name'] ?? '-') ?></p>
+                    <p><strong>برند:</strong> <?= e($assetData['brand'] ?? '-') ?></p>
+                    <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
+                    <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>تاریخ خرید:</strong> <?= e(gregorianToJalaliFromDB($assetData['purchase_date'] ?? '')) ?></p>
+                    <p><strong>وضعیت:</strong> 
+                        <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
+                            <?= e($assetData['status'] ?? 'نامشخص') ?>
+                        </span>
+                    </p>
+                    <p><strong>نوع دارایی:</strong> <?= e($assetData['asset_type_display'] ?? $assetData['asset_type_name'] ?? '-') ?></p>
+                    <?php if (!empty($assetData['power_capacity'])): ?>
+                    <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity']) ?> کیلووات</p>
                     <?php endif; ?>
                 </div>
-            <div>
-                <a href="profile.php" class="btn btn-outline-secondary">
-                    <i class="fas fa-list"></i> لیست همه دارایی‌ها
-                </a>
-                <a href="assets.php" class="btn btn-outline-primary">
-                    <i class="fas fa-cog"></i> مدیریت دارایی‌ها
-                </a>
-                <button class="btn btn-warning" onclick="openEditModal()" id="editButton">
-                    <i class="fas fa-edit"></i> ویرایش دستگاه
-                </button>
             </div>
         </div>
+    </div>
 
-        <!-- اطلاعات کلی دارایی -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-info-circle"></i> اطلاعات کامل دستگاه</h5>
+    <!-- اطلاعات اضافی -->
+    <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial']) || !empty($assetData['power_capacity'])): ?>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-cog"></i> اطلاعات فنی</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <?php if (!empty($assetData['engine_model'])): ?>
+                    <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($assetData['engine_serial'])): ?>
+                    <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($assetData['power_capacity'])): ?>
+                    <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity']) ?> کیلووات</p>
+                    <?php endif; ?>
+                </div>
+                <div class="col-md-6">
+                    <?php if (!empty($assetData['oil_capacity'])): ?>
+                    <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($assetData['radiator_capacity'])): ?>
+                    <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($assetData['battery'])): ?>
+                    <p><strong>باتری:</strong> <?= e($assetData['battery']) ?></p>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="card-body">
-                <!-- اطلاعات اصلی -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اصلی</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>نام دستگاه:</strong> <?= e($assetData['name'] ?? '-') ?></p>
-                        <p><strong>برند:</strong> <?= e($assetData['brand'] ?? '-') ?></p>
-                        <p><strong>مدل:</strong> <?= e($assetData['model'] ?? '-') ?></p>
-                        <p><strong>سریال:</strong> <?= e($assetData['serial_number'] ?? '-') ?></p>
-                        <?php if (!empty($assetData['device_identifier'])): ?>
-                        <p><strong>شناسه دستگاه:</strong> <span class="text-primary fw-bold"><?= e($assetData['device_identifier']) ?></span></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>تاریخ خرید:</strong> <?= e(gregorianToJalaliFromDB($assetData['purchase_date'] ?? '')) ?></p>
-                        <p><strong>وضعیت:</strong> 
-                            <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
-                                <?= e($assetData['status'] ?? 'نامشخص') ?>
-                            </span>
-                        </p>
-                        <p><strong>نوع دارایی:</strong> <?= e($assetData['asset_type_display'] ?? $assetData['asset_type_name'] ?? '-') ?></p>
-                        <?php if (!empty($assetData['power_capacity'])): ?>
-                        <p><strong>ظرفیت توان:</strong> <?= e($assetData['power_capacity']) ?> کیلووات</p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['engine_type'])): ?>
-                        <p><strong>نوع موتور:</strong> <?= e($assetData['engine_type']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['consumable_type'])): ?>
-                        <p><strong>نوع کالای مصرفی:</strong> <?= e($assetData['consumable_type']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
-                <!-- اطلاعات موتور -->
-                <?php if (!empty($assetData['engine_model']) || !empty($assetData['engine_serial']) || !empty($assetData['oil_capacity']) || !empty($assetData['radiator_capacity'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات موتور</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['engine_model'])): ?>
-                        <p><strong>مدل موتور:</strong> <?= e($assetData['engine_model']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['engine_serial'])): ?>
-                        <p><strong>سریال موتور:</strong> <?= e($assetData['engine_serial']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['oil_capacity'])): ?>
-                        <p><strong>ظرفیت روغن:</strong> <?= e($assetData['oil_capacity']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['radiator_capacity'])): ?>
-                        <p><strong>ظرفیت رادیاتور:</strong> <?= e($assetData['radiator_capacity']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['antifreeze'])): ?>
-                        <p><strong>ضدیخ:</strong> <?= e($assetData['antifreeze']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['battery'])): ?>
-                        <p><strong>باتری:</strong> <?= e($assetData['battery']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['battery_charger'])): ?>
-                        <p><strong>شارژر باتری:</strong> <?= e($assetData['battery_charger']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['heater'])): ?>
-                        <p><strong>گرمکن:</strong> <?= e($assetData['heater']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+    <!-- توضیحات -->
+    <?php if (!empty($assetData['description'])): ?>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-file-text"></i> توضیحات</h5>
+        </div>
+        <div class="card-body">
+            <p><?= nl2br(e($assetData['description'])) ?></p>
+        </div>
+    </div>
+    <?php endif; ?>
 
-                <!-- اطلاعات آلترناتور -->
-                <?php if (!empty($assetData['alternator_model']) || !empty($assetData['alternator_serial']) || !empty($assetData['device_model']) || !empty($assetData['device_serial'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات آلترناتور</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['alternator_model'])): ?>
-                        <p><strong>مدل آلترناتور:</strong> <?= e($assetData['alternator_model']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['alternator_serial'])): ?>
-                        <p><strong>سریال آلترناتور:</strong> <?= e($assetData['alternator_serial']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['device_model'])): ?>
-                        <p><strong>مدل دستگاه:</strong> <?= e($assetData['device_model']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['device_serial'])): ?>
-                        <p><strong>سریال دستگاه:</strong> <?= e($assetData['device_serial']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['control_panel_model'])): ?>
-                        <p><strong>مدل کنترل پنل:</strong> <?= e($assetData['control_panel_model']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['breaker_model'])): ?>
-                        <p><strong>مدل بریکر:</strong> <?= e($assetData['breaker_model']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+    <!-- تب‌ها برای نمایش اطلاعات -->
+    <ul class="nav nav-tabs" id="assetTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#services" role="tab">
+                <i class="fas fa-wrench"></i> سرویس‌ها (<?= count($services) ?>)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tasks" role="tab">
+                <i class="fas fa-tasks"></i> تسک‌ها (<?= count($tasks) ?>)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#correspondence" role="tab">
+                <i class="fas fa-envelope"></i> مکاتبات (<?= count($correspondence) ?>)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#assignments" role="tab">
+                <i class="fas fa-handshake"></i> انتساب‌ها (<?= count($assignments) ?>)
+            </a>
+        </li>
+    </ul>
 
-                <!-- فیلترها -->
-                <?php if (!empty($assetData['oil_filter_part']) || !empty($assetData['fuel_filter_part']) || !empty($assetData['air_filter_part']) || !empty($assetData['water_filter_part'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">فیلترها</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['oil_filter_part'])): ?>
-                        <p><strong>پارت نامبر فیلتر روغن:</strong> <?= e($assetData['oil_filter_part']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['fuel_filter_part'])): ?>
-                        <p><strong>پارت نامبر فیلتر سوخت:</strong> <?= e($assetData['fuel_filter_part']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['air_filter_part'])): ?>
-                        <p><strong>پارت نامبر فیلتر هوا:</strong> <?= e($assetData['air_filter_part']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['water_filter_part'])): ?>
-                        <p><strong>پارت نامبر فیلتر آب:</strong> <?= e($assetData['water_filter_part']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['water_fuel_filter_part'])): ?>
-                        <p><strong>پارت نامبر فیلتر سوخت آبیگیر:</strong> <?= e($assetData['water_fuel_filter_part']) ?></p>
-                        <?php endif; ?>
-                    </div>
+    <div class="tab-content">
+        <!-- تب سرویس‌ها -->
+        <div class="tab-pane fade show active" id="services" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>سرویس‌های انجام شده</h5>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
+                    <i class="fas fa-plus"></i> ثبت سرویس جدید
+                </button>
+            </div>
+            
+            <?php if (!empty($services)): ?>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>تاریخ سرویس</th>
+                                <th>نوع سرویس</th>
+                                <th>مجری</th>
+                                <th>خلاصه</th>
+                                <th>هزینه</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($services as $service): ?>
+                            <tr>
+                                <td><?= e(gregorianToJalaliFromDB($service['service_date'] ?? '')) ?></td>
+                                <td><?= e($service['service_type'] ?? '-') ?></td>
+                                <td><?= e($service['performed_by'] ?? '-') ?></td>
+                                <td><?= e($service['summary'] ?? '-') ?></td>
+                                <td>
+                                    <?php if ($service['cost']): ?>
+                                        <?= number_format($service['cost'], 0) ?> تومان
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <?php endif; ?>
+            <?php else: ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> هیچ سرویسی برای این دستگاه ثبت نشده است.
+                </div>
+            <?php endif; ?>
+        </div>
 
-                <!-- اطلاعات کارگاه -->
-                <?php if (!empty($assetData['workshop_entry_date']) || !empty($assetData['workshop_exit_date'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات کارگاه</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['workshop_entry_date'])): ?>
-                        <p><strong>تاریخ ورود به کارگاه:</strong> <?= e(gregorianToJalaliFromDB($assetData['workshop_entry_date'])) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['workshop_exit_date'])): ?>
-                        <p><strong>تاریخ خروج از کارگاه:</strong> <?= e(gregorianToJalaliFromDB($assetData['workshop_exit_date'])) ?></p>
-                        <?php endif; ?>
-                    </div>
+        <!-- تب تسک‌ها -->
+        <div class="tab-pane fade" id="tasks" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>تسک‌های نگهداری</h5>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                    <i class="fas fa-plus"></i> ثبت تسک جدید
+                </button>
+            </div>
+            
+            <?php if (!empty($tasks)): ?>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>عنوان</th>
+                                <th>مسئول</th>
+                                <th>تاریخ برنامه</th>
+                                <th>وضعیت</th>
+                                <th>توضیحات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($tasks as $task): ?>
+                            <tr>
+                                <td><?= e($task['title'] ?? '-') ?></td>
+                                <td><?= e($task['assigned_to'] ?? '-') ?></td>
+                                <td><?= e(gregorianToJalaliFromDB($task['planned_date'] ?? '')) ?></td>
+                                <td>
+                                    <?php
+                                    $statusClass = match($task['status']) {
+                                        'completed' => 'success',
+                                        'in_progress' => 'warning',
+                                        'cancelled' => 'danger',
+                                        default => 'secondary'
+                                    };
+                                    $statusText = match($task['status']) {
+                                        'pending' => 'در انتظار',
+                                        'in_progress' => 'در حال انجام',
+                                        'completed' => 'انجام شده',
+                                        'cancelled' => 'لغو شده',
+                                        default => 'نامشخص'
+                                    };
+                                    ?>
+                                    <span class="badge bg-<?= $statusClass ?> status-badge">
+                                        <?= $statusText ?>
+                                    </span>
+                                </td>
+                                <td><?= e($task['description'] ?? '-') ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <?php endif; ?>
-
-                <!-- لینک‌های manual -->
-                <?php if (!empty($assetData['datasheet_link']) || !empty($assetData['engine_manual_link']) || !empty($assetData['alternator_manual_link']) || !empty($assetData['control_panel_manual_link'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">لینک‌های مفید</h6>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['datasheet_link'])): ?>
-                        <p><strong>دیتاشیت:</strong> <a href="<?= e($assetData['datasheet_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['engine_manual_link'])): ?>
-                        <p><strong>Manual موتور:</strong> <a href="<?= e($assetData['engine_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['alternator_manual_link'])): ?>
-                        <p><strong>Manual آلترناتور:</strong> <a href="<?= e($assetData['alternator_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['control_panel_manual_link'])): ?>
-                        <p><strong>Manual کنترل پنل:</strong> <a href="<?= e($assetData['control_panel_manual_link']) ?>" target="_blank" class="text-primary">مشاهده</a></p>
-                        <?php endif; ?>
-                    </div>
+            <?php else: ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> هیچ تسکی برای این دستگاه ثبت نشده است.
                 </div>
-                <?php endif; ?>
+            <?php endif; ?>
+        </div>
 
                 <!-- اطلاعات اضافی -->
                 <?php if (!empty($assetData['fuel_tank_specs']) || !empty($assetData['other_items']) || !empty($assetData['supply_method']) || !empty($assetData['location']) || !empty($assetData['quantity']) || !empty($assetData['supplier_name'])): ?>
