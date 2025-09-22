@@ -530,7 +530,7 @@ try {
                 <a href="assets.php" class="btn btn-outline-primary">
                     <i class="fas fa-cog"></i> مدیریت دارایی‌ها
                 </a>
-                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editAssetModal">
+                <button class="btn btn-warning" onclick="openEditModal()" id="editButton">
                     <i class="fas fa-edit"></i> ویرایش دستگاه
                 </button>
             </div>
@@ -1597,8 +1597,28 @@ try {
     
     <!-- JavaScript for Edit Asset Modal -->
     <script>
+        // Function to open edit modal
+        function openEditModal() {
+            console.log('openEditModal called');
+            try {
+                const assetData = <?= json_encode($assetData, JSON_UNESCAPED_UNICODE) ?>;
+                console.log('Asset data:', assetData);
+                if (assetData) {
+                    showEditModal(assetData);
+                } else {
+                    console.error('No asset data available');
+                    alert('خطا: اطلاعات دارایی در دسترس نیست');
+                }
+            } catch (e) {
+                console.error('Error in openEditModal:', e);
+                alert('خطا در باز کردن فرم ویرایش: ' + e.message);
+            }
+        }
+        
         // Function to show edit modal with appropriate fields based on asset type
         function showEditModal(assetData) {
+            console.log('showEditModal called with:', assetData);
+            
             // Hide all field sections first
             document.querySelectorAll('.edit-dynamic-field').forEach(field => {
                 field.style.display = 'none';
@@ -1639,8 +1659,13 @@ try {
                     }
             }
             
+            console.log('Asset type determined as:', assetTypeName);
+            
             // Store asset type for form submission
-            document.getElementById('edit_asset_type').value = assetTypeName;
+            const assetTypeElement = document.getElementById('edit_asset_type');
+            if (assetTypeElement) {
+                assetTypeElement.value = assetTypeName;
+            }
             
             // Show appropriate fields based on asset type
             if (assetTypeName.includes('ژنراتور')) {
@@ -1651,16 +1676,34 @@ try {
                 showConsumableEditFields(assetData);
             } else if (assetTypeName.includes('قطعات')) {
                 showPartsEditFields(assetData);
+            } else {
+                // Default to generator fields if type is unknown
+                console.log('Unknown asset type, defaulting to generator fields');
+                showGeneratorEditFields(assetData);
             }
             
             // Show the modal
-            const modal = new bootstrap.Modal(document.getElementById('editAssetModal'));
-            modal.show();
+            const modalElement = document.getElementById('editAssetModal');
+            if (modalElement) {
+                try {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                    console.log('Modal shown successfully');
+                } catch (e) {
+                    console.error('Error showing modal:', e);
+                }
+            } else {
+                console.error('Modal element not found');
+            }
         }
         
         // Function to populate generator fields
         function showGeneratorEditFields(assetData) {
-            document.getElementById('edit_generator_fields').style.display = 'block';
+            console.log('showGeneratorEditFields called');
+            const generatorFields = document.getElementById('edit_generator_fields');
+            if (generatorFields) {
+                generatorFields.style.display = 'block';
+            }
             
             // Populate fields
             setValue('edit_gen_name', assetData.name);
@@ -1736,14 +1779,27 @@ try {
         
         // Helper function to convert Gregorian date to Jalali
         function convertToJalali(gregorianDate) {
-            if (!gregorianDate || gregorianDate === '') return '';
+            if (!gregorianDate || gregorianDate === '' || gregorianDate === null) return '';
             
-            // Simple conversion - you might want to use a more robust library
             try {
+                // If it's already in Jalali format, return as is
+                if (gregorianDate.includes('/') && gregorianDate.split('/').length === 3) {
+                    const parts = gregorianDate.split('/');
+                    if (parts[0].length === 4 && parseInt(parts[0]) > 1300) {
+                        return gregorianDate; // Already Jalali
+                    }
+                }
+                
                 const date = new Date(gregorianDate);
                 if (isNaN(date.getTime())) return '';
                 
-                // Basic Jalali conversion (simplified)
+                // Use PersianDate library if available
+                if (typeof PersianDate !== 'undefined') {
+                    const pDate = new PersianDate(date);
+                    return pDate.format('YYYY/MM/DD');
+                }
+                
+                // Fallback to simple conversion
                 const year = date.getFullYear();
                 const month = date.getMonth() + 1;
                 const day = date.getDate();
@@ -1755,6 +1811,7 @@ try {
                 
                 return jalaliYear + '/' + jalaliMonth.toString().padStart(2, '0') + '/' + jalaliDay.toString().padStart(2, '0');
             } catch (e) {
+                console.error('Error converting date:', e);
                 return '';
             }
         }
@@ -1762,45 +1819,59 @@ try {
         // Helper function to set value safely
         function setValue(elementId, value) {
             const element = document.getElementById(elementId);
-            if (element && value !== null && value !== undefined) {
+            if (element && value !== null && value !== undefined && value !== '') {
                 element.value = value;
+                // Trigger change event for Persian DatePicker
+                if (element.classList.contains('jalali-date')) {
+                    try {
+                        $(element).trigger('change');
+                    } catch (e) {
+                        console.error('Error triggering change event:', e);
+                    }
+                }
             }
         }
         
         // Initialize Persian DatePicker for all jalali-date inputs
         function initializePersianDatePickers() {
-            $('.jalali-date').persianDatepicker({
-                format: 'YYYY/MM/DD',
-                altField: '.jalali-date',
-                altFormat: 'YYYY/MM/DD',
-                observer: true,
-                timePicker: false,
-                autoClose: true,
-                initialValue: false,
-                position: 'auto',
-                viewMode: 'day',
-                calendar: {
-                    persian: {
-                        locale: 'fa',
-                        showHint: true,
-                        leapYearMode: 'algorithmic'
+            console.log('Initializing Persian DatePickers');
+            try {
+                $('.jalali-date').persianDatepicker({
+                    format: 'YYYY/MM/DD',
+                    altField: '.jalali-date',
+                    altFormat: 'YYYY/MM/DD',
+                    observer: true,
+                    timePicker: false,
+                    autoClose: true,
+                    initialValue: false,
+                    position: 'auto',
+                    viewMode: 'day',
+                    calendar: {
+                        persian: {
+                            locale: 'fa',
+                            showHint: true,
+                            leapYearMode: 'algorithmic'
+                        }
                     }
-                }
-            });
+                });
+                console.log('Persian DatePickers initialized successfully');
+            } catch (error) {
+                console.error('Error initializing Persian DatePickers:', error);
+            }
         }
         
-        // Add event listener to edit button
+        // Initialize Persian DatePickers on page load
         <?php if ($assetData): ?>
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize Persian DatePickers
             initializePersianDatePickers();
             
-            const editButton = document.querySelector('[data-bs-target="#editAssetModal"]');
+            // Test button click
+            const editButton = document.getElementById('editButton');
             if (editButton) {
-                editButton.addEventListener('click', function() {
-                    const assetData = <?= json_encode($assetData, JSON_UNESCAPED_UNICODE) ?>;
-                    showEditModal(assetData);
-                });
+                console.log('Edit button found and ready');
+            } else {
+                console.error('Edit button not found');
             }
         });
         <?php endif; ?>
