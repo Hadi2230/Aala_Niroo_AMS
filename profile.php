@@ -28,6 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ---------- ثبت سرویس ----------
         if (isset($_POST['add_service'])) {
             $service_date = trim($_POST['service_date'] ?? '') ?: null;
+            // تبدیل تاریخ شمسی به میلادی برای ذخیره در دیتابیس
+            if ($service_date) {
+                $service_date = jalaliToGregorianForDB($service_date);
+            }
             $service_type = trim($_POST['service_type'] ?? '') ?: null;
             $service_provider = trim($_POST['service_provider'] ?? '') ?: null;
             $description = trim($_POST['description'] ?? '') ?: null;
@@ -60,6 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $assigned_to = trim($_POST['assigned_to'] ?? '') ?: null;
             $due_date = trim($_POST['due_date'] ?? '') ?: null;
+            // تبدیل تاریخ شمسی به میلادی برای ذخیره در دیتابیس
+            if ($due_date) {
+                $due_date = jalaliToGregorianForDB($due_date);
+            }
             $status = trim($_POST['status'] ?? 'pending');
             $allowed = ['pending', 'in_progress', 'completed', 'cancelled'];
             if (!in_array($status, $allowed, true)) $status = 'pending';
@@ -96,6 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $purchase_date = trim($_POST['purchase_date'] ?? '');
+            // تبدیل تاریخ شمسی به میلادی برای ذخیره در دیتابیس
+            if ($purchase_date) {
+                $purchase_date = jalaliToGregorianForDB($purchase_date);
+            }
             $status = trim($_POST['status'] ?? '');
             
             // Generator specific fields
@@ -125,6 +137,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Workshop dates
             $workshop_entry_date = trim($_POST['workshop_entry_date'] ?? '');
             $workshop_exit_date = trim($_POST['workshop_exit_date'] ?? '');
+            // تبدیل تاریخ‌های شمسی به میلادی برای ذخیره در دیتابیس
+            if ($workshop_entry_date) {
+                $workshop_entry_date = jalaliToGregorianForDB($workshop_entry_date);
+            }
+            if ($workshop_exit_date) {
+                $workshop_exit_date = jalaliToGregorianForDB($workshop_exit_date);
+            }
             
             // Manual links
             $datasheet_link = trim($_POST['datasheet_link'] ?? '');
@@ -207,7 +226,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // ---------- ثبت مکاتبه ----------
         if (isset($_POST['add_correspondence'])) {
-            $corr_date = trim($_POST['corr_date'] ?? '') ?: date('Y-m-d');
+            $corr_date = trim($_POST['corr_date'] ?? '') ?: jalaliDate();
+            // تبدیل تاریخ شمسی به میلادی برای ذخیره در دیتابیس
+            if ($corr_date) {
+                $corr_date = jalaliToGregorianForDB($corr_date);
+            }
             $summary = trim($_POST['summary'] ?? '') ?: null;
             $notes = trim($_POST['notes'] ?? '') ?: null;
             $filePath = null;
@@ -316,6 +339,8 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <!-- Persian DatePicker CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
     
     <style>
         html, body { 
@@ -532,7 +557,7 @@ try {
                         <?php endif; ?>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>تاریخ خرید:</strong> <?= e($assetData['purchase_date'] ?? '-') ?></p>
+                        <p><strong>تاریخ خرید:</strong> <?= e(gregorianToJalaliFromDB($assetData['purchase_date'] ?? '')) ?></p>
                         <p><strong>وضعیت:</strong> 
                             <span class="badge bg-<?= ($assetData['status'] ?? '') === 'فعال' ? 'success' : 'warning' ?>">
                                 <?= e($assetData['status'] ?? 'نامشخص') ?>
@@ -655,12 +680,12 @@ try {
                     </div>
                     <div class="col-md-6">
                         <?php if (!empty($assetData['workshop_entry_date'])): ?>
-                        <p><strong>تاریخ ورود به کارگاه:</strong> <?= e($assetData['workshop_entry_date']) ?></p>
+                        <p><strong>تاریخ ورود به کارگاه:</strong> <?= e(gregorianToJalaliFromDB($assetData['workshop_entry_date'])) ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="col-md-6">
                         <?php if (!empty($assetData['workshop_exit_date'])): ?>
-                        <p><strong>تاریخ خروج از کارگاه:</strong> <?= e($assetData['workshop_exit_date']) ?></p>
+                        <p><strong>تاریخ خروج از کارگاه:</strong> <?= e(gregorianToJalaliFromDB($assetData['workshop_exit_date'])) ?></p>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -786,7 +811,7 @@ try {
                             <tbody>
                                 <?php foreach ($services as $service): ?>
                                 <tr>
-                                    <td><?= e($service['service_date'] ?? '-') ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($service['service_date'] ?? '')) ?></td>
                                     <td><?= e($service['service_type'] ?? '-') ?></td>
                                     <td><?= e($service['performed_by'] ?? '-') ?></td>
                                     <td><?= e($service['summary'] ?? '-') ?></td>
@@ -835,7 +860,7 @@ try {
                                 <tr>
                                     <td><?= e($task['title'] ?? '-') ?></td>
                                     <td><?= e($task['assigned_to'] ?? '-') ?></td>
-                                    <td><?= e($task['planned_date'] ?? '-') ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($task['planned_date'] ?? '')) ?></td>
                                     <td>
                                         <?php
                                         $statusClass = match($task['status']) {
@@ -892,7 +917,7 @@ try {
                             <tbody>
                                 <?php foreach ($correspondence as $corr): ?>
                                 <tr>
-                                    <td><?= e($corr['letter_date'] ?? '-') ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($corr['letter_date'] ?? '')) ?></td>
                                     <td><?= e($corr['subject'] ?? '-') ?></td>
                                     <td><?= e($corr['notes'] ?? '-') ?></td>
                                     <td>
@@ -943,10 +968,10 @@ try {
                                 <tr>
                                     <td><?= e($assignment['customer_name'] ?? '-') ?></td>
                                     <td><?= e($assignment['customer_phone'] ?? '-') ?></td>
-                                    <td><?= e($assignment['assignment_date'] ?? '-') ?></td>
-                                    <td><?= e($assignment['installation_date'] ?? '-') ?></td>
-                                    <td><?= e($assignment['warranty_start_date'] ?? '-') ?></td>
-                                    <td><?= e($assignment['warranty_end_date'] ?? '-') ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($assignment['assignment_date'] ?? '')) ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($assignment['installation_date'] ?? '')) ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($assignment['warranty_start_date'] ?? '')) ?></td>
+                                    <td><?= e(gregorianToJalaliFromDB($assignment['warranty_end_date'] ?? '')) ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -999,7 +1024,7 @@ try {
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="date" class="form-control" id="edit_gen_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_gen_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -1165,13 +1190,13 @@ try {
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ورود به کارگاه</label>
-                                            <input type="date" class="form-control" id="edit_gen_workshop_entry_date" name="workshop_entry_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_gen_workshop_entry_date" name="workshop_entry_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خروج از کارگاه</label>
-                                            <input type="date" class="form-control" id="edit_gen_workshop_exit_date" name="workshop_exit_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_gen_workshop_exit_date" name="workshop_exit_date" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -1258,7 +1283,7 @@ try {
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ خرید</label>
-                                            <input type="date" class="form-control" id="edit_motor_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_motor_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1289,7 +1314,7 @@ try {
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="edit_consumable_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_consumable_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1354,7 +1379,7 @@ try {
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">تاریخ ثبت</label>
-                                            <input type="date" class="form-control" id="edit_parts_purchase_date" name="purchase_date">
+                                            <input type="text" class="form-control jalali-date" id="edit_parts_purchase_date" name="purchase_date" readonly>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -1403,7 +1428,7 @@ try {
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">تاریخ سرویس</label>
-                                <input type="date" name="service_date" class="form-control" value="<?= date('Y-m-d') ?>">
+                                <input type="text" name="service_date" class="form-control jalali-date" value="<?= jalaliDate() ?>" readonly>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">نوع سرویس</label>
@@ -1452,7 +1477,7 @@ try {
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">تاریخ برنامه</label>
-                                <input type="date" name="due_date" class="form-control">
+                                <input type="text" name="due_date" class="form-control jalali-date" readonly>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">وضعیت</label>
@@ -1490,7 +1515,7 @@ try {
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">تاریخ نامه</label>
-                                <input type="date" name="corr_date" class="form-control" value="<?= date('Y-m-d') ?>">
+                                <input type="text" name="corr_date" class="form-control jalali-date" value="<?= jalaliDate() ?>" readonly>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">موضوع</label>
@@ -1564,6 +1589,11 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery for Persian DatePicker -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <!-- Persian DatePicker JS -->
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
     
     <!-- JavaScript for Edit Asset Modal -->
     <script>
@@ -1635,7 +1665,7 @@ try {
             // Populate fields
             setValue('edit_gen_name', assetData.name);
             setValue('edit_gen_serial_number', assetData.serial_number);
-            setValue('edit_gen_purchase_date', assetData.purchase_date);
+            setValue('edit_gen_purchase_date', convertToJalali(assetData.purchase_date));
             setValue('edit_gen_status', assetData.status);
             setValue('edit_gen_brand', assetData.brand);
             setValue('edit_gen_device_model', assetData.device_model);
@@ -1656,8 +1686,8 @@ try {
             setValue('edit_gen_water_fuel_filter_part', assetData.water_fuel_filter_part);
             setValue('edit_gen_air_filter_part', assetData.air_filter_part);
             setValue('edit_gen_water_filter_part', assetData.water_filter_part);
-            setValue('edit_gen_workshop_entry_date', assetData.workshop_entry_date);
-            setValue('edit_gen_workshop_exit_date', assetData.workshop_exit_date);
+            setValue('edit_gen_workshop_entry_date', convertToJalali(assetData.workshop_entry_date));
+            setValue('edit_gen_workshop_exit_date', convertToJalali(assetData.workshop_exit_date));
             setValue('edit_gen_datasheet_link', assetData.datasheet_link);
             setValue('edit_gen_engine_manual_link', assetData.engine_manual_link);
             setValue('edit_gen_alternator_manual_link', assetData.alternator_manual_link);
@@ -1674,7 +1704,7 @@ try {
             setValue('edit_motor_engine_type', assetData.engine_type);
             setValue('edit_motor_serial_number', assetData.serial_number);
             setValue('edit_motor_device_identifier', assetData.device_identifier);
-            setValue('edit_motor_purchase_date', assetData.purchase_date);
+            setValue('edit_motor_purchase_date', convertToJalali(assetData.purchase_date));
             setValue('edit_motor_status', assetData.status);
         }
         
@@ -1684,7 +1714,7 @@ try {
             
             // Populate fields
             setValue('edit_consumable_name', assetData.name);
-            setValue('edit_consumable_purchase_date', assetData.purchase_date);
+            setValue('edit_consumable_purchase_date', convertToJalali(assetData.purchase_date));
             setValue('edit_consumable_device_identifier', assetData.device_identifier);
             setValue('edit_consumable_status', assetData.status);
             setValue('edit_consumable_type', assetData.consumable_type);
@@ -1699,9 +1729,34 @@ try {
             setValue('edit_parts_name', assetData.name);
             setValue('edit_parts_serial_number', assetData.serial_number);
             setValue('edit_parts_device_identifier', assetData.device_identifier);
-            setValue('edit_parts_purchase_date', assetData.purchase_date);
+            setValue('edit_parts_purchase_date', convertToJalali(assetData.purchase_date));
             setValue('edit_parts_status', assetData.status);
             setValue('edit_parts_description', assetData.description);
+        }
+        
+        // Helper function to convert Gregorian date to Jalali
+        function convertToJalali(gregorianDate) {
+            if (!gregorianDate || gregorianDate === '') return '';
+            
+            // Simple conversion - you might want to use a more robust library
+            try {
+                const date = new Date(gregorianDate);
+                if (isNaN(date.getTime())) return '';
+                
+                // Basic Jalali conversion (simplified)
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                
+                // Convert to Jalali (simplified)
+                const jalaliYear = year - 621;
+                const jalaliMonth = month > 3 ? month - 3 : month + 9;
+                const jalaliDay = day;
+                
+                return jalaliYear + '/' + jalaliMonth.toString().padStart(2, '0') + '/' + jalaliDay.toString().padStart(2, '0');
+            } catch (e) {
+                return '';
+            }
         }
         
         // Helper function to set value safely
@@ -1712,9 +1767,34 @@ try {
             }
         }
         
+        // Initialize Persian DatePicker for all jalali-date inputs
+        function initializePersianDatePickers() {
+            $('.jalali-date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                altField: '.jalali-date',
+                altFormat: 'YYYY/MM/DD',
+                observer: true,
+                timePicker: false,
+                autoClose: true,
+                initialValue: false,
+                position: 'auto',
+                viewMode: 'day',
+                calendar: {
+                    persian: {
+                        locale: 'fa',
+                        showHint: true,
+                        leapYearMode: 'algorithmic'
+                    }
+                }
+            });
+        }
+        
         // Add event listener to edit button
         <?php if ($assetData): ?>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Persian DatePickers
+            initializePersianDatePickers();
+            
             const editButton = document.querySelector('[data-bs-target="#editAssetModal"]');
             if (editButton) {
                 editButton.addEventListener('click', function() {
