@@ -730,36 +730,350 @@ try {
             <?php endif; ?>
         </div>
 
-                <!-- اطلاعات اضافی -->
-                <?php if (!empty($assetData['fuel_tank_specs']) || !empty($assetData['other_items']) || !empty($assetData['supply_method']) || !empty($assetData['location']) || !empty($assetData['quantity']) || !empty($assetData['supplier_name'])): ?>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">اطلاعات اضافی</h6>
+        <!-- تب مکاتبات -->
+        <div class="tab-pane fade" id="correspondence" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>مکاتبات</h5>
+                <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#addCorrespondenceModal">
+                    <i class="fas fa-plus"></i> ثبت مکاتبه جدید
+                </button>
+            </div>
+            
+            <?php if (!empty($correspondence)): ?>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>تاریخ</th>
+                                <th>موضوع</th>
+                                <th>یادداشت</th>
+                                <th>فایل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($correspondence as $corr): ?>
+                            <tr>
+                                <td><?= e(gregorianToJalaliFromDB($corr['letter_date'] ?? '')) ?></td>
+                                <td><?= e($corr['subject'] ?? '-') ?></td>
+                                <td><?= e($corr['notes'] ?? '-') ?></td>
+                                <td>
+                                    <?php if ($corr['file_path']): ?>
+                                        <a href="<?= e($corr['file_path']) ?>" class="file-link" target="_blank">
+                                            <i class="fas fa-download"></i> دانلود
+                                        </a>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> هیچ مکاتبه‌ای برای این دستگاه ثبت نشده است.
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- تب انتساب‌ها -->
+        <div class="tab-pane fade" id="assignments" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>انتساب‌های دستگاه</h5>
+                <a href="assignments.php" class="btn btn-warning">
+                    <i class="fas fa-plus"></i> انتساب جدید
+                </a>
+            </div>
+            
+            <?php if (!empty($assignments)): ?>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>مشتری</th>
+                                <th>تلفن</th>
+                                <th>تاریخ انتساب</th>
+                                <th>تاریخ نصب</th>
+                                <th>گارانتی از</th>
+                                <th>گارانتی تا</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($assignments as $assignment): ?>
+                            <tr>
+                                <td><?= e($assignment['customer_name'] ?? '-') ?></td>
+                                <td><?= e($assignment['customer_phone'] ?? '-') ?></td>
+                                <td><?= e(gregorianToJalaliFromDB($assignment['assignment_date'] ?? '')) ?></td>
+                                <td><?= e(gregorianToJalaliFromDB($assignment['installation_date'] ?? '')) ?></td>
+                                <td><?= e(gregorianToJalaliFromDB($assignment['warranty_start_date'] ?? '')) ?></td>
+                                <td><?= e(gregorianToJalaliFromDB($assignment['warranty_end_date'] ?? '')) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> این دستگاه به هیچ مشتری انتساب داده نشده است.
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <!-- Modal: editAsset -->
+    <div class="modal fade" id="editAssetModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <form method="post" id="editAssetForm">
+                    <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ویرایش اطلاعات دستگاه</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['fuel_tank_specs'])): ?>
-                        <p><strong>مشخصات تانک سوخت:</strong> <?= nl2br(e($assetData['fuel_tank_specs'])) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['other_items'])): ?>
-                        <p><strong>سایر اقلام:</strong> <?= nl2br(e($assetData['other_items'])) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['supply_method'])): ?>
-                        <p><strong>نحوه تأمین:</strong> <?= e($assetData['supply_method']) ?></p>
-                        <?php endif; ?>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">نام دستگاه *</label>
+                                    <input type="text" class="form-control" name="name" value="<?= e($assetData['name'] ?? '') ?>" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">برند</label>
+                                    <input type="text" class="form-control" name="brand" value="<?= e($assetData['brand'] ?? '') ?>">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">مدل</label>
+                                    <input type="text" class="form-control" name="model" value="<?= e($assetData['model'] ?? '') ?>">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">شماره سریال</label>
+                                    <input type="text" class="form-control" name="serial_number" value="<?= e($assetData['serial_number'] ?? '') ?>">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">تاریخ خرید</label>
+                                    <input type="text" class="form-control jalali-date" name="purchase_date" value="<?= e(gregorianToJalaliFromDB($assetData['purchase_date'] ?? '')) ?>" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">وضعیت *</label>
+                                    <select class="form-select" name="status" required>
+                                        <option value="">-- انتخاب کنید --</option>
+                                        <option value="فعال" <?= ($assetData['status'] ?? '') === 'فعال' ? 'selected' : '' ?>>فعال</option>
+                                        <option value="غیرفعال" <?= ($assetData['status'] ?? '') === 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
+                                        <option value="در حال تعمیر" <?= ($assetData['status'] ?? '') === 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
+                                        <option value="آماده بهره‌برداری" <?= ($assetData['status'] ?? '') === 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">توضیحات</label>
+                            <textarea class="form-control" name="description" rows="3"><?= e($assetData['description'] ?? '') ?></textarea>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <?php if (!empty($assetData['location'])): ?>
-                        <p><strong>مکان:</strong> <?= e($assetData['location']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['quantity'])): ?>
-                        <p><strong>تعداد:</strong> <?= e($assetData['quantity']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['supplier_name'])): ?>
-                        <p><strong>تأمین‌کننده:</strong> <?= e($assetData['supplier_name']) ?></p>
-                        <?php endif; ?>
-                        <?php if (!empty($assetData['supplier_contact'])): ?>
-                        <p><strong>تماس تأمین‌کننده:</strong> <?= e($assetData['supplier_contact']) ?></p>
-                        <?php endif; ?>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="edit_asset" class="btn btn-warning">ذخیره تغییرات</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: addService -->
+    <div class="modal fade" id="addServiceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ثبت سرویس جدید</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">تاریخ سرویس</label>
+                            <input type="text" name="service_date" class="form-control jalali-date" value="<?= jalaliDate() ?>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">نوع سرویس</label>
+                            <input type="text" name="service_type" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">مجری سرویس</label>
+                            <input type="text" name="service_provider" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">خلاصه سرویس</label>
+                            <textarea name="description" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">هزینه (تومان)</label>
+                            <input type="number" name="cost" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="add_service" class="btn btn-primary">ثبت سرویس</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: addTask -->
+    <div class="modal fade" id="addTaskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ثبت تسک جدید</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">عنوان تسک *</label>
+                            <input type="text" name="task_name" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">مسئول</label>
+                            <input type="text" name="assigned_to" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">تاریخ برنامه</label>
+                            <input type="text" name="due_date" class="form-control jalali-date" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">وضعیت</label>
+                            <select name="status" class="form-control">
+                                <option value="pending">در انتظار</option>
+                                <option value="in_progress">در حال انجام</option>
+                                <option value="completed">انجام شده</option>
+                                <option value="cancelled">لغو شده</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">توضیحات</label>
+                            <textarea name="description" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="add_task" class="btn btn-success">ثبت تسک</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: addCorrespondence -->
+    <div class="modal fade" id="addCorrespondenceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="asset_id" value="<?= e($assetId) ?>">
+                    <div class="modal-header">
+                        <h5 class="modal-title">ثبت مکاتبه جدید</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">تاریخ نامه</label>
+                            <input type="text" name="corr_date" class="form-control jalali-date" value="<?= jalaliDate() ?>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">موضوع</label>
+                            <input type="text" name="summary" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">یادداشت</label>
+                            <textarea name="notes" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">فایل ضمیمه</label>
+                            <input type="file" name="corr_file" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        <button type="submit" name="add_correspondence" class="btn btn-info">ثبت مکاتبه</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+<?php else: ?>
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> دارایی مورد نظر یافت نشد.
+    </div>
+<?php endif; ?>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery for Persian DatePicker -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <!-- Persian DatePicker JS -->
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+    
+    <script>
+        // Function to open edit modal
+        function openEditModal() {
+            console.log('openEditModal called');
+            try {
+                const modalElement = document.getElementById('editAssetModal');
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                    console.log('Modal shown successfully');
+                } else {
+                    console.error('Modal element not found');
+                }
+            } catch (e) {
+                console.error('Error in openEditModal:', e);
+                alert('خطا در باز کردن فرم ویرایش: ' + e.message);
+            }
+        }
+        
+        // Initialize Persian DatePickers on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Persian DatePickers
+            try {
+                $('.jalali-date').persianDatepicker({
+                    format: 'YYYY/MM/DD',
+                    timePicker: false,
+                    autoClose: true,
+                    initialValue: false,
+                    position: 'auto',
+                    viewMode: 'day',
+                    calendar: {
+                        persian: {
+                            locale: 'fa',
+                            showHint: true,
+                            leapYearMode: 'algorithmic'
+                        }
+                    }
+                });
+                console.log('Persian DatePickers initialized successfully');
+            } catch (error) {
+                console.error('Error initializing Persian DatePickers:', error);
+            }
+        });
+    </script>
+</body>
+</html>
                     </div>
                 </div>
                 <?php endif; ?>
