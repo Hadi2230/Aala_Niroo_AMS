@@ -1074,42 +1074,6 @@ try {
     </script>
 </body>
 </html>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <!-- توضیحات -->
-                <?php if (!empty($assetData['description'])): ?>
-                <div class="row">
-                    <div class="col-12">
-                        <h6 class="text-primary border-bottom pb-2 mb-3">توضیحات</h6>
-                        <p><?= nl2br(e($assetData['description'])) ?></p>
-                    </div>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- تب‌ها برای نمایش اطلاعات -->
-        <ul class="nav nav-tabs" id="assetTabs" role="tablist">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#services" role="tab">
-                    <i class="fas fa-wrench"></i> سرویس‌ها (<?= count($services) ?>)
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tasks" role="tab">
-                    <i class="fas fa-tasks"></i> تسک‌ها (<?= count($tasks) ?>)
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#correspondence" role="tab">
-                    <i class="fas fa-envelope"></i> مکاتبات (<?= count($correspondence) ?>)
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#assignments" role="tab">
-                    <i class="fas fa-handshake"></i> انتساب‌ها (<?= count($assignments) ?>)
                 </a>
             </li>
         </ul>
