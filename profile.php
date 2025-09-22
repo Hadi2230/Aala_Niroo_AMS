@@ -1074,42 +1074,6 @@ try {
     </script>
 </body>
 </html>
-                </a>
-            </li>
-        </ul>
-
-        <div class="tab-content">
-            <!-- تب سرویس‌ها -->
-            <div class="tab-pane fade show active" id="services" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5>سرویس‌های انجام شده</h5>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addServiceModal">
-                        <i class="fas fa-plus"></i> ثبت سرویس جدید
-                    </button>
-                </div>
-                
-                <?php if (!empty($services)): ?>
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>تاریخ سرویس</th>
-                                    <th>نوع سرویس</th>
-                                    <th>مجری</th>
-                                    <th>خلاصه</th>
-                                    <th>هزینه</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($services as $service): ?>
-                                <tr>
-                                    <td><?= e(gregorianToJalaliFromDB($service['service_date'] ?? '')) ?></td>
-                                    <td><?= e($service['service_type'] ?? '-') ?></td>
-                                    <td><?= e($service['performed_by'] ?? '-') ?></td>
-                                    <td><?= e($service['summary'] ?? '-') ?></td>
-                                    <td>
-                                        <?php if ($service['cost']): ?>
-                                            <?= number_format($service['cost'], 0) ?> تومان
                                         <?php else: ?>
                                             -
                                         <?php endif; ?>
