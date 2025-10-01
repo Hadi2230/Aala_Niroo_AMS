@@ -42,11 +42,8 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// ایجاد جداول فقط یک بار در طول session
-if (!isset($_SESSION['tables_created'])) {
-    createDatabaseTables($pdo);
-    $_SESSION['tables_created'] = true;
-}
+// ایجاد جداول به صورت idempotent (هر بار) تا جداول جدید همیشه ساخته شوند
+createDatabaseTables($pdo);
 
 /**
  * ایجاد جداول دیتابیس
