@@ -120,6 +120,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <i class="fas fa-user-cog"></i> مدیریت کاربران
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo $current_page == 'education.php' ? 'active' : ''; ?>" href="education.php">
+                            <i class="fas fa-graduation-cap"></i> آموزش
+                        </a>
+                    </li>
                 </ul>
                 
                 <!-- اطلاعات کاربر و ساعت -->
