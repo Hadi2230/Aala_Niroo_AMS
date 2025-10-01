@@ -63,6 +63,12 @@ function createDatabaseTables($pdo) {
         mkdir(__DIR__ . '/uploads/installations', 0755, true);
         mkdir(__DIR__ . '/uploads/assets', 0755, true);
         mkdir(__DIR__ . '/uploads/filters', 0755, true);
+        mkdir(__DIR__ . '/uploads/education', 0755, true);
+        mkdir(__DIR__ . '/uploads/education/forms', 0755, true);
+        mkdir(__DIR__ . '/uploads/education/images', 0755, true);
+        mkdir(__DIR__ . '/uploads/education/videos', 0755, true);
+        mkdir(__DIR__ . '/uploads/education/articles', 0755, true);
+        mkdir(__DIR__ . '/uploads/education/thumbnails', 0755, true);
         
         // ایجاد پوشه‌های آموزشی
         mkdir(__DIR__ . '/uploads/learning', 0755, true);
@@ -484,26 +490,100 @@ function logAction($pdo, $action, $description = '') {
 // آپلود فایل با اعتبارسنجی
 function uploadFile($file, $target_dir, $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'pdf']) {
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        throw new Exception('خطا در آپلود فایل');
+        $error_messages = [
+            UPLOAD_ERR_INI_SIZE => 'فایل از حداکثر حجم مجاز بزرگتر است',
+            UPLOAD_ERR_FORM_SIZE => 'فایل از حداکثر حجم مجاز فرم بزرگتر است',
+            UPLOAD_ERR_PARTIAL => 'فایل فقط بخشی از آن آپلود شده است',
+            UPLOAD_ERR_NO_FILE => 'هیچ فایلی انتخاب نشده است',
+            UPLOAD_ERR_NO_TMP_DIR => 'پوشه موقت وجود ندارد',
+            UPLOAD_ERR_CANT_WRITE => 'خطا در نوشتن فایل روی دیسک',
+            UPLOAD_ERR_EXTENSION => 'آپلود فایل توسط یک افزونه متوقف شد'
+        ];
+        throw new Exception($error_messages[$file['error']] ?? 'خطا در آپلود فایل');
     }
     
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($file_ext, $allowed_types)) {
-        throw new Exception('نوع فایل مجاز نیست');
+        throw new Exception('نوع فایل مجاز نیست. انواع مجاز: ' . implode(', ', $allowed_types));
     }
     
-    if ($file['size'] > 5 * 1024 * 1024) { // 5MB limit
-        throw new Exception('حجم فایل بیش از حد مجاز است');
+    // بررسی MIME type
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    $allowed_mimes = [
+        'jpg' => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png' => ['image/png'],
+        'gif' => ['image/gif'],
+        'webp' => ['image/webp'],
+        'pdf' => ['application/pdf'],
+        'doc' => ['application/msword'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        'mp4' => ['video/mp4'],
+        'avi' => ['video/x-msvideo'],
+        'mov' => ['video/quicktime'],
+        'wmv' => ['video/x-ms-wmv'],
+        'flv' => ['video/x-flv'],
+        'webm' => ['video/webm']
+    ];
+    
+    if (isset($allowed_mimes[$file_ext]) && !in_array($mime_type, $allowed_mimes[$file_ext])) {
+        throw new Exception('نوع فایل با پسوند آن مطابقت ندارد');
     }
     
-    $file_name = time() . '_' . uniqid() . '.' . $file_ext;
+    // محدودیت حجم بر اساس نوع فایل
+    $max_sizes = [
+        'jpg' => 10 * 1024 * 1024,    // 10MB
+        'jpeg' => 10 * 1024 * 1024,   // 10MB
+        'png' => 10 * 1024 * 1024,    // 10MB
+        'gif' => 10 * 1024 * 1024,    // 10MB
+        'webp' => 10 * 1024 * 1024,   // 10MB
+        'pdf' => 50 * 1024 * 1024,    // 50MB
+        'doc' => 20 * 1024 * 1024,    // 20MB
+        'docx' => 20 * 1024 * 1024,   // 20MB
+        'mp4' => 500 * 1024 * 1024,   // 500MB
+        'avi' => 500 * 1024 * 1024,   // 500MB
+        'mov' => 500 * 1024 * 1024,   // 500MB
+        'wmv' => 500 * 1024 * 1024,   // 500MB
+        'flv' => 500 * 1024 * 1024,   // 500MB
+        'webm' => 500 * 1024 * 1024   // 500MB
+    ];
+    
+    $max_size = $max_sizes[$file_ext] ?? 5 * 1024 * 1024; // 5MB default
+    
+    if ($file['size'] > $max_size) {
+        $max_size_mb = round($max_size / (1024 * 1024), 1);
+        throw new Exception("حجم فایل بیش از حد مجاز است. حداکثر حجم مجاز: {$max_size_mb} مگابایت");
+    }
+    
+    // بررسی نام فایل
+    $file_name = sanitizeFileName($file['name']);
+    $file_name = time() . '_' . uniqid() . '_' . $file_name;
     $target_file = $target_dir . $file_name;
+    
+    // اطمینان از وجود پوشه مقصد
+    if (!is_dir($target_dir)) {
+        mkdir($target_dir, 0755, true);
+    }
     
     if (!move_uploaded_file($file['tmp_name'], $target_file)) {
         throw new Exception('خطا در ذخیره فایل');
     }
     
     return $target_file;
+}
+
+// پاکسازی نام فایل
+function sanitizeFileName($filename) {
+    // حذف کاراکترهای خطرناک
+    $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+    // حذف نقاط اضافی
+    $filename = preg_replace('/\.{2,}/', '.', $filename);
+    // حذف خط‌های زیر اضافی
+    $filename = preg_replace('/_{2,}/', '_', $filename);
+    return $filename;
 }
 
 // بررسی CSRF token
