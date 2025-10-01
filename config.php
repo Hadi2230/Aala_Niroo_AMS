@@ -13,7 +13,7 @@ ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/logs/php-errors.log');
 
 // تنظیمات دیتابیس
-$host = 'localhost:3307';
+$host = 'localhost:3306';
 $dbname = 'aala_niroo';
 $username = 'root';
 $password = '';
@@ -61,20 +61,29 @@ function createDatabaseTables($pdo) {
         mkdir(__DIR__ . '/uploads/assets', 0755, true);
         mkdir(__DIR__ . '/uploads/filters', 0755, true);
         
-        // پوشه‌های آموزش
-        mkdir(__DIR__ . '/uploads/training', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/forms', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/gallery', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/gallery/thumbnails', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/videos', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/videos/thumbnails', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/articles', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/articles/images', 0755, true);
-        mkdir(__DIR__ . '/uploads/training/articles/pdfs', 0755, true);
-        
-        // ایجاد فایل htaccess برای محافظت از پوشه uploads
-        file_put_contents(__DIR__ . '/uploads/.htaccess', 
-            "Order deny,allow\nDeny from all\n<Files ~ \"\.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx|mp4|webm|ogg)$\">\nAllow from all\n</Files>");
+        // ایجاد فایل htaccess برای محافظت از پوشه uploads و اجازه به فرمت‌های لازم
+        file_put_contents(
+            __DIR__ . '/uploads/.htaccess',
+            "Order deny,allow\nDeny from all\n<Files ~ \"\\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|mp4|webm|ogg)$\">\nAllow from all\n</Files>"
+        );
+    }
+
+    // اطمینان از ایجاد پوشه‌های ماژول آموزش (حتی اگر uploads از قبل وجود داشته باشد)
+    $trainingDirs = [
+        __DIR__ . '/uploads/training',
+        __DIR__ . '/uploads/training/forms',
+        __DIR__ . '/uploads/training/gallery',
+        __DIR__ . '/uploads/training/gallery/thumbnails',
+        __DIR__ . '/uploads/training/videos',
+        __DIR__ . '/uploads/training/videos/thumbnails',
+        __DIR__ . '/uploads/training/articles',
+        __DIR__ . '/uploads/training/articles/images',
+        __DIR__ . '/uploads/training/articles/pdfs',
+    ];
+    foreach ($trainingDirs as $dir) {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
     }
     
     $tables = [
