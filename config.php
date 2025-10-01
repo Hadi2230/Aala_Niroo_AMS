@@ -64,9 +64,18 @@ function createDatabaseTables($pdo) {
         mkdir(__DIR__ . '/uploads/assets', 0755, true);
         mkdir(__DIR__ . '/uploads/filters', 0755, true);
         
+        // ایجاد پوشه‌های آموزشی
+        mkdir(__DIR__ . '/uploads/learning', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/forms', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/images', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/images/thumbnails', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/videos', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/videos/thumbnails', 0755, true);
+        mkdir(__DIR__ . '/uploads/learning/articles', 0755, true);
+        
         // ایجاد فایل htaccess برای محافظت از پوشه uploads
         file_put_contents(__DIR__ . '/uploads/.htaccess', 
-            "Order deny,allow\nDeny from all\n<Files ~ \"\.(jpg|jpeg|png|gif)$\">\nAllow from all\n</Files>");
+            "Order deny,allow\nDeny from all\n<Files ~ \"\.(jpg|jpeg|png|gif|pdf|doc|docx|mp4|avi|mov)$\">\nAllow from all\n</Files>");
     }
     
     $tables = [
@@ -253,6 +262,108 @@ function createDatabaseTables($pdo) {
             INDEX idx_user_id (user_id),
             INDEX idx_action (action),
             INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول دسته‌بندی‌های آموزشی
+        "CREATE TABLE IF NOT EXISTS learning_categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            type ENUM('forms', 'images', 'videos', 'articles') NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_type (type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول فرم‌های شرکت
+        "CREATE TABLE IF NOT EXISTS company_forms (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size INT,
+            file_type VARCHAR(50),
+            category_id INT,
+            uploaded_by INT NOT NULL,
+            download_count INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES learning_categories(id) ON DELETE SET NULL,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_category (category_id),
+            INDEX idx_uploaded_by (uploaded_by),
+            INDEX idx_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول گالری تصاویر
+        "CREATE TABLE IF NOT EXISTS image_gallery (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            thumbnail_path VARCHAR(500),
+            file_size INT,
+            category_id INT,
+            uploaded_by INT NOT NULL,
+            view_count INT DEFAULT 0,
+            download_count INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES learning_categories(id) ON DELETE SET NULL,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_category (category_id),
+            INDEX idx_uploaded_by (uploaded_by),
+            INDEX idx_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول ویدیوهای آموزشی
+        "CREATE TABLE IF NOT EXISTS training_videos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            file_name VARCHAR(255) NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            thumbnail_path VARCHAR(500),
+            duration VARCHAR(20),
+            file_size INT,
+            category_id INT,
+            uploaded_by INT NOT NULL,
+            view_count INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES learning_categories(id) ON DELETE SET NULL,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_category (category_id),
+            INDEX idx_uploaded_by (uploaded_by),
+            INDEX idx_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+        
+        // جدول مقالات و نشریات
+        "CREATE TABLE IF NOT EXISTS articles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            content LONGTEXT,
+            summary TEXT,
+            file_path VARCHAR(500),
+            file_name VARCHAR(255),
+            file_size INT,
+            category_id INT,
+            author_id INT NOT NULL,
+            view_count INT DEFAULT 0,
+            download_count INT DEFAULT 0,
+            is_published BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (category_id) REFERENCES learning_categories(id) ON DELETE SET NULL,
+            FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_category (category_id),
+            INDEX idx_author (author_id),
+            INDEX idx_published (is_published)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
     
@@ -294,7 +405,18 @@ function createDatabaseTables($pdo) {
             "INSERT INTO asset_fields (type_id, field_name, field_type, is_required) VALUES
             (3, 'نوع کالا', 'select', true),
             (3, 'تعداد/مقدار', 'number', true),
-            (3, 'واحد اندازه‌گیری', 'select', true)"
+            (3, 'واحد اندازه‌گیری', 'select', true)",
+            
+            // درج دسته‌بندی‌های آموزشی
+            "INSERT INTO learning_categories (name, type, description) VALUES
+            ('فرم‌های عمومی', 'forms', 'فرم‌های عمومی و اداری شرکت'),
+            ('فرم‌های فنی', 'forms', 'فرم‌های فنی و تخصصی'),
+            ('تصاویر محصولات', 'images', 'تصاویر محصولات و تجهیزات'),
+            ('تصاویر آموزشی', 'images', 'تصاویر آموزشی و راهنما'),
+            ('ویدیوهای آموزش فنی', 'videos', 'ویدیوهای آموزش فنی و تعمیرات'),
+            ('ویدیوهای معرفی محصول', 'videos', 'ویدیوهای معرفی محصولات'),
+            ('مقالات فنی', 'articles', 'مقالات فنی و تخصصی'),
+            ('نشریات شرکت', 'articles', 'نشریات و اطلاعیه‌های شرکت')"
         ];
         
         foreach ($initial_data as $query) {

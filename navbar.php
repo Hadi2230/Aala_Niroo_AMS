@@ -115,6 +115,20 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <i class="fas fa-chart-bar"></i> گزارشات
                         </a>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle <?php echo in_array($current_page, ['learning.php', 'learning_forms.php', 'learning_images.php', 'learning_videos.php', 'learning_articles.php']) ? 'active' : ''; ?>" 
+                           href="#" id="learningDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-graduation-cap"></i> آموزش
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="learningDropdown">
+                            <li><a class="dropdown-item" href="learning.php"><i class="fas fa-home"></i> داشبورد آموزش</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="learning_forms.php"><i class="fas fa-file-alt"></i> فرم‌های شرکت</a></li>
+                            <li><a class="dropdown-item" href="learning_images.php"><i class="fas fa-images"></i> گالری تصاویر</a></li>
+                            <li><a class="dropdown-item" href="learning_videos.php"><i class="fas fa-video"></i> ویدیوهای آموزشی</a></li>
+                            <li><a class="dropdown-item" href="learning_articles.php"><i class="fas fa-newspaper"></i> مقالات و نشریات</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $current_page == 'users.php' ? 'active' : ''; ?>" href="users.php">
                             <i class="fas fa-user-cog"></i> مدیریت کاربران
