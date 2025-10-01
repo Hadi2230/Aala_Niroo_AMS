@@ -86,6 +86,31 @@ function createDatabaseTables($pdo) {
         @chmod($dir, 0775);
     }
 
+    // دایرکتوری‌های امور مالی
+    $financeDirs = [
+        __DIR__ . '/uploads/finance',
+        __DIR__ . '/uploads/finance/receipts'
+    ];
+    foreach ($financeDirs as $dir) {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @chmod($dir, 0775);
+    }
+
+    // دایرکتوری‌های قراردادها
+    $contractsDirs = [
+        __DIR__ . '/uploads/contracts',
+        __DIR__ . '/uploads/contracts/versions',
+        __DIR__ . '/uploads/contracts/files'
+    ];
+    foreach ($contractsDirs as $dir) {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @chmod($dir, 0775);
+    }
+
     // کوئری ساخت جداول (انواع سیستم + آموزش)
     $tables = [
         // انواع دارایی‌ها
@@ -812,6 +837,96 @@ function createDatabaseTables($pdo) {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
             INDEX idx_setting_key (setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        // --- ماژول امور مالی (پروژه‌ها و تراکنش‌ها) ---
+        "CREATE TABLE IF NOT EXISTS finance_projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_code VARCHAR(50) UNIQUE,
+            name VARCHAR(255) NOT NULL,
+            customer_id INT NULL,
+            total_amount DECIMAL(18,2) DEFAULT 0,
+            currency VARCHAR(10) DEFAULT 'IRR',
+            prepayment_due DECIMAL(18,2) DEFAULT 0,
+            midpayment_due DECIMAL(18,2) DEFAULT 0,
+            settlement_due DECIMAL(18,2) DEFAULT 0,
+            status ENUM('در حال انجام','تسویه شده','متوقف','لغو شده') DEFAULT 'در حال انجام',
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_code (project_code),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS finance_transactions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_id INT NOT NULL,
+            tx_type ENUM('prepayment','midpayment','settlement','refund','adjustment') NOT NULL,
+            amount DECIMAL(18,2) NOT NULL,
+            tx_date DATE NOT NULL,
+            method VARCHAR(50),
+            reference_no VARCHAR(100),
+            receipt_path VARCHAR(500),
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES finance_projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_project (project_id),
+            INDEX idx_type_date (tx_type, tx_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        // --- ماژول قراردادها و نسخه‌ها و دسترسی‌ها ---
+        "CREATE TABLE IF NOT EXISTS contracts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            contract_code VARCHAR(50) UNIQUE,
+            customer_id INT NULL,
+            project_id INT NULL,
+            current_version INT DEFAULT 1,
+            latest_version_id INT NULL,
+            is_active BOOLEAN DEFAULT true,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+            FOREIGN KEY (project_id) REFERENCES finance_projects(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_title (title),
+            INDEX idx_code (contract_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS contract_versions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            contract_id INT NOT NULL,
+            version INT NOT NULL,
+            file_path VARCHAR(500) NOT NULL,
+            file_size BIGINT,
+            mime_type VARCHAR(100),
+            change_log TEXT,
+            uploaded_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+            UNIQUE KEY uniq_contract_version (contract_id, version),
+            INDEX idx_contract (contract_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS contract_permissions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            contract_id INT NOT NULL,
+            user_id INT NOT NULL,
+            can_view BOOLEAN DEFAULT true,
+            can_edit BOOLEAN DEFAULT false,
+            can_delete BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE KEY uniq_contract_user (contract_id, user_id),
+            INDEX idx_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
 
@@ -901,6 +1016,21 @@ function logAction($pdo, $action, $description = '') {
 function log_action($action, $description = '') {
     global $pdo;
     logAction($pdo, $action, $description);
+}
+
+// بررسی دسترسی قرارداد
+function contractUserCan($pdo, $contract_id, $capability = 'view') {
+    $user_id = $_SESSION['user_id'] ?? 0;
+    if (!$user_id) return false;
+    if (($_SESSION['role'] ?? '') === 'ادمین') return true;
+    $stmt = $pdo->prepare("SELECT can_view, can_edit, can_delete FROM contract_permissions WHERE contract_id = ? AND user_id = ?");
+    $stmt->execute([$contract_id, $user_id]);
+    $row = $stmt->fetch();
+    if (!$row) return false;
+    if ($capability === 'view') return (bool)$row['can_view'];
+    if ($capability === 'edit') return (bool)$row['can_edit'];
+    if ($capability === 'delete') return (bool)$row['can_delete'];
+    return false;
 }
 
 function uploadFile($file, $target_dir, $allowed_types = ['jpg','jpeg','png','gif','webp','pdf','doc','docx','xls','xlsx','ppt','pptx','zip','mp4','webm','ogg'], $max_size_bytes = 50 * 1024 * 1024) {

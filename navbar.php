@@ -17,6 +17,7 @@ $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php'])
 $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 $trainingActive = $active(['training.php','training_forms.php','training_gallery.php','training_videos.php','training_articles.php','training_forms_admin.php','training_gallery_admin.php','training_videos_admin.php','training_articles_admin.php']);
+$financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -282,6 +283,39 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
           </div>
         </li>
 
+        <!-- Finance & Contracts Mega -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $financeActive; ?>" href="#" id="financeMenuTrigger">
+            <i class="fas fa-file-invoice-dollar"></i><span class="lang" data-fa="امور مالی و قراردادها" data-en="Finance & Contracts"></span>
+          </a>
+          <div class="mega-menu" id="financeMegaMenu" aria-labelledby="financeMenuTrigger">
+            <div class="menu-grid">
+              <a href="finance.php" class="menu-card">
+                <i class="fas fa-coins"></i>
+                <h6 class="lang" data-fa="مدیریت مالی" data-en="Finance Management"></h6>
+                <p class="lang" data-fa="پروژه‌ها، پرداخت‌ها، گزارش‌ها" data-en="Projects, payments, reports"></p>
+              </a>
+              <a href="contracts.php" class="menu-card">
+                <i class="fas fa-file-signature"></i>
+                <h6 class="lang" data-fa="قراردادها" data-en="Contracts"></h6>
+                <p class="lang" data-fa="مشاهده و جستجو قراردادها" data-en="Browse and search contracts"></p>
+              </a>
+              <?php if ($is_admin): ?>
+              <a href="finance_admin.php" class="menu-card">
+                <i class="fas fa-sliders-h"></i>
+                <h6 class="lang" data-fa="مدیریت مالی (ادمین)" data-en="Finance Admin"></h6>
+                <p class="lang" data-fa="ایجاد پروژه و ثبت تراکنش" data-en="Create projects and transactions"></p>
+              </a>
+              <a href="contracts_admin.php" class="menu-card">
+                <i class="fas fa-user-shield"></i>
+                <h6 class="lang" data-fa="مدیریت قراردادها (ادمین)" data-en="Contracts Admin"></h6>
+                <p class="lang" data-fa="آپلود نسخه‌ها و دسترسی‌ها" data-en="Upload versions and permissions"></p>
+              </a>
+              <?php endif; ?>
+            </div>
+          </div>
+        </li>
+
         <?php if($is_admin): ?>
           <!-- Admin Mega Menu -->
           <li class="nav-item position-relative">
@@ -402,6 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupMega('surveyMenuTrigger','surveyMegaMenu');
   setupMega('adminMenuTrigger','adminMegaMenu');
   setupMega('trainingMenuTrigger','trainingMegaMenu');
+  setupMega('financeMenuTrigger','financeMegaMenu');
 
   document.addEventListener('click', function(e){
     const anyOpen = document.querySelector('.mega-menu.show');
