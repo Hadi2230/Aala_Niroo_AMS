@@ -9,56 +9,68 @@ include 'config.php';
 
 // تابع ایجاد thumbnail
 function createThumbnail($source, $destination, $width = 300, $height = 300) {
-    $info = getimagesize($source);
-    $mime = $info['mime'];
-    
-    switch ($mime) {
-        case 'image/jpeg':
-            $image = imagecreatefromjpeg($source);
-            break;
-        case 'image/png':
-            $image = imagecreatefrompng($source);
-            break;
-        case 'image/gif':
-            $image = imagecreatefromgif($source);
-            break;
-        default:
-            return false;
+    $info = @getimagesize($source);
+    if (!$info || empty($info['mime'])) {
+        return false;
     }
-    
+    $mime = $info['mime'];
+
+    // بررسی وجود GD
+    if (!function_exists('imagecreatetruecolor')) {
+        // اگر GD در دسترس نیست، به جای ساخت thumbnail، یک کپی ساده می‌گیریم
+        return @copy($source, $destination);
+    }
+
+    $image = null;
+    if ($mime === 'image/jpeg' && function_exists('imagecreatefromjpeg')) {
+        $image = @imagecreatefromjpeg($source);
+    } elseif ($mime === 'image/png' && function_exists('imagecreatefrompng')) {
+        $image = @imagecreatefrompng($source);
+    } elseif ($mime === 'image/gif' && function_exists('imagecreatefromgif')) {
+        $image = @imagecreatefromgif($source);
+    } elseif ($mime === 'image/webp' && function_exists('imagecreatefromwebp')) {
+        $image = @imagecreatefromwebp($source);
+    } else {
+        // mime ناشناخته یا تابع مربوط در دسترس نیست
+        return @copy($source, $destination);
+    }
+    if (!$image) {
+        return @copy($source, $destination);
+    }
+
     $orig_width = imagesx($image);
     $orig_height = imagesy($image);
-    
+    if ($orig_width <= 0 || $orig_height <= 0) {
+        imagedestroy($image);
+        return @copy($source, $destination);
+    }
+
     $ratio = min($width / $orig_width, $height / $orig_height);
-    $new_width = round($orig_width * $ratio);
-    $new_height = round($orig_height * $ratio);
-    
+    $new_width = max(1, (int)round($orig_width * $ratio));
+    $new_height = max(1, (int)round($orig_height * $ratio));
+
     $thumb = imagecreatetruecolor($new_width, $new_height);
-    
-    // حفظ شفافیت برای PNG
-    if ($mime == 'image/png') {
+    if ($mime === 'image/png') {
         imagealphablending($thumb, false);
         imagesavealpha($thumb, true);
     }
-    
+
     imagecopyresampled($thumb, $image, 0, 0, 0, 0, $new_width, $new_height, $orig_width, $orig_height);
-    
-    switch ($mime) {
-        case 'image/jpeg':
-            imagejpeg($thumb, $destination, 85);
-            break;
-        case 'image/png':
-            imagepng($thumb, $destination, 8);
-            break;
-        case 'image/gif':
-            imagegif($thumb, $destination);
-            break;
+
+    $saved = false;
+    if ($mime === 'image/jpeg' && function_exists('imagejpeg')) {
+        $saved = @imagejpeg($thumb, $destination, 85);
+    } elseif ($mime === 'image/png' && function_exists('imagepng')) {
+        $saved = @imagepng($thumb, $destination, 8);
+    } elseif ($mime === 'image/gif' && function_exists('imagegif')) {
+        $saved = @imagegif($thumb, $destination);
+    } elseif ($mime === 'image/webp' && function_exists('imagewebp')) {
+        $saved = @imagewebp($thumb, $destination, 85);
     }
-    
+
     imagedestroy($image);
     imagedestroy($thumb);
-    
-    return true;
+    return $saved ? true : @copy($source, $destination);
 }
 
 // پردازش آپلود تصویر
@@ -89,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
                 
                 if (!in_array($file_ext, $allowed_types)) continue;
-                if ($file_size > 5 * 1024 * 1024) continue; // 5MB
+                // بدون محدودیت حجمی در سطح برنامه — محدودیت‌ها توسط PHP/وب‌سرور کنترل می‌شود
                 
                 // دریافت ابعاد تصویر
                 $image_info = getimagesize($file_tmp);

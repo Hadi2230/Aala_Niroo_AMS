@@ -43,6 +43,14 @@ body {
     font-weight: bold;
     color: #007bff;
 }
+
+/* آموزش: استایل‌های هماهنگ */
+.training-tabs .nav-link { font-weight: 600; }
+.training-card .badge-tag { border: 1px solid #e0e0e0; margin-left: 4px; }
+.training-card .card-title { font-size: 1.05rem; }
+.edu-hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+.edu-card { border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.edu-stat { border-radius: 14px; color: #fff; }
 /* استایل‌های اختصاصی برای سیستم گزارش‌گیری */
 .report-section {
     display: none;

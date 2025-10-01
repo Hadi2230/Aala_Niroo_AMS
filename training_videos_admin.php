@@ -23,9 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('نوع فایل ویدیو مجاز نیست.');
             }
             
-            if ($file['size'] > 100 * 1024 * 1024) { // 100MB
-                throw new Exception('حجم فایل بیش از 100 مگابایت است.');
-            }
+            // بدون محدودیت حجمی در سطح برنامه — محدودیت‌ها توسط PHP/وب‌سرور کنترل می‌شود
             
             $upload_dir = __DIR__ . '/uploads/training/videos/';
             if (!is_dir($upload_dir)) {

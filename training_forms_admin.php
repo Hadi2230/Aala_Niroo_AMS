@@ -23,9 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('نوع فایل مجاز نیست. فقط PDF، Word، Excel و PowerPoint مجاز هستند.');
             }
             
-            if ($file['size'] > 10 * 1024 * 1024) { // 10MB
-                throw new Exception('حجم فایل بیش از 10 مگابایت است.');
-            }
+            // بدون محدودیت حجمی در سطح برنامه — محدودیت‌ها توسط PHP/وب‌سرور کنترل می‌شود
             
             $upload_dir = __DIR__ . '/uploads/training/forms/';
             if (!is_dir($upload_dir)) {
