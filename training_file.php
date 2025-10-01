@@ -48,7 +48,7 @@ if (empty($path)) {
     exit('Not Found');
 }
 
-$absolute = (str_starts_with($path, '/') ? $path : (__DIR__ . '/' . ltrim($path, '/')));
+$absolute = ((substr($path, 0, 1) === '/') ? $path : (__DIR__ . '/' . ltrim($path, '/')));
 if (!is_file($absolute)) {
     http_response_code(404);
     exit('File Missing');
