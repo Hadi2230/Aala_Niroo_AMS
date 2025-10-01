@@ -127,7 +127,7 @@ if (isset($_GET['success'])) {
                             <td><?php echo $asset['name']; ?></td>
                             <td><?php echo $asset['type_name']; ?></td>
                             <td><?php echo $asset['serial_number']; ?></td>
-                            <td><?php echo $asset['purchase_date']; ?></td>
+                            <td><?php echo $asset['purchase_date'] ? gregorianToJalaliFromDB($asset['purchase_date']) : '--'; ?></td>
                             <td>
                                 <span class="badge bg-<?php 
                                     if ($asset['status'] == 'فعال') echo 'success';
@@ -173,7 +173,7 @@ if (isset($_GET['success'])) {
                             <p><strong>نام دستگاه:</strong> <?php echo $asset['name']; ?></p>
                             <p><strong>نوع دستگاه:</strong> <?php echo $asset['type_name']; ?></p>
                             <p><strong>شماره سریال:</strong> <?php echo $asset['serial_number']; ?></p>
-                            <p><strong>تاریخ خرید:</strong> <?php echo $asset['purchase_date']; ?></p>
+                            <p><strong>تاریخ خرید:</strong> <?php echo $asset['purchase_date'] ? gregorianToJalaliFromDB($asset['purchase_date']) : '--'; ?></p>
                             <p><strong>وضعیت:</strong> 
                                 <span class="badge bg-<?php 
                                     if ($asset['status'] == 'فعال') echo 'success';
@@ -183,7 +183,7 @@ if (isset($_GET['success'])) {
                                     <?php echo $asset['status']; ?>
                                 </span>
                             </p>
-                            <p><strong>تاریخ ثبت:</strong> <?php echo $asset['created_at']; ?></p>
+                            <p><strong>تاریخ ثبت:</strong> <?php echo $asset['created_at'] ? jalaliDate($asset['created_at'], 'j F Y') : '--'; ?></p>
                         </div>
                         <div class="col-md-6">
                             <?php if ($asset['asset_type'] === 'ژنراتور'): ?>

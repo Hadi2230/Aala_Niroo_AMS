@@ -590,7 +590,7 @@ function checkPermission($required_role = 'کاربر عادی') {
 }
 
 // فرمت تاریخ شمسی
-function jalaliDate($date = null) {
+function jalaliDate($date = null, $format = 'Y/m/d') {
     if (!$date) $date = time();
     $date = is_numeric($date) ? $date : strtotime($date);
     
@@ -598,9 +598,43 @@ function jalaliDate($date = null) {
     $month = date('m', $date);
     $day = date('d', $date);
     
-    // تبدیل تاریخ میلادی به شمسی (ساده شده)
+    // تبدیل تاریخ میلادی به شمسی
     $jalali = gregorian_to_jalali($year, $month, $day);
-    return $jalali[0] . '/' . $jalali[1] . '/' . $jalali[2];
+    
+    // فرمت‌بندی تاریخ شمسی
+    $jyear = $jalali[0];
+    $jmonth = $jalali[1];
+    $jday = $jalali[2];
+    
+    // نام ماه‌های شمسی
+    $month_names = [
+        1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد', 4 => 'تیر',
+        5 => 'مرداد', 6 => 'شهریور', 7 => 'مهر', 8 => 'آبان',
+        9 => 'آذر', 10 => 'دی', 11 => 'بهمن', 12 => 'اسفند'
+    ];
+    
+    $day_names = [
+        0 => 'یکشنبه', 1 => 'دوشنبه', 2 => 'سه‌شنبه', 3 => 'چهارشنبه',
+        4 => 'پنج‌شنبه', 5 => 'جمعه', 6 => 'شنبه'
+    ];
+    
+    switch ($format) {
+        case 'Y/m/d':
+            return sprintf('%04d/%02d/%02d', $jyear, $jmonth, $jday);
+        case 'Y-m-d':
+            return sprintf('%04d-%02d-%02d', $jyear, $jmonth, $jday);
+        case 'd/m/Y':
+            return sprintf('%02d/%02d/%04d', $jday, $jmonth, $jyear);
+        case 'd-m-Y':
+            return sprintf('%02d-%02d-%04d', $jday, $jmonth, $jyear);
+        case 'j F Y':
+            return sprintf('%d %s %d', $jday, $month_names[$jmonth], $jyear);
+        case 'l j F Y':
+            $day_of_week = date('w', $date);
+            return sprintf('%s %d %s %d', $day_names[$day_of_week], $jday, $month_names[$jmonth], $jyear);
+        default:
+            return sprintf('%04d/%02d/%02d', $jyear, $jmonth, $jday);
+    }
 }
 
 // تابع تبدیل تاریخ میلادی به شمسی
@@ -619,5 +653,59 @@ function gregorian_to_jalali($gy, $gm, $gd) {
     $jm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
     $jd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
     return [$jy, $jm, $jd];
+}
+
+// تابع تبدیل تاریخ شمسی به میلادی
+function jalali_to_gregorian($jy, $jm, $jd) {
+    $jy += 1595;
+    $days = -355668 + (365 * $jy) + ((int)($jy / 33)) * 8 + ((int)(((($jy % 33) + 3) / 4))) + $jd + (($jm < 7) ? ($jm - 1) * 31 : (($jm - 7) * 30) + 186);
+    $gy = 400 * ((int)($days / 146097));
+    $days %= 146097;
+    if ($days > 36524) {
+        $gy += 100 * ((int)(--$days / 36524));
+        $days %= 36524;
+        if ($days >= 365) $days++;
+    }
+    $gy += 4 * ((int)($days / 1461));
+    $days %= 1461;
+    if ($days > 365) {
+        $gy += ((int)(($days - 1) / 365));
+        $days = ($days - 1) % 365;
+    }
+    $gd = $days + 1;
+    $sal_a = [0, 31, (($gy % 4 == 0 and $gy % 100 != 0) or ($gy % 400 == 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for ($gm = 0; $gm < 13 and $gd > $sal_a[$gm]; $gm++) $gd -= $sal_a[$gm];
+    return [$gy, $gm, $gd];
+}
+
+// تابع تبدیل تاریخ شمسی به فرمت میلادی برای دیتابیس
+function jalaliToGregorianForDB($jalali_date) {
+    if (empty($jalali_date)) return null;
+    
+    // تبدیل فرمت تاریخ شمسی به آرایه
+    $parts = explode('/', $jalali_date);
+    if (count($parts) != 3) return null;
+    
+    $jy = (int)$parts[0];
+    $jm = (int)$parts[1];
+    $jd = (int)$parts[2];
+    
+    $gregorian = jalali_to_gregorian($jy, $jm, $jd);
+    return sprintf('%04d-%02d-%02d', $gregorian[0], $gregorian[1], $gregorian[2]);
+}
+
+// تابع تبدیل تاریخ میلادی دیتابیس به شمسی
+function gregorianToJalaliFromDB($gregorian_date) {
+    if (empty($gregorian_date)) return '--';
+    
+    $parts = explode('-', $gregorian_date);
+    if (count($parts) != 3) return '--';
+    
+    $gy = (int)$parts[0];
+    $gm = (int)$parts[1];
+    $gd = (int)$parts[2];
+    
+    $jalali = gregorian_to_jalali($gy, $gm, $gd);
+    return sprintf('%04d/%02d/%02d', $jalali[0], $jalali[1], $jalali[2]);
 }
 ?>

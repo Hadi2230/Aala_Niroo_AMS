@@ -1,43 +1,61 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
 }
-
 include 'config.php';
 
-// ثبت لاگ
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=utf-8');
+}
+
 logAction($pdo, 'VIEW_ASSETS', 'مشاهده صفحه مدیریت دارایی‌ها');
 
-// افزودن دارایی جدید
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
+    error_log("POST request received with add_asset");
     verifyCsrfToken();
-    
     try {
         $pdo->beginTransaction();
-        
-        // دریافت داده‌های اصلی
+        error_log("Transaction started");
+
         $name = sanitizeInput($_POST['name']);
         $type_id = (int)$_POST['type_id'];
         $serial_number = sanitizeInput($_POST['serial_number']);
-        $purchase_date = sanitizeInput($_POST['purchase_date']);
+        if (empty($serial_number)) {
+            $serial_number = null; // Set to NULL for empty values to avoid UNIQUE constraint violation
+        }
+        
+        error_log("Name: $name, Type ID: $type_id, Serial: $serial_number");
+        $purchase_date_input = sanitizeInput($_POST['purchase_date'] ?? '');
+        $purchase_date = jalaliToGregorianForDB($purchase_date_input);
+
         $status = sanitizeInput($_POST['status']);
         $brand = sanitizeInput($_POST['brand'] ?? '');
         $model = sanitizeInput($_POST['model'] ?? '');
-        
-        // دریافت نوع دارایی
-        $stmt = $pdo->prepare("SELECT name FROM asset_types WHERE id = ?");
+
+        $stmt = $pdo->prepare("SELECT name, display_name FROM asset_types WHERE id = ?");
         $stmt->execute([$type_id]);
         $asset_type = $stmt->fetch();
-        $asset_type_name = $asset_type['name'] ?? '';
+        $asset_type_name = $asset_type['display_name'] ?? '';
         
-        // فیلدهای خاص بر اساس نوع دارایی
+        // Debug: بررسی نوع دارایی
+        error_log("Asset type ID: $type_id, Name: " . ($asset_type['name'] ?? 'NULL') . ", Display Name: " . ($asset_type['display_name'] ?? 'NULL'));
+        
+        // اگر display_name خالی است، از name استفاده کن
+        if (empty($asset_type_name) && !empty($asset_type['name'])) {
+            $asset_type_name = $asset_type['name'];
+        }
+        
+        // Debug: بررسی مقادیر
+        error_log("Name: $name, Type ID: $type_id, Asset Type Name: $asset_type_name");
+
         $power_capacity = sanitizeInput($_POST['power_capacity'] ?? '');
         $engine_type = sanitizeInput($_POST['engine_type'] ?? '');
         $consumable_type = sanitizeInput($_POST['consumable_type'] ?? '');
-        
-        // فیلدهای مخصوص ژنراتور
+
         $engine_model = sanitizeInput($_POST['engine_model'] ?? '');
         $engine_serial = sanitizeInput($_POST['engine_serial'] ?? '');
         $alternator_model = sanitizeInput($_POST['alternator_model'] ?? '');
@@ -54,22 +72,60 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
         $radiator_capacity = sanitizeInput($_POST['radiator_capacity'] ?? '');
         $antifreeze = sanitizeInput($_POST['antifreeze'] ?? '');
         $other_items = sanitizeInput($_POST['other_items'] ?? '');
-        $workshop_entry_date = sanitizeInput($_POST['workshop_entry_date'] ?? '');
-        $workshop_exit_date = sanitizeInput($_POST['workshop_exit_date'] ?? '');
+        $workshop_entry_date_input = sanitizeInput($_POST['workshop_entry_date'] ?? '');
+        $workshop_entry_date = jalaliToGregorianForDB($workshop_entry_date_input);
+
+        $workshop_exit_date_input = sanitizeInput($_POST['workshop_exit_date'] ?? '');
+        $workshop_exit_date = jalaliToGregorianForDB($workshop_exit_date_input);
+
         $datasheet_link = sanitizeInput($_POST['datasheet_link'] ?? '');
         $engine_manual_link = sanitizeInput($_POST['engine_manual_link'] ?? '');
         $alternator_manual_link = sanitizeInput($_POST['alternator_manual_link'] ?? '');
         $control_panel_manual_link = sanitizeInput($_POST['control_panel_manual_link'] ?? '');
         $description = sanitizeInput($_POST['description'] ?? '');
-        
-        // پارت نامبرها
+
         $oil_filter_part = sanitizeInput($_POST['oil_filter_part'] ?? '');
         $fuel_filter_part = sanitizeInput($_POST['fuel_filter_part'] ?? '');
         $water_fuel_filter_part = sanitizeInput($_POST['water_fuel_filter_part'] ?? '');
         $air_filter_part = sanitizeInput($_POST['air_filter_part'] ?? '');
         $water_filter_part = sanitizeInput($_POST['water_filter_part'] ?? '');
+
+        // دریافت فیلدهای جدید
+        $device_identifier = sanitizeInput($_POST['device_identifier'] ?? '');
+        if (empty($device_identifier)) {
+            $device_identifier = null; // Set to NULL for empty values
+        }
+        $supply_method = sanitizeInput($_POST['supply_method'] ?? '');
+        if (empty($supply_method)) {
+            $supply_method = null;
+        }
+        $location = sanitizeInput($_POST['location'] ?? '');
+        if (empty($location)) {
+            $location = null;
+        }
+        $quantity = (int)($_POST['quantity'] ?? 0);
+        $supplier_name = sanitizeInput($_POST['supplier_name'] ?? '');
+        if (empty($supplier_name)) {
+            $supplier_name = null;
+        }
+        $supplier_contact = sanitizeInput($_POST['supplier_contact'] ?? '');
+        if (empty($supplier_contact)) {
+            $supplier_contact = null;
+        }
         
-        // درج دارایی اصلی
+        // تنظیم brand و model بر اساس نوع دارایی
+        if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
+            $brand = $name; // نام دستگاه به عنوان برند
+            $model = sanitizeInput($_POST['device_model'] ?? '');
+        } else if ($asset_type_name && (strpos($asset_type_name, 'موتور برق') !== false || strpos($asset_type_name, 'power_motor') !== false)) {
+            $brand = $name; // نام موتور به عنوان برند
+            $model = sanitizeInput($_POST['engine_type'] ?? '');
+        } else {
+            // اگر نوع دارایی مشخص نیست، از مقادیر پیش‌فرض استفاده کن
+            $brand = $brand ?: $name;
+            $model = $model ?: '';
+        }
+
         $stmt = $pdo->prepare("INSERT INTO assets (name, type_id, serial_number, purchase_date, status, brand, model, 
                               power_capacity, engine_type, consumable_type, engine_model, engine_serial, 
                               alternator_model, alternator_serial, device_model, device_serial, control_panel_model, 
@@ -77,9 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
                               radiator_capacity, antifreeze, other_items, workshop_entry_date, workshop_exit_date, 
                               datasheet_link, engine_manual_link, alternator_manual_link, control_panel_manual_link, 
                               description, oil_filter_part, fuel_filter_part, water_fuel_filter_part, air_filter_part, 
-                              water_filter_part) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        
+                              water_filter_part, device_identifier, supply_method, location, quantity, supplier_name, supplier_contact) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $name, $type_id, $serial_number, $purchase_date, $status, $brand, $model,
             $power_capacity, $engine_type, $consumable_type, $engine_model, $engine_serial,
@@ -88,68 +143,189 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_asset'])) {
             $radiator_capacity, $antifreeze, $other_items, $workshop_entry_date, $workshop_exit_date,
             $datasheet_link, $engine_manual_link, $alternator_manual_link, $control_panel_manual_link,
             $description, $oil_filter_part, $fuel_filter_part, $water_fuel_filter_part, $air_filter_part,
-            $water_filter_part
+            $water_filter_part, $device_identifier, $supply_method, $location, $quantity, $supplier_name, $supplier_contact
         ]);
-        
+
         $asset_id = $pdo->lastInsertId();
-        
-        // آپلود عکس‌ها
+
         $upload_dir = 'uploads/assets/';
-        $image_fields = [
-            'oil_filter', 'fuel_filter', 'water_fuel_filter', 
-            'air_filter', 'water_filter', 'device_image'
-        ];
-        
+        $image_fields = ['oil_filter', 'fuel_filter', 'water_fuel_filter', 'air_filter', 'water_filter', 'device_image'];
         foreach ($image_fields as $field) {
             if (!empty($_FILES[$field]['name'])) {
                 try {
                     $image_path = uploadFile($_FILES[$field], $upload_dir);
-                    
                     $stmt = $pdo->prepare("INSERT INTO asset_images (asset_id, field_name, image_path) VALUES (?, ?, ?)");
                     $stmt->execute([$asset_id, $field, $image_path]);
                 } catch (Exception $e) {
-                    // خطا در آپلود عکس - ادامه می‌دهیم
                     error_log("خطا در آپلود عکس $field: " . $e->getMessage());
                 }
             }
         }
-        
+
         $pdo->commit();
         
-        $_SESSION['success'] = "دارایی با موفقیت افزوده شد!";
-        logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
+        // Debug: بررسی commit
+        error_log("Transaction committed successfully");
+        error_log("Asset ID: " . $asset_id);
         
+        // پیام موفقیت سفارشی بر اساس نوع دارایی
+        $success_message = "";
+        if ($asset_type_name && (strpos($asset_type_name, 'ژنراتور') !== false || strpos($asset_type_name, 'generator') !== false)) {
+            $identifier = $device_identifier ?: $serial_number;
+            $success_message = "ژنراتور به شماره شناسه دستگاه $identifier با موفقیت ثبت شد!";
+        } else if ($asset_type_name && (strpos($asset_type_name, 'موتور برق') !== false || strpos($asset_type_name, 'power_motor') !== false)) {
+            $success_message = "موتور برق با شماره سریال $serial_number با موفقیت ثبت شد!";
+        } else if ($asset_type_name && (strpos($asset_type_name, 'مصرفی') !== false || strpos($asset_type_name, 'consumable') !== false)) {
+            $success_message = "کالای مصرفی $name با موفقیت ثبت شد!";
+        } else if ($asset_type_name && (strpos($asset_type_name, 'قطعات') !== false || strpos($asset_type_name, 'parts') !== false)) {
+            $success_message = "قطعه $name با موفقیت ثبت شد!";
+        } else {
+            $success_message = "دارایی $name با موفقیت ثبت شد!";
+        }
+        
+        // Debug: بررسی پیام موفقیت
+        error_log("Success message: $success_message");
+        error_log("Asset type name: $asset_type_name");
+        error_log("Device identifier: $device_identifier");
+        error_log("Serial number: $serial_number");
+        error_log("Asset ID: $asset_id");
+        
+        $_SESSION['success'] = $success_message;
+        logAction($pdo, 'ADD_ASSET', "افزودن دارایی جدید: $name (ID: $asset_id)");
+        error_log("Redirecting to assets.php");
         header('Location: assets.php');
         exit();
     } catch (Exception $e) {
         $pdo->rollBack();
+        error_log("Error in asset creation: " . $e->getMessage());
         $_SESSION['error'] = "خطا در افزودن دارایی: " . $e->getMessage();
         logAction($pdo, 'ADD_ASSET_ERROR', "خطا در افزودن دارایی: " . $e->getMessage());
     }
 }
 
-// حذف دارایی
+// افزودن ابزار جدید
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_tool'])) {
+    verifyCsrfToken();
+    try {
+        $pdo->beginTransaction();
+        
+        // تولید کد ابزار
+        $tool_code = 'T' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        // بررسی یکتایی کد
+        $check_stmt = $pdo->prepare("SELECT id FROM tools WHERE tool_code = ?");
+        $check_stmt->execute([$tool_code]);
+        while ($check_stmt->fetch()) {
+            $tool_code = 'T' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $check_stmt->execute([$tool_code]);
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO tools (
+            tool_code, name, category, brand, model, serial_number, 
+            purchase_date, purchase_price, supplier, location, 
+            condition_notes, next_maintenance_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $tool_code,
+            sanitizeInput($_POST['tool_name']),
+            sanitizeInput($_POST['tool_category']),
+            sanitizeInput($_POST['tool_brand'] ?? ''),
+            sanitizeInput($_POST['tool_model'] ?? ''),
+            sanitizeInput($_POST['tool_serial'] ?? ''),
+            $_POST['tool_purchase_date'] ?: null,
+            $_POST['tool_price'] ?: null,
+            sanitizeInput($_POST['tool_supplier'] ?? ''),
+            sanitizeInput($_POST['tool_location'] ?? ''),
+            sanitizeInput($_POST['tool_notes'] ?? ''),
+            $_POST['tool_next_maintenance'] ?: null
+        ]);
+        
+        $pdo->commit();
+        $_SESSION['success'] = "ابزار با موفقیت اضافه شد!";
+        logAction($pdo, 'ADD_TOOL', "افزودن ابزار جدید: " . sanitizeInput($_POST['tool_name']) . " (کد: $tool_code)");
+        header('Location: assets.php');
+        exit();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = "خطا در افزودن ابزار: " . $e->getMessage();
+        logAction($pdo, 'ADD_TOOL_ERROR', "خطا در افزودن ابزار: " . $e->getMessage());
+    }
+}
+
+// تحویل ابزار
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['issue_tool'])) {
+    verifyCsrfToken();
+    try {
+        $pdo->beginTransaction();
+        
+        $tool_id = (int)$_POST['tool_id'];
+        $issued_to = sanitizeInput($_POST['issued_to']);
+        $issue_date = jalaliToGregorianForDB($_POST['issue_date']);
+        $expected_return_date = jalaliToGregorianForDB($_POST['expected_return_date'] ?: '');
+        $purpose = sanitizeInput($_POST['purpose'] ?? '');
+        $condition_before = sanitizeInput($_POST['condition_before'] ?? '');
+        $notes = sanitizeInput($_POST['notes'] ?? '');
+        
+        // بررسی موجود بودن ابزار
+        $check_stmt = $pdo->prepare("SELECT tool_code, name FROM tools WHERE id = ? AND status = 'موجود'");
+        $check_stmt->execute([$tool_id]);
+        $tool = $check_stmt->fetch();
+        
+        if (!$tool) {
+            throw new Exception("ابزار انتخاب شده موجود نیست یا قبلاً تحویل داده شده است.");
+        }
+        
+        // ثبت تحویل
+        $stmt = $pdo->prepare("INSERT INTO tool_issues (
+            tool_id, issued_to, issued_by, issue_date, expected_return_date,
+            purpose, condition_before, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->execute([
+            $tool_id,
+            $issued_to,
+            $_SESSION['user_id'],
+            $issue_date,
+            $expected_return_date,
+            $purpose,
+            $condition_before,
+            $notes
+        ]);
+        
+        // تغییر وضعیت ابزار
+        $update_stmt = $pdo->prepare("UPDATE tools SET status = 'تحویل_داده_شده' WHERE id = ?");
+        $update_stmt->execute([$tool_id]);
+        
+        $pdo->commit();
+        $_SESSION['success'] = "ابزار با موفقیت تحویل داده شد!";
+        logAction($pdo, 'ISSUE_TOOL', "تحویل ابزار: " . $tool['name'] . " به " . $issued_to);
+        header('Location: assets.php');
+        exit();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['error'] = "خطا در تحویل ابزار: " . $e->getMessage();
+        logAction($pdo, 'ISSUE_TOOL_ERROR', "خطا در تحویل ابزار: " . $e->getMessage());
+    }
+}
+
 if (isset($_GET['delete_id'])) {
     checkPermission('ادمین');
-    
     $delete_id = (int)$_GET['delete_id'];
-    
     try {
-        // دریافت اطلاعات دارایی برای ثبت در لاگ
         $stmt = $pdo->prepare("SELECT name FROM assets WHERE id = ?");
         $stmt->execute([$delete_id]);
         $asset = $stmt->fetch();
-        
         if ($asset) {
             $stmt = $pdo->prepare("DELETE FROM assets WHERE id = ?");
             $stmt->execute([$delete_id]);
-            
             $_SESSION['success'] = "دارایی با موفقیت حذف شد!";
             logAction($pdo, 'DELETE_ASSET', "حذف دارایی: " . $asset['name'] . " (ID: $delete_id)");
         } else {
             $_SESSION['error'] = "دارایی مورد نظر یافت نشد!";
         }
-        
         header('Location: assets.php');
         exit();
     } catch (Exception $e) {
@@ -158,725 +334,225 @@ if (isset($_GET['delete_id'])) {
     }
 }
 
-// دریافت انواع دارایی‌ها
+try {
+    $defaults = [
+        ['generator',   'ژنراتور'],
+        ['power_motor', 'موتور برق'],
+        ['consumable',  'اقلام مصرفی'],
+        ['parts',       'قطعات']
+    ];
+    foreach ($defaults as [$name, $display]) {
+        $chk = $pdo->prepare('SELECT id FROM asset_types WHERE name = ? LIMIT 1');
+        $chk->execute([$name]);
+        if (!$chk->fetch()) {
+            $ins = $pdo->prepare('INSERT INTO asset_types (name, display_name) VALUES (?, ?)');
+            $ins->execute([$name, $display]);
+        }
+    }
+} catch (Throwable $e) {}
+
 $asset_types = $pdo->query("SELECT * FROM asset_types ORDER BY display_name")->fetchAll();
 
-// جستجو و فیلتر
+// سیستم جستجوی جامع
 $search = $_GET['search'] ?? '';
 $type_filter = $_GET['type_filter'] ?? '';
 $status_filter = $_GET['status_filter'] ?? '';
+$search_type = $_GET['search_type'] ?? 'all'; // all, assets, customers, assignments, suppliers
 
-// ساخت کوئری بر اساس فیلترها
-$query = "SELECT a.*, at.display_name as type_display_name 
-          FROM assets a 
-          JOIN asset_types at ON a.type_id = at.id 
-          WHERE 1=1";
-$params = [];
+// متغیرهای جستجو
+$assets = [];
+$customers = [];
+$assignments = [];
+$suppliers = [];
+$tools = [];
+$tools_issued = [];
+$tools_returned = [];
+$tools_overdue = [];
+$search_results = [];
 
-if (!empty($search)) {
-    $query .= " AND (a.name LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.brand LIKE ?)";
-    $search_term = "%$search%";
-    $params[] = $search_term;
-    $params[] = $search_term;
-    $params[] = $search_term;
-    $params[] = $search_term;
+// ایجاد جداول ابزارها
+try {
+    // جدول ابزارها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tools (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tool_code VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        category ENUM('ابزار_دستی', 'ابزار_برقی', 'تجهیزات_اندازه_گیری', 'تجهیزات_ایمنی', 'سایر') NOT NULL,
+        brand VARCHAR(100),
+        model VARCHAR(100),
+        serial_number VARCHAR(100),
+        purchase_date DATE,
+        purchase_price DECIMAL(10,2),
+        supplier VARCHAR(255),
+        location VARCHAR(255),
+        status ENUM('موجود', 'تحویل_داده_شده', 'تعمیر', 'از_دست_رفته', 'خراب') DEFAULT 'موجود',
+        condition_notes TEXT,
+        maintenance_date DATE,
+        next_maintenance_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tool_code (tool_code),
+        INDEX idx_category (category),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // جدول تحویل ابزارها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_issues (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tool_id INT NOT NULL,
+        issued_to VARCHAR(255) NOT NULL,
+        issued_by INT NOT NULL,
+        issue_date DATE NOT NULL,
+        expected_return_date DATE,
+        actual_return_date DATE,
+        purpose TEXT,
+        condition_before TEXT,
+        condition_after TEXT,
+        notes TEXT,
+        status ENUM('تحویل_داده_شده', 'برگشت_داده_شده', 'تاخیر_در_برگشت') DEFAULT 'تحویل_داده_شده',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tool_id (tool_id),
+        INDEX idx_issued_to (issued_to),
+        INDEX idx_status (status),
+        INDEX idx_issue_date (issue_date),
+        FOREIGN KEY (tool_id) REFERENCES tools(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    
+    // دریافت آمار ابزارها
+    $tools_stmt = $pdo->query("SELECT * FROM tools WHERE status = 'موجود'");
+    $tools = $tools_stmt->fetchAll();
+    
+    $tools_issued_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'تحویل_داده_شده'");
+    $tools_issued = $tools_issued_stmt->fetchAll();
+    
+    $tools_returned_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'برگشت_داده_شده'");
+    $tools_returned = $tools_returned_stmt->fetchAll();
+    
+    $tools_overdue_stmt = $pdo->query("SELECT * FROM tool_issues WHERE status = 'تاخیر_در_برگشت' OR (status = 'تحویل_داده_شده' AND expected_return_date < CURDATE())");
+    $tools_overdue = $tools_overdue_stmt->fetchAll();
+    
+} catch (Exception $e) {
+    error_log("Error creating tools tables: " . $e->getMessage());
+    $tools = [];
+    $tools_issued = [];
+    $tools_returned = [];
+    $tools_overdue = [];
 }
 
-if (!empty($type_filter)) {
-    $query .= " AND a.type_id = ?";
-    $params[] = $type_filter;
+// جستجو در دارایی‌ها
+if ($search_type === 'all' || $search_type === 'assets') {
+    $query = "SELECT a.*, at.display_name as type_display_name, at.name as type_name
+              FROM assets a 
+              JOIN asset_types at ON a.type_id = at.id 
+              WHERE 1=1";
+    $params = [];
+    if (!empty($search)) {
+        $query .= " AND (a.name LIKE ? OR a.serial_number LIKE ? OR a.model LIKE ? OR a.brand LIKE ? OR a.device_identifier LIKE ?)";
+        $search_term = "%$search%";
+        $params[] = $search_term; $params[] = $search_term; $params[] = $search_term; $params[] = $search_term; $params[] = $search_term;
+    }
+    if (!empty($type_filter)) {
+        $query .= " AND a.type_id = ?";
+        $params[] = $type_filter;
+    }
+    if (!empty($status_filter)) {
+        $query .= " AND a.status = ?";
+        $params[] = $status_filter;
+    }
+    $query .= " ORDER BY a.created_at DESC";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $assets = $stmt->fetchAll();
+} else {
+    // اگر نوع جستجو assets نیست، دارایی‌ها را خالی نگه دار
+    $assets = [];
 }
 
-if (!empty($status_filter)) {
-    $query .= " AND a.status = ?";
-    $params[] = $status_filter;
+// جستجو در مشتریان
+if ($search_type === 'all' || $search_type === 'customers') {
+    $customer_query = "SELECT * FROM customers WHERE 1=1";
+    $customer_params = [];
+    if (!empty($search)) {
+        $customer_query .= " AND (full_name LIKE ? OR company LIKE ? OR phone LIKE ? OR email LIKE ? OR company_email LIKE ?)";
+        $search_term = "%$search%";
+        $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term; $customer_params[] = $search_term;
+    }
+    $customer_query .= " ORDER BY created_at DESC LIMIT 10";
+    $stmt = $pdo->prepare($customer_query);
+    $stmt->execute($customer_params);
+    $customers = $stmt->fetchAll();
 }
 
-$query .= " ORDER BY a.created_at DESC";
+// جستجو در انتساب‌ها
+if ($search_type === 'all' || $search_type === 'assignments') {
+    $assignments = [];
+    try {
+        // بررسی وجود جدول assignments
+        $table_exists = $pdo->query("SHOW TABLES LIKE 'assignments'")->fetch();
+        if ($table_exists) {
+            $assignment_query = "SELECT a.*, c.full_name as customer_name, c.company as customer_company, 
+                                ast.name as asset_name, ast.serial_number as asset_serial
+                                FROM assignments a 
+                                LEFT JOIN customers c ON a.customer_id = c.id 
+                                LEFT JOIN assets ast ON a.asset_id = ast.id 
+                                WHERE 1=1";
+            $assignment_params = [];
+            if (!empty($search)) {
+                $assignment_query .= " AND (a.notes LIKE ? OR c.full_name LIKE ? OR c.company LIKE ? OR ast.name LIKE ? OR ast.serial_number LIKE ?)";
+                $search_term = "%$search%";
+                $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term; $assignment_params[] = $search_term;
+            }
+            $assignment_query .= " ORDER BY a.created_at DESC LIMIT 10";
+            $stmt = $pdo->prepare($assignment_query);
+            $stmt->execute($assignment_params);
+            $assignments = $stmt->fetchAll();
+        }
+    } catch (Exception $e) {
+        $assignments = [];
+        // فقط در صورت وجود جدول خطا را لاگ کن
+        if (isset($table_exists) && $table_exists) {
+            error_log("Error in assignments search: " . $e->getMessage());
+        }
+    }
+}
 
-$stmt = $pdo->prepare($query);
-$stmt->execute($params);
-$assets = $stmt->fetchAll();
+// جستجو در تامین‌کنندگان
+if ($search_type === 'all' || $search_type === 'suppliers') {
+    try {
+        // بررسی وجود جدول suppliers
+        $table_exists = $pdo->query("SHOW TABLES LIKE 'suppliers'")->fetch();
+        if ($table_exists) {
+            $supplier_query = "SELECT * FROM suppliers WHERE 1=1";
+            $supplier_params = [];
+            if (!empty($search)) {
+                $supplier_query .= " AND (company_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ? OR business_category LIKE ? OR email LIKE ?)";
+                $search_term = "%$search%";
+                $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term; $supplier_params[] = $search_term;
+            }
+            $supplier_query .= " ORDER BY created_at DESC LIMIT 10";
+            $stmt = $pdo->prepare($supplier_query);
+            $stmt->execute($supplier_params);
+            $suppliers = $stmt->fetchAll();
+        } else {
+            $suppliers = [];
+        }
+    } catch (Exception $e) {
+        $suppliers = [];
+        error_log("Error in suppliers search: " . $e->getMessage());
+    }
+}
 
-// دریافت تعداد کل دارایی‌ها برای نمایش
+// ترکیب نتایج جستجو
+if ($search_type === 'all' && !empty($search)) {
+    $search_results = [
+        'assets' => $assets,
+        'customers' => $customers,
+        'assignments' => $assignments,
+        'suppliers' => $suppliers
+    ];
+}
+
 $total_assets = $pdo->query("SELECT COUNT(*) as total FROM assets")->fetch()['total'];
 $filtered_count = count($assets);
 ?>
-
-<!DOCTYPE html>
-<html dir="rtl" lang="fa">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت دارایی‌ها - اعلا نیرو</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <style>
-        .card {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            border-radius: 10px 10px 0 0 !important;
-            font-weight: 600;
-        }
-        .search-box {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .image-preview {
-            max-width: 200px;
-            max-height: 200px;
-            margin-top: 10px;
-            display: none;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-        }
-        .dynamic-field {
-            display: none;
-        }
-        .badge-status {
-            font-size: 0.9rem;
-            padding: 0.5em 0.8em;
-        }
-        .table th {
-            font-weight: 600;
-            background-color: #f8f9fa;
-        }
-        .action-buttons .btn {
-            margin-left: 5px;
-        }
-        .filter-active {
-            background-color: #e9ecef;
-            border-radius: 5px;
-            padding: 5px 10px;
-            font-weight: 600;
-        }
-    </style>
-</head>
-<body>
-    <?php include 'navbar.php'; ?>
-
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-server"></i> مدیریت دارایی‌ها</h2>
-                    <div>
-                        <span class="filter-active">
-                            <i class="fas fa-filter"></i> 
-                            <?= $filtered_count ?> از <?= $total_assets ?> مورد
-                        </span>
-                    </div>
-                </div>
-
-                <!-- جستجو و فیلتر -->
-                <div class="card search-box">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3">
-                            <div class="col-md-3">
-                                <input type="text" name="search" class="form-control" placeholder="جستجو بر اساس نام، سریال، مدل یا برند..." value="<?= htmlspecialchars($search) ?>">
-                            </div>
-                            <div class="col-md-2">
-                                <select name="type_filter" class="form-select">
-                                    <option value="">همه انواع</option>
-                                    <?php foreach ($asset_types as $type): ?>
-                                        <option value="<?= $type['id'] ?>" <?= $type_filter == $type['id'] ? 'selected' : '' ?>>
-                                            <?= $type['display_name'] ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <select name="status_filter" class="form-select">
-                                    <option value="">همه وضعیت‌ها</option>
-                                    <option value="فعال" <?= $status_filter == 'فعال' ? 'selected' : '' ?>>فعال</option>
-                                    <option value="غیرفعال" <?= $status_filter == 'غیرفعال' ? 'selected' : '' ?>>غیرفعال</option>
-                                    <option value="در حال تعمیر" <?= $status_filter == 'در حال تعمیر' ? 'selected' : '' ?>>در حال تعمیر</option>
-                                    <option value="آماده بهره‌برداری" <?= $status_filter == 'آماده بهره‌برداری' ? 'selected' : '' ?>>آماده بهره‌برداری</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="fas fa-filter"></i> اعمال فیلتر
-                                </button>
-                            </div>
-                            <div class="col-md-2">
-                                <a href="assets.php" class="btn btn-outline-secondary w-100">
-                                    <i class="fas fa-times"></i> حذف فیلتر
-                                </a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- نمایش پیام‌ها -->
-                <?php if (isset($_SESSION['success'])): ?>
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <?= $_SESSION['success'] ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                    <?php unset($_SESSION['success']); ?>
-                <?php endif; ?>
-
-                <?php if (isset($_SESSION['error'])): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?= $_SESSION['error'] ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                    <?php unset($_SESSION['error']); ?>
-                <?php endif; ?>
-
-                <!-- فرم افزودن دارایی -->
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-plus-circle"></i> افزودن دارایی جدید</h5>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" id="assetForm" enctype="multipart/form-data">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                            
-                            <div class="row mb-4">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="name" class="form-label">نام دستگاه *</label>
-                                        <input type="text" class="form-control" id="name" name="name" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="type_id" class="form-label">نوع دارایی *</label>
-                                        <select class="form-select" id="type_id" name="type_id" required onchange="showFields()">
-                                            <option value="">-- انتخاب کنید --</option>
-                                            <?php foreach ($asset_types as $type): ?>
-                                                <option value="<?= $type['id'] ?>"><?= $type['display_name'] ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="serial_number" class="form-label">شماره سریال *</label>
-                                        <input type="text" class="form-control" id="serial_number" name="serial_number" required>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row mb-4">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="purchase_date" class="form-label">تاریخ خرید</label>
-                                        <input type="date" class="form-control" id="purchase_date" name="purchase_date">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="status" class="form-label">وضعیت *</label>
-                                        <select class="form-select" id="status" name="status" required>
-                                            <option value="فعال">فعال</option>
-                                            <option value="غیرفعال">غیرفعال</option>
-                                            <option value="در حال تعمیر">در حال تعمیر</option>
-                                            <option value="آماده بهره‌برداری">آماده بهره‌برداری</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="brand" class="form-label">برند</label>
-                                        <input type="text" class="form-control" id="brand" name="brand">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row mb-4">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label for="model" class="form-label">مدل</label>
-                                        <input type="text" class="form-control" id="model" name="model">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- فیلدهای پویا -->
-                            <div id="generator_fields" class="dynamic-field">
-                                <hr>
-                                <h4 class="mb-4 mt-4 text-primary">مشخصات ژنراتور</h4>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="power_capacity" class="form-label">ظرفیت توان (کیلووات) *</label>
-                                            <input type="text" class="form-control" id="power_capacity" name="power_capacity">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="engine_model" class="form-label">مدل موتور *</label>
-                                            <input type="text" class="form-control" id="engine_model" name="engine_model">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="engine_serial" class="form-label">سریال موتور *</label>
-                                            <input type="text" class="form-control" id="engine_serial" name="engine_serial">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="alternator_model" class="form-label">مدل آلترناتور *</label>
-                                            <input type="text" class="form-control" id="alternator_model" name="alternator_model">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="alternator_serial" class="form-label">سریال آلترناتور *</label>
-                                            <input type="text" class="form-control" id="alternator_serial" name="alternator_serial">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="device_model" class="form-label">مدل دستگاه *</label>
-                                            <input type="text" class="form-control" id="device_model" name="device_model">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="device_serial" class="form-label">سریال دستگاه *</label>
-                                            <input type="text" class="form-control" id="device_serial" name="device_serial">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="control_panel_model" class="form-label">مدل کنترل پنل</label>
-                                            <input type="text" class="form-control" id="control_panel_model" name="control_panel_model">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="breaker_model" class="form-label">مدل بریکر</label>
-                                            <input type="text" class="form-control" id="breaker_model" name="breaker_model">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="fuel_tank_specs" class="form-label">مشخصات تانک سوخت</label>
-                                            <textarea class="form-control" id="fuel_tank_specs" name="fuel_tank_specs" rows="2"></textarea>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="battery" class="form-label">باتری</label>
-                                            <input type="text" class="form-control" id="battery" name="battery">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="battery_charger" class="form-label">باتری شارژر</label>
-                                            <input type="text" class="form-control" id="battery_charger" name="battery_charger">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="heater" class="form-label">هیتر</label>
-                                            <input type="text" class="form-control" id="heater" name="heater">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="oil_capacity" class="form-label">حجم روغن</label>
-                                            <input type="text" class="form-control" id="oil_capacity" name="oil_capacity">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="radiator_capacity" class="form-label">حجم آب رادیاتور</label>
-                                            <input type="text" class="form-control" id="radiator_capacity" name="radiator_capacity">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="antifreeze" class="form-label">ضدیخ</label>
-                                            <input type="text" class="form-control" id="antifreeze" name="antifreeze">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <h5 class="mt-4 mb-3 text-secondary">پارت نامبر فیلترها</h5>
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="oil_filter_part" class="form-label">پارت نامبر فیلتر روغن</label>
-                                            <input type="text" class="form-control" id="oil_filter_part" name="oil_filter_part">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="oil_filter" class="form-label">عکس فیلتر روغن</label>
-                                            <input type="file" class="form-control" id="oil_filter" name="oil_filter" accept="image/*" onchange="previewImage(this, 'oil_filter_preview')">
-                                            <img id="oil_filter_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="fuel_filter_part" class="form-label">پارت نامبر فیلتر سوخت</label>
-                                            <input type="text" class="form-control" id="fuel_filter_part" name="fuel_filter_part">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="fuel_filter" class="form-label">عکس فیلتر سوخت</label>
-                                            <input type="file" class="form-control" id="fuel_filter" name="fuel_filter" accept="image/*" onchange="previewImage(this, 'fuel_filter_preview')">
-                                            <img id="fuel_filter_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="water_fuel_filter_part" class="form-label">پارت نامبر فیلتر سوخت آبی</label>
-                                            <input type="text" class="form-control" id="water_fuel_filter_part" name="water_fuel_filter_part">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="water_fuel_filter" class="form-label">عکس فیلتر سوخت آبی</label>
-                                            <input type="file" class="form-control" id="water_fuel_filter" name="water_fuel_filter" accept="image/*" onchange="previewImage(this, 'water_fuel_filter_preview')">
-                                            <img id="water_fuel_filter_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="air_filter_part" class="form-label">پارت نامبر فیلتر هوا</label>
-                                            <input type="text" class="form-control" id="air_filter_part" name="air_filter_part">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="air_filter" class="form-label">عکس فیلتر هوا</label>
-                                            <input type="file" class="form-control" id="air_filter" name="air_filter" accept="image/*" onchange="previewImage(this, 'air_filter_preview')">
-                                            <img id="air_filter_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="water_filter_part" class="form-label">پارت نامبر فیلتر آب</label>
-                                            <input type="text" class="form-control" id="water_filter_part" name="water_filter_part">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="water_filter" class="form-label">عکس فیلتر آب</label>
-                                            <input type="file" class="form-control" id="water_filter" name="water_filter" accept="image/*" onchange="previewImage(this, 'water_filter_preview')">
-                                            <img id="water_filter_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="other_items" class="form-label">سایر اقلام مولد</label>
-                                            <textarea class="form-control" id="other_items" name="other_items" rows="3"></textarea>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="device_image" class="form-label">عکس دستگاه</label>
-                                            <input type="file" class="form-control" id="device_image" name="device_image" accept="image/*" onchange="previewImage(this, 'device_image_preview')">
-                                            <img id="device_image_preview" class="image-preview" src="#" alt="پیش‌نمایش">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="workshop_entry_date" class="form-label">تاریخ ورود به کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_entry_date" name="workshop_entry_date">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="workshop_exit_date" class="form-label">تاریخ خروج از کارگاه</label>
-                                            <input type="date" class="form-control" id="workshop_exit_date" name="workshop_exit_date">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <h5 class="mt-4 mb-3 text-secondary">لینک‌های مرتبط</h5>
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="datasheet_link" class="form-label">لینک دیتاشیت</label>
-                                            <input type="url" class="form-control" id="datasheet_link" name="datasheet_link">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="engine_manual_link" class="form-label">لینک منوال موتور</label>
-                                            <input type="url" class="form-control" id="engine_manual_link" name="engine_manual_link">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="alternator_manual_link" class="form-label">لینک منوال آلترناتور</label>
-                                            <input type="url" class="form-control" id="alternator_manual_link" name="alternator_manual_link">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="control_panel_manual_link" class="form-label">لینک منوال کنترل پنل</label>
-                                            <input type="url" class="form-control" id="control_panel_manual_link" name="control_panel_manual_link">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="description" class="form-label">توضیحات</label>
-                                    <textarea class="form-control" id="description" name="description" rows="4"></textarea>
-                                </div>
-                            </div>
-
-                            <div id="motor_fields" class="dynamic-field">
-                                <hr>
-                                <h4 class="mb-4 mt-4 text-primary">مشخصات موتور برق</h4>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="power_capacity" class="form-label">ظرفیت توان (کیلووات) *</label>
-                                            <input type="text" class="form-control" id="power_capacity" name="power_capacity">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="engine_type" class="form-label">نوع موتور *</label>
-                                            <input type="text" class="form-control" id="engine_type" name="engine_type">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="consumable_fields" class="dynamic-field">
-                                <hr>
-                                <h4 class="mb-4 mt-4 text-primary">مشخصات اقلام مصرفی</h4>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label for="consumable_type" class="form-label">نوع کالای مصرفی *</label>
-                                            <input type="text" class="form-control" id="consumable_type" name="consumable_type">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button type="submit" name="add_asset" class="btn btn-success">
-                                <i class="fas fa-save"></i> ثبت دارایی
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- لیست دارایی‌ها -->
-                <div class="card mt-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-list"></i> لیست دارایی‌ها</h5>
-                    </div>
-                    <div class="card-body">
-                        <?php if (count($assets) > 0): ?>
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>نام دستگاه</th>
-                                            <th>نوع</th>
-                                            <th>سریال</th>
-                                            <th>برند/مدل</th>
-                                            <th>وضعیت</th>
-                                            <th>تاریخ خرید</th>
-                                            <th>عملیات</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($assets as $asset): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars($asset['name']) ?></td>
-                                            <td>
-                                                <span class="badge bg-secondary"><?= htmlspecialchars($asset['type_display_name']) ?></span>
-                                            </td>
-                                            <td><?= htmlspecialchars($asset['serial_number']) ?></td>
-                                            <td>
-                                                <?= htmlspecialchars($asset['brand']) ?>
-                                                <?= $asset['model'] ? ' / ' . htmlspecialchars($asset['model']) : '' ?>
-                                            </td>
-                                            <td>
-                                                <?php
-                                                $status_class = 'secondary';
-                                                if ($asset['status'] == 'فعال') $status_class = 'success';
-                                                if ($asset['status'] == 'غیرفعال') $status_class = 'danger';
-                                                if ($asset['status'] == 'در حال تعمیر') $status_class = 'warning';
-                                                if ($asset['status'] == 'آماده بهره‌برداری') $status_class = 'info';
-                                                ?>
-                                                <span class="badge bg-<?= $status_class ?> badge-status"><?= $asset['status'] ?></span>
-                                            </td>
-                                            <td><?= $asset['purchase_date'] ? jalaliDate($asset['purchase_date']) : '--' ?></td>
-                                            <td class="action-buttons">
-                                                <a href="asset_details.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-info" title="مشاهده جزئیات">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="edit_asset.php?id=<?= $asset['id'] ?>" class="btn btn-sm btn-warning" title="ویرایش">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <?php if ($_SESSION['role'] == 'ادمین'): ?>
-                                                <a href="assets.php?delete_id=<?= $asset['id'] ?>" class="btn btn-sm btn-danger" title="حذف"
-                                                   onclick="return confirm('آیا از حذف این دارایی مطمئن هستید؟')">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                                <?php endif; ?>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        <?php else: ?>
-                            <div class="alert alert-info text-center">
-                                <i class="fas fa-info-circle"></i> هیچ دارایی یافت نشد.
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    function showFields() {
-        // مخفی کردن همه فیلدها
-        document.querySelectorAll('.dynamic-field').forEach(field => {
-            field.style.display = 'none';
-        });
-
-        // نمایش فیلدهای مربوطه
-        const typeSelect = document.getElementById('type_id');
-        const typeId = typeSelect.value;
-        const selectedOption = typeSelect.options[typeSelect.selectedIndex];
-        const typeName = selectedOption.text.toLowerCase();
-        
-        if (typeName.includes('ژنراتور')) {
-            document.getElementById('generator_fields').style.display = 'block';
-        } else if (typeName.includes('موتور برق')) {
-            document.getElementById('motor_fields').style.display = 'block';
-        } else if (typeName.includes('مصرفی')) {
-            document.getElementById('consumable_fields').style.display = 'block';
-        }
-    }
-
-    function previewImage(input, previewId) {
-        const preview = document.getElementById(previewId);
-        const file = input.files[0];
-        
-        if (file) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-            }
-            
-            reader.readAsDataURL(file);
-        } else {
-            preview.style.display = 'none';
-        }
-    }
-
-    // اعتبارسنجی فرم
-    document.getElementById('assetForm').addEventListener('submit', function(e) {
-        const typeSelect = document.getElementById('type_id');
-        const typeId = typeSelect.value;
-        const selectedOption = typeSelect.options[typeSelect.selectedIndex];
-        const typeName = selectedOption.text.toLowerCase();
-        
-        let isValid = true;
-        let errorMessage = '';
-        
-        if (typeName.includes('ژنراتور')) {
-            const requiredFields = [
-                'power_capacity', 'engine_model', 'engine_serial', 'alternator_model',
-                'alternator_serial', 'device_model', 'device_serial'
-            ];
-            
-            for (const field of requiredFields) {
-                const fieldElement = document.getElementById(field);
-                if (fieldElement && !fieldElement.value.trim()) {
-                    isValid = false;
-                    errorMessage = `لطفاً فیلد "${fieldElement.previousElementSibling.textContent}" را پر کنید.`;
-                    break;
-                }
-            }
-        } else if (typeName.includes('موتور برق')) {
-            const powerCapacity = document.getElementById('power_capacity');
-            const engineType = document.getElementById('engine_type');
-            
-            if (!powerCapacity.value.trim()) {
-                isValid = false;
-                errorMessage = 'لطفاً ظرفیت توان را وارد کنید.';
-            } else if (!engineType.value.trim()) {
-                isValid = false;
-                errorMessage = 'لطفاً نوع موتور را وارد کنید.';
-            }
-        } else if (typeName.includes('مصرفی')) {
-            const consumableType = document.getElementById('consumable_type');
-            if (!consumableType.value.trim()) {
-                isValid = false;
-                errorMessage = 'لطفاً نوع کالای مصرفی را وارد کنید.';
-            }
-        }
-        
-        if (!isValid) {
-            e.preventDefault();
-            alert(errorMessage);
-        }
-    });
-
-    // اجرای اولیه برای نمایش فیلدهای مناسب
-    document.addEventListener('DOMContentLoaded', function() {
-        showFields();
-    });
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
