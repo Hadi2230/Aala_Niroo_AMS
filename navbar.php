@@ -116,6 +116,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link <?php echo in_array($current_page, ['training.php', 'training_forms.php', 'training_gallery.php', 'training_videos.php', 'training_articles.php']) ? 'active' : ''; ?>" href="training.php">
+                            <i class="fas fa-graduation-cap"></i> آموزش
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link <?php echo $current_page == 'users.php' ? 'active' : ''; ?>" href="users.php">
                             <i class="fas fa-user-cog"></i> مدیریت کاربران
                         </a>
