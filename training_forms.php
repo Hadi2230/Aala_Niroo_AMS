@@ -83,6 +83,7 @@ $categories = $pdo->query("
     <title>فرم‌های آموزشی - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
     <style>
         .hero-section {
             background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
@@ -299,22 +300,34 @@ $categories = $pdo->query("
                             <div class="col-md-6 col-lg-4 mb-4">
                                 <div class="form-card">
                                     <div class="form-icon <?php 
-                                        echo match($form['file_type']) {
-                                            'pdf' => 'pdf',
-                                            'doc', 'docx' => 'word',
-                                            'xls', 'xlsx' => 'excel',
-                                            'ppt', 'pptx' => 'powerpoint',
-                                            default => ''
-                                        };
+                                        $ft = $form['file_type'];
+                                        $cls = '';
+                                        switch ($ft) {
+                                            case 'pdf': $cls = 'pdf'; break;
+                                            case 'doc':
+                                            case 'docx': $cls = 'word'; break;
+                                            case 'xls':
+                                            case 'xlsx': $cls = 'excel'; break;
+                                            case 'ppt':
+                                            case 'pptx': $cls = 'powerpoint'; break;
+                                            default: $cls = '';
+                                        }
+                                        echo $cls;
                                     ?>">
                                         <i class="fas fa-file-<?php 
-                                            echo match($form['file_type']) {
-                                                'pdf' => 'pdf',
-                                                'doc', 'docx' => 'word',
-                                                'xls', 'xlsx' => 'excel',
-                                                'ppt', 'pptx' => 'powerpoint',
-                                                default => 'alt'
-                                            };
+                                            $ft2 = $form['file_type'];
+                                            $icon = 'alt';
+                                            switch ($ft2) {
+                                                case 'pdf': $icon = 'pdf'; break;
+                                                case 'doc':
+                                                case 'docx': $icon = 'word'; break;
+                                                case 'xls':
+                                                case 'xlsx': $icon = 'excel'; break;
+                                                case 'ppt':
+                                                case 'pptx': $icon = 'powerpoint'; break;
+                                                default: $icon = 'alt';
+                                            }
+                                            echo $icon;
                                         ?>"></i>
                                     </div>
                                     

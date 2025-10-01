@@ -121,6 +121,7 @@ $categories = $pdo->query("SELECT * FROM training_categories WHERE is_active = 1
     <title>مدیریت فرم‌های آموزشی - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <style>
         .upload-area {
@@ -335,13 +336,19 @@ $categories = $pdo->query("SELECT * FROM training_categories WHERE is_active = 1
                                 <tr>
                                     <td>
                                         <i class="fas fa-file-<?php 
-                                            echo match($form['file_type']) {
-                                                'pdf' => 'pdf text-danger',
-                                                'doc', 'docx' => 'word text-primary',
-                                                'xls', 'xlsx' => 'excel text-success',
-                                                'ppt', 'pptx' => 'powerpoint text-warning',
-                                                default => 'alt'
-                                            };
+                                            $ft = $form['file_type'];
+                                            $cls = 'alt';
+                                            switch ($ft) {
+                                                case 'pdf': $cls = 'pdf text-danger'; break;
+                                                case 'doc':
+                                                case 'docx': $cls = 'word text-primary'; break;
+                                                case 'xls':
+                                                case 'xlsx': $cls = 'excel text-success'; break;
+                                                case 'ppt':
+                                                case 'pptx': $cls = 'powerpoint text-warning'; break;
+                                                default: $cls = 'alt';
+                                            }
+                                            echo $cls;
                                         ?>"></i>
                                         <?php echo htmlspecialchars($form['title']); ?>
                                     </td>

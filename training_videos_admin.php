@@ -192,6 +192,7 @@ $categories = $pdo->query("SELECT * FROM training_categories WHERE is_active = 1
     <title>مدیریت ویدیوهای آموزشی - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
     <style>
         .nav-pills .nav-link {
             border-radius: 20px;
@@ -538,7 +539,7 @@ $categories = $pdo->query("SELECT * FROM training_categories WHERE is_active = 1
                         
                         <div class="btn-group btn-group-sm w-100">
                             <?php if ($video['video_path']): ?>
-                                <a href="<?php echo $video['video_path']; ?>" class="btn btn-info" target="_blank">
+                                <a href="training_stream.php?id=<?php echo $video['id']; ?>" class="btn btn-info" target="_blank">
                                     <i class="fas fa-play"></i>
                                 </a>
                             <?php elseif ($video['video_url']): ?>

@@ -125,6 +125,7 @@ $popular_articles = $pdo->query("
     <title><?php echo $current_article ? htmlspecialchars($current_article['title']) . ' - ' : ''; ?>مقالات و نشریات - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
     <style>
         .hero-section {
             background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);

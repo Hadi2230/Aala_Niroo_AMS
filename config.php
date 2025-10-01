@@ -82,6 +82,8 @@ function createDatabaseTables($pdo) {
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
+        // تلاش برای تنظیم دسترسی نوشتن در محیط لوکال (بی‌خطر)
+        @chmod($dir, 0775);
     }
 
     // کوئری ساخت جداول (انواع سیستم + آموزش)
@@ -1033,7 +1035,7 @@ function hasPermission($permission) {
     $user_permissions = $permissions[$user_role];
     foreach ($user_permissions as $perm) {
         if ($perm === '*') return true;
-        if (str_contains($perm, '*')) {
+        if (strpos($perm, '*') !== false) {
             $base = str_replace('.*', '', $perm);
             if (strpos($permission, $base) === 0) return true;
         }

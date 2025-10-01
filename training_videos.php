@@ -108,6 +108,7 @@ function getEmbedUrl($url, $type) {
     <title>ویدیوهای آموزشی - اعلا نیرو</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
     <style>
         .hero-section {
@@ -519,7 +520,7 @@ function getEmbedUrl($url, $type) {
                 // Local video
                 container.innerHTML = `
                     <video controls class="w-100" id="player">
-                        <source src="${video.video_path}" type="video/mp4">
+                        <source src="training_stream.php?id=${video.id}" type="video/mp4">
                     </video>
                 `;
                 currentPlayer = new Plyr('#player', {
