@@ -13,6 +13,9 @@ $total_customers = $pdo->query("SELECT COUNT(*) as total FROM customers")->fetch
 $total_users = $pdo->query("SELECT COUNT(*) as total FROM users")->fetch()['total'];
 $total_assignments = $pdo->query("SELECT COUNT(*) as total FROM asset_assignments")->fetch()['total'];
 $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM asset_assignments")->fetch()['total'];
+
+// دریافت آمار ناوگان خودرو
+$car_fleet_stats = getCarFleetStatistics($pdo);
 ?>
 
 <!DOCTYPE html>
@@ -46,6 +49,9 @@ $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM as
                         <a class="nav-link" href="assignments.php">انتساب دستگاه</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="car_fleet.php">ناوگان خودرو</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="reports.php">گزارش‌ها</a>
                     </li>
                     <li class="nav-item">
@@ -61,39 +67,57 @@ $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM as
         <p class="text-center">به سامانه مدیریت شرکت <strong>اعلا نیرو</strong> خوش آمدید.</p>
 
         <div class="row mt-5">
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card text-center">
                     <div class="card-body">
-                        <h5 class="card-title">تعداد دارایی‌ها</h5>
-                        <p class="card-text display-4"><?php echo $total_assets; ?></p>
-                        <a href="assets.php" class="btn btn-primary">مشاهده دارایی‌ها</a>
+                        <h6 class="card-title">تعداد دارایی‌ها</h6>
+                        <p class="card-text display-6"><?php echo $total_assets; ?></p>
+                        <a href="assets.php" class="btn btn-primary btn-sm">مشاهده</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card text-center">
                     <div class="card-body">
-                        <h5 class="card-title">تعداد مشتریان</h5>
-                        <p class="card-text display-4"><?php echo $total_customers; ?></p>
-                        <a href="customers.php" class="btn btn-primary">مشاهده مشتریان</a>
+                        <h6 class="card-title">تعداد مشتریان</h6>
+                        <p class="card-text display-6"><?php echo $total_customers; ?></p>
+                        <a href="customers.php" class="btn btn-primary btn-sm">مشاهده</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card text-center">
                     <div class="card-body">
-                        <h5 class="card-title">تعداد کاربران</h5>
-                        <p class="card-text display-4"><?php echo $total_users; ?></p>
-                        <a href="users.php" class="btn btn-primary">مشاهده کاربران</a>
+                        <h6 class="card-title">تعداد کاربران</h6>
+                        <p class="card-text display-6"><?php echo $total_users; ?></p>
+                        <a href="users.php" class="btn btn-primary btn-sm">مشاهده</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card text-center">
                     <div class="card-body">
-                        <h5 class="card-title">انتساب‌های فعال</h5>
-                        <p class="card-text display-4"><?php echo $assigned_assets; ?> از <?php echo $total_assets; ?></p>
-                        <a href="assignments.php" class="btn btn-primary">مدیریت انتساب‌ها</a>
+                        <h6 class="card-title">انتساب‌های فعال</h6>
+                        <p class="card-text display-6"><?php echo $assigned_assets; ?></p>
+                        <a href="assignments.php" class="btn btn-primary btn-sm">مدیریت</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card text-center bg-info text-white">
+                    <div class="card-body">
+                        <h6 class="card-title">ناوگان خودرو</h6>
+                        <p class="card-text display-6"><?php echo $car_fleet_stats['total_cars']; ?></p>
+                        <a href="car_fleet.php" class="btn btn-light btn-sm">مدیریت</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card text-center bg-warning text-dark">
+                    <div class="card-body">
+                        <h6 class="card-title">در حال استفاده</h6>
+                        <p class="card-text display-6"><?php echo $car_fleet_stats['active_handovers']; ?></p>
+                        <a href="car_fleet.php#handovers-tab" class="btn btn-dark btn-sm">مشاهده</a>
                     </div>
                 </div>
             </div>
@@ -101,28 +125,62 @@ $assigned_assets = $pdo->query("SELECT COUNT(DISTINCT asset_id) as total FROM as
 
         <!-- آمار سریع -->
         <div class="row mt-4">
-            <div class="col-md-12">
+            <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header">آمار سریع</div>
+                    <div class="card-header">آمار دارایی‌ها</div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="d-flex justify-content-between">
                                     <span>دارایی‌های منتسب شده:</span>
                                     <span class="badge bg-success"><?php echo $assigned_assets; ?></span>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="d-flex justify-content-between">
                                     <span>دارایی‌های منتسب نشده:</span>
                                     <span class="badge bg-warning"><?php echo $total_assets - $assigned_assets; ?></span>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span>کل انتساب‌ها:</span>
+                            <span class="badge bg-info"><?php echo $total_assignments; ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-car"></i> آمار ناوگان خودرو
+                        <a href="car_fleet.php" class="btn btn-sm btn-outline-primary float-end">مشاهده کامل</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
                                 <div class="d-flex justify-content-between">
-                                    <span>کل انتساب‌ها:</span>
-                                    <span class="badge bg-info"><?php echo $total_assignments; ?></span>
+                                    <span>خودروهای آزاد:</span>
+                                    <span class="badge bg-success"><?php echo $car_fleet_stats['total_cars'] - $car_fleet_stats['active_handovers']; ?></span>
                                 </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-between">
+                                    <span>نیازمند سرویس:</span>
+                                    <span class="badge bg-danger"><?php echo $car_fleet_stats['cars_needing_service']; ?></span>
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">هزینه سوخت ماهانه:</small><br>
+                                <strong><?php echo number_format($car_fleet_stats['monthly_fuel_cost']); ?> ریال</strong>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">هزینه تعمیرات ماهانه:</small><br>
+                                <strong><?php echo number_format($car_fleet_stats['monthly_maintenance_cost']); ?> ریال</strong>
                             </div>
                         </div>
                     </div>

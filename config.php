@@ -111,6 +111,23 @@ function createDatabaseTables($pdo) {
         @chmod($dir, 0775);
     }
 
+    // دایرکتوری‌های ناوگان خودروهای شرکتی
+    $carFleetDirs = [
+        __DIR__ . '/uploads/car_fleet',
+        __DIR__ . '/uploads/car_fleet/cars',
+        __DIR__ . '/uploads/car_fleet/documents',
+        __DIR__ . '/uploads/car_fleet/maintenance',
+        __DIR__ . '/uploads/car_fleet/inspections',
+        __DIR__ . '/uploads/car_fleet/fuel_receipts',
+        __DIR__ . '/uploads/car_fleet/violations'
+    ];
+    foreach ($carFleetDirs as $dir) {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @chmod($dir, 0775);
+    }
+
     // کوئری ساخت جداول (انواع سیستم + آموزش)
     $tables = [
         // انواع دارایی‌ها
@@ -927,6 +944,292 @@ function createDatabaseTables($pdo) {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE KEY uniq_contract_user (contract_id, user_id),
             INDEX idx_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        // --- ماژول مدیریت ناوگان خودروهای شرکتی (Company Car Fleet Management) ---
+        "CREATE TABLE IF NOT EXISTS company_cars (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_code VARCHAR(50) UNIQUE NOT NULL,
+            brand VARCHAR(100) NOT NULL,
+            model VARCHAR(100) NOT NULL,
+            year INT NOT NULL,
+            color VARCHAR(50),
+            license_plate VARCHAR(20) UNIQUE NOT NULL,
+            chassis_number VARCHAR(50) UNIQUE,
+            engine_number VARCHAR(50),
+            fuel_type ENUM('بنزین','دیزل','گاز طبیعی','هیبرید','برقی') DEFAULT 'بنزین',
+            transmission_type ENUM('دستی','اتوماتیک','نیمه اتوماتیک') DEFAULT 'دستی',
+            engine_capacity VARCHAR(20),
+            purchase_date DATE,
+            purchase_price DECIMAL(18,2),
+            current_mileage INT DEFAULT 0,
+            last_service_mileage INT DEFAULT 0,
+            next_service_mileage INT DEFAULT 0,
+            insurance_company VARCHAR(100),
+            insurance_policy_number VARCHAR(50),
+            insurance_expiry_date DATE,
+            registration_expiry_date DATE,
+            technical_inspection_expiry DATE,
+            status ENUM('فعال','در تعمیر','خارج از سرویس','فروخته شده','تصادفی') DEFAULT 'فعال',
+            location VARCHAR(255),
+            department VARCHAR(100),
+            responsible_person VARCHAR(100),
+            notes TEXT,
+            car_image VARCHAR(500),
+            documents_folder VARCHAR(500),
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_code (car_code),
+            INDEX idx_license_plate (license_plate),
+            INDEX idx_status (status),
+            INDEX idx_department (department),
+            INDEX idx_brand_model (brand, model)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_handovers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            handover_code VARCHAR(50) UNIQUE NOT NULL,
+            car_id INT NOT NULL,
+            handover_type ENUM('تحویل','بازگشت') NOT NULL,
+            employee_name VARCHAR(255) NOT NULL,
+            employee_id VARCHAR(50),
+            employee_phone VARCHAR(20),
+            employee_department VARCHAR(100),
+            employee_position VARCHAR(100),
+            handover_date DATETIME NOT NULL,
+            expected_return_date DATETIME,
+            actual_return_date DATETIME NULL,
+            purpose VARCHAR(500),
+            destination VARCHAR(500),
+            mileage_at_handover INT NOT NULL,
+            mileage_at_return INT NULL,
+            fuel_level_handover ENUM('خالی','1/4','1/2','3/4','پر') DEFAULT 'پر',
+            fuel_level_return ENUM('خالی','1/4','1/2','3/4','پر') NULL,
+            car_condition_handover TEXT,
+            car_condition_return TEXT,
+            damages_noted TEXT,
+            additional_items TEXT,
+            handover_location VARCHAR(255),
+            return_location VARCHAR(255),
+            approved_by INT,
+            received_by INT,
+            returned_by INT,
+            status ENUM('در حال استفاده','بازگشت داده شده','دیرکرد','مفقود','تصادف') DEFAULT 'در حال استفاده',
+            late_return_reason TEXT,
+            penalty_amount DECIMAL(10,2) DEFAULT 0,
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (received_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (returned_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_handover_code (handover_code),
+            INDEX idx_car_id (car_id),
+            INDEX idx_handover_type (handover_type),
+            INDEX idx_employee_name (employee_name),
+            INDEX idx_handover_date (handover_date),
+            INDEX idx_status (status),
+            INDEX idx_expected_return (expected_return_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_maintenance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_id INT NOT NULL,
+            maintenance_type ENUM('سرویس دوره‌ای','تعمیر','تعویض روغن','تعویض لاستیک','بازرسی فنی','تصادف','سایر') NOT NULL,
+            maintenance_date DATE NOT NULL,
+            mileage_at_service INT NOT NULL,
+            service_provider VARCHAR(255),
+            service_location VARCHAR(255),
+            description TEXT NOT NULL,
+            parts_replaced TEXT,
+            cost DECIMAL(12,2) DEFAULT 0,
+            invoice_number VARCHAR(100),
+            invoice_image VARCHAR(500),
+            warranty_period INT DEFAULT 0,
+            warranty_mileage INT DEFAULT 0,
+            next_service_date DATE,
+            next_service_mileage INT,
+            technician_name VARCHAR(255),
+            quality_rating ENUM('عالی','خوب','متوسط','ضعیف') DEFAULT 'خوب',
+            notes TEXT,
+            performed_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_id (car_id),
+            INDEX idx_maintenance_type (maintenance_type),
+            INDEX idx_maintenance_date (maintenance_date),
+            INDEX idx_mileage (mileage_at_service),
+            INDEX idx_next_service (next_service_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_fuel_records (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_id INT NOT NULL,
+            handover_id INT,
+            fuel_date DATETIME NOT NULL,
+            fuel_station VARCHAR(255),
+            fuel_type ENUM('بنزین معمولی','بنزین سوپر','دیزل','گاز طبیعی') NOT NULL,
+            liters DECIMAL(6,2) NOT NULL,
+            price_per_liter DECIMAL(8,2),
+            total_cost DECIMAL(10,2),
+            mileage_at_fuel INT NOT NULL,
+            fuel_card_number VARCHAR(50),
+            receipt_number VARCHAR(100),
+            receipt_image VARCHAR(500),
+            filled_by VARCHAR(255),
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (handover_id) REFERENCES car_handovers(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_id (car_id),
+            INDEX idx_fuel_date (fuel_date),
+            INDEX idx_handover_id (handover_id),
+            INDEX idx_mileage (mileage_at_fuel)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_violations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_id INT NOT NULL,
+            handover_id INT,
+            violation_date DATE NOT NULL,
+            violation_type VARCHAR(255) NOT NULL,
+            violation_location VARCHAR(255),
+            fine_amount DECIMAL(10,2) DEFAULT 0,
+            violation_code VARCHAR(50),
+            police_report_number VARCHAR(100),
+            responsible_driver VARCHAR(255),
+            driver_license_number VARCHAR(50),
+            payment_status ENUM('پرداخت نشده','پرداخت شده','در حال پیگیری','معاف') DEFAULT 'پرداخت نشده',
+            payment_date DATE NULL,
+            payment_receipt VARCHAR(500),
+            court_date DATE NULL,
+            court_result TEXT,
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (handover_id) REFERENCES car_handovers(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_id (car_id),
+            INDEX idx_violation_date (violation_date),
+            INDEX idx_payment_status (payment_status),
+            INDEX idx_handover_id (handover_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_id INT NOT NULL,
+            document_type ENUM('کارت خودرو','بیمه نامه','معاینه فنی','جواز تردد','قرارداد خرید','فاکتور خرید','سایر') NOT NULL,
+            document_name VARCHAR(255) NOT NULL,
+            document_number VARCHAR(100),
+            issue_date DATE,
+            expiry_date DATE,
+            issuing_authority VARCHAR(255),
+            file_path VARCHAR(500),
+            file_size INT,
+            mime_type VARCHAR(100),
+            is_active BOOLEAN DEFAULT true,
+            reminder_days_before INT DEFAULT 30,
+            notes TEXT,
+            uploaded_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_id (car_id),
+            INDEX idx_document_type (document_type),
+            INDEX idx_expiry_date (expiry_date),
+            INDEX idx_is_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_inspections (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            car_id INT NOT NULL,
+            inspection_type ENUM('تحویل','بازگشت','دوره‌ای','حادثه','شکایت') NOT NULL,
+            inspection_date DATETIME NOT NULL,
+            inspector_name VARCHAR(255) NOT NULL,
+            mileage_at_inspection INT NOT NULL,
+            exterior_condition TEXT,
+            interior_condition TEXT,
+            engine_condition TEXT,
+            tire_condition TEXT,
+            lights_condition TEXT,
+            documents_condition TEXT,
+            cleanliness_rating ENUM('عالی','خوب','متوسط','ضعیف') DEFAULT 'خوب',
+            overall_rating ENUM('عالی','خوب','متوسط','ضعیف','غیرقابل استفاده') DEFAULT 'خوب',
+            damages_found TEXT,
+            recommendations TEXT,
+            photos JSON,
+            inspection_checklist JSON,
+            passed BOOLEAN DEFAULT true,
+            notes TEXT,
+            performed_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_car_id (car_id),
+            INDEX idx_inspection_type (inspection_type),
+            INDEX idx_inspection_date (inspection_date),
+            INDEX idx_passed (passed)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_reservations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            reservation_code VARCHAR(50) UNIQUE NOT NULL,
+            car_id INT NOT NULL,
+            employee_name VARCHAR(255) NOT NULL,
+            employee_id VARCHAR(50),
+            employee_phone VARCHAR(20),
+            employee_department VARCHAR(100),
+            reservation_date DATETIME NOT NULL,
+            start_date DATETIME NOT NULL,
+            end_date DATETIME NOT NULL,
+            purpose VARCHAR(500) NOT NULL,
+            destination VARCHAR(500),
+            passenger_count INT DEFAULT 1,
+            special_requirements TEXT,
+            status ENUM('در انتظار تایید','تایید شده','رد شده','لغو شده','تکمیل شده') DEFAULT 'در انتظار تایید',
+            approved_by INT,
+            approval_date DATETIME NULL,
+            rejection_reason TEXT,
+            priority ENUM('کم','متوسط','بالا','فوری') DEFAULT 'متوسط',
+            notes TEXT,
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (car_id) REFERENCES company_cars(id) ON DELETE CASCADE,
+            FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_reservation_code (reservation_code),
+            INDEX idx_car_id (car_id),
+            INDEX idx_employee_name (employee_name),
+            INDEX idx_start_date (start_date),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS car_fleet_settings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            setting_key VARCHAR(100) UNIQUE NOT NULL,
+            setting_value TEXT,
+            setting_type ENUM('text','number','boolean','json') DEFAULT 'text',
+            description TEXT,
+            category VARCHAR(50) DEFAULT 'general',
+            updated_by INT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_setting_key (setting_key),
+            INDEX idx_category (category)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci"
     ];
 
@@ -1447,6 +1750,346 @@ function getAvailableDevices($pdo, $date_from, $date_to) {
     $stmt = $pdo->prepare("SELECT a.*, at.display_name as type_name FROM assets a LEFT JOIN asset_types at ON a.type_id = at.id WHERE a.status = 'فعال' AND a.id NOT IN (SELECT asset_id FROM device_reservations WHERE status IN ('reserved','in_use') AND ((reserved_from <= ? AND reserved_to >= ?) OR (reserved_from <= ? AND reserved_to >= ?))) ORDER BY a.name");
     $stmt->execute([$date_from, $date_from, $date_to, $date_to]);
     return $stmt->fetchAll();
+}
+
+/**
+ * توابع مدیریت ناوگان خودروهای شرکتی (Company Car Fleet Management)
+ */
+
+function generateCarCode($pdo) {
+    $year = date('Y');
+    $prefix = "CAR" . $year;
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM company_cars WHERE car_code LIKE ?");
+    $stmt->execute([$prefix . "%"]);
+    $count = ((int)$stmt->fetch()['count']) + 1;
+    return $prefix . str_pad((string)$count, 4, '0', STR_PAD_LEFT);
+}
+
+function generateHandoverCode($pdo) {
+    $year = date('Y');
+    $prefix = "HO" . $year;
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM car_handovers WHERE handover_code LIKE ?");
+    $stmt->execute([$prefix . "%"]);
+    $count = ((int)$stmt->fetch()['count']) + 1;
+    return $prefix . str_pad((string)$count, 4, '0', STR_PAD_LEFT);
+}
+
+function generateReservationCode($pdo) {
+    $year = date('Y');
+    $prefix = "RES" . $year;
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM car_reservations WHERE reservation_code LIKE ?");
+    $stmt->execute([$prefix . "%"]);
+    $count = ((int)$stmt->fetch()['count']) + 1;
+    return $prefix . str_pad((string)$count, 4, '0', STR_PAD_LEFT);
+}
+
+function addCompanyCar($pdo, $data) {
+    $car_code = generateCarCode($pdo);
+    $stmt = $pdo->prepare("INSERT INTO company_cars (
+        car_code, brand, model, year, color, license_plate, chassis_number, engine_number,
+        fuel_type, transmission_type, engine_capacity, purchase_date, purchase_price,
+        current_mileage, insurance_company, insurance_policy_number, insurance_expiry_date,
+        registration_expiry_date, technical_inspection_expiry, status, location, department,
+        responsible_person, notes, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([
+        $car_code,
+        $data['brand'],
+        $data['model'],
+        $data['year'],
+        $data['color'] ?? null,
+        $data['license_plate'],
+        $data['chassis_number'] ?? null,
+        $data['engine_number'] ?? null,
+        $data['fuel_type'] ?? 'بنزین',
+        $data['transmission_type'] ?? 'دستی',
+        $data['engine_capacity'] ?? null,
+        $data['purchase_date'] ?? null,
+        $data['purchase_price'] ?? 0,
+        $data['current_mileage'] ?? 0,
+        $data['insurance_company'] ?? null,
+        $data['insurance_policy_number'] ?? null,
+        $data['insurance_expiry_date'] ?? null,
+        $data['registration_expiry_date'] ?? null,
+        $data['technical_inspection_expiry'] ?? null,
+        $data['status'] ?? 'فعال',
+        $data['location'] ?? null,
+        $data['department'] ?? null,
+        $data['responsible_person'] ?? null,
+        $data['notes'] ?? null,
+        $_SESSION['user_id']
+    ]);
+    
+    $car_id = $pdo->lastInsertId();
+    logAction($pdo, 'ADD_CAR', "خودرو جدید اضافه شد: $car_code");
+    return $car_id;
+}
+
+function handoverCar($pdo, $data) {
+    $handover_code = generateHandoverCode($pdo);
+    $stmt = $pdo->prepare("INSERT INTO car_handovers (
+        handover_code, car_id, handover_type, employee_name, employee_id, employee_phone,
+        employee_department, employee_position, handover_date, expected_return_date,
+        purpose, destination, mileage_at_handover, fuel_level_handover, car_condition_handover,
+        additional_items, handover_location, approved_by, received_by, notes, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([
+        $handover_code,
+        $data['car_id'],
+        'تحویل',
+        $data['employee_name'],
+        $data['employee_id'] ?? null,
+        $data['employee_phone'] ?? null,
+        $data['employee_department'] ?? null,
+        $data['employee_position'] ?? null,
+        $data['handover_date'],
+        $data['expected_return_date'] ?? null,
+        $data['purpose'] ?? null,
+        $data['destination'] ?? null,
+        $data['mileage_at_handover'],
+        $data['fuel_level_handover'] ?? 'پر',
+        $data['car_condition_handover'] ?? null,
+        $data['additional_items'] ?? null,
+        $data['handover_location'] ?? null,
+        $data['approved_by'] ?? $_SESSION['user_id'],
+        $data['received_by'] ?? $_SESSION['user_id'],
+        $data['notes'] ?? null,
+        $_SESSION['user_id']
+    ]);
+    
+    $handover_id = $pdo->lastInsertId();
+    logAction($pdo, 'CAR_HANDOVER', "خودرو تحویل داده شد: $handover_code");
+    return $handover_id;
+}
+
+function returnCar($pdo, $handover_id, $data) {
+    $stmt = $pdo->prepare("UPDATE car_handovers SET 
+        actual_return_date = ?, mileage_at_return = ?, fuel_level_return = ?,
+        car_condition_return = ?, damages_noted = ?, return_location = ?,
+        returned_by = ?, status = ?, late_return_reason = ?, penalty_amount = ?,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?");
+    
+    $status = 'بازگشت داده شده';
+    if (!empty($data['expected_return_date']) && $data['actual_return_date'] > $data['expected_return_date']) {
+        $status = 'دیرکرد';
+    }
+    
+    $stmt->execute([
+        $data['actual_return_date'],
+        $data['mileage_at_return'],
+        $data['fuel_level_return'] ?? null,
+        $data['car_condition_return'] ?? null,
+        $data['damages_noted'] ?? null,
+        $data['return_location'] ?? null,
+        $_SESSION['user_id'],
+        $status,
+        $data['late_return_reason'] ?? null,
+        $data['penalty_amount'] ?? 0,
+        $handover_id
+    ]);
+    
+    // Update car mileage
+    if (!empty($data['mileage_at_return'])) {
+        $stmt = $pdo->prepare("UPDATE company_cars SET current_mileage = ? WHERE id = (SELECT car_id FROM car_handovers WHERE id = ?)");
+        $stmt->execute([$data['mileage_at_return'], $handover_id]);
+    }
+    
+    logAction($pdo, 'CAR_RETURN', "خودرو بازگشت داده شد: شناسه تحویل $handover_id");
+    return true;
+}
+
+function addCarMaintenance($pdo, $data) {
+    $stmt = $pdo->prepare("INSERT INTO car_maintenance (
+        car_id, maintenance_type, maintenance_date, mileage_at_service, service_provider,
+        service_location, description, parts_replaced, cost, invoice_number,
+        warranty_period, warranty_mileage, next_service_date, next_service_mileage,
+        technician_name, quality_rating, notes, performed_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([
+        $data['car_id'],
+        $data['maintenance_type'],
+        $data['maintenance_date'],
+        $data['mileage_at_service'],
+        $data['service_provider'] ?? null,
+        $data['service_location'] ?? null,
+        $data['description'],
+        $data['parts_replaced'] ?? null,
+        $data['cost'] ?? 0,
+        $data['invoice_number'] ?? null,
+        $data['warranty_period'] ?? 0,
+        $data['warranty_mileage'] ?? 0,
+        $data['next_service_date'] ?? null,
+        $data['next_service_mileage'] ?? null,
+        $data['technician_name'] ?? null,
+        $data['quality_rating'] ?? 'خوب',
+        $data['notes'] ?? null,
+        $_SESSION['user_id']
+    ]);
+    
+    $maintenance_id = $pdo->lastInsertId();
+    
+    // Update car's last service mileage and next service mileage
+    if (!empty($data['next_service_mileage'])) {
+        $stmt = $pdo->prepare("UPDATE company_cars SET last_service_mileage = ?, next_service_mileage = ? WHERE id = ?");
+        $stmt->execute([$data['mileage_at_service'], $data['next_service_mileage'], $data['car_id']]);
+    }
+    
+    logAction($pdo, 'CAR_MAINTENANCE', "سرویس خودرو ثبت شد: " . $data['maintenance_type']);
+    return $maintenance_id;
+}
+
+function addFuelRecord($pdo, $data) {
+    $stmt = $pdo->prepare("INSERT INTO car_fuel_records (
+        car_id, handover_id, fuel_date, fuel_station, fuel_type, liters,
+        price_per_liter, total_cost, mileage_at_fuel, fuel_card_number,
+        receipt_number, filled_by, notes, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([
+        $data['car_id'],
+        $data['handover_id'] ?? null,
+        $data['fuel_date'],
+        $data['fuel_station'] ?? null,
+        $data['fuel_type'],
+        $data['liters'],
+        $data['price_per_liter'] ?? null,
+        $data['total_cost'] ?? null,
+        $data['mileage_at_fuel'],
+        $data['fuel_card_number'] ?? null,
+        $data['receipt_number'] ?? null,
+        $data['filled_by'] ?? null,
+        $data['notes'] ?? null,
+        $_SESSION['user_id']
+    ]);
+    
+    $fuel_id = $pdo->lastInsertId();
+    logAction($pdo, 'CAR_FUEL', "سوخت‌گیری خودرو ثبت شد");
+    return $fuel_id;
+}
+
+function getCarFleetStatistics($pdo) {
+    $stats = [];
+    
+    // Total cars
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM company_cars");
+    $stats['total_cars'] = $stmt->fetch()['total'];
+    
+    // Cars by status
+    $stmt = $pdo->query("SELECT status, COUNT(*) as count FROM company_cars GROUP BY status");
+    $stats['cars_by_status'] = $stmt->fetchAll();
+    
+    // Active handovers
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM car_handovers WHERE status = 'در حال استفاده'");
+    $stats['active_handovers'] = $stmt->fetch()['total'];
+    
+    // Cars needing service
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM company_cars WHERE current_mileage >= next_service_mileage AND next_service_mileage > 0");
+    $stats['cars_needing_service'] = $stmt->fetch()['total'];
+    
+    // Expired documents
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM car_documents WHERE expiry_date <= CURDATE() AND is_active = 1");
+    $stats['expired_documents'] = $stmt->fetch()['total'];
+    
+    // Monthly fuel cost
+    $stmt = $pdo->query("SELECT SUM(total_cost) as total FROM car_fuel_records WHERE MONTH(fuel_date) = MONTH(CURDATE()) AND YEAR(fuel_date) = YEAR(CURDATE())");
+    $stats['monthly_fuel_cost'] = $stmt->fetch()['total'] ?? 0;
+    
+    // Monthly maintenance cost
+    $stmt = $pdo->query("SELECT SUM(cost) as total FROM car_maintenance WHERE MONTH(maintenance_date) = MONTH(CURDATE()) AND YEAR(maintenance_date) = YEAR(CURDATE())");
+    $stats['monthly_maintenance_cost'] = $stmt->fetch()['total'] ?? 0;
+    
+    return $stats;
+}
+
+function getAvailableCars($pdo, $start_date, $end_date) {
+    $stmt = $pdo->prepare("SELECT cc.* FROM company_cars cc 
+        WHERE cc.status = 'فعال' 
+        AND cc.id NOT IN (
+            SELECT car_id FROM car_handovers 
+            WHERE status = 'در حال استفاده' 
+            AND (
+                (handover_date <= ? AND (expected_return_date >= ? OR expected_return_date IS NULL))
+                OR (handover_date <= ? AND (expected_return_date >= ? OR expected_return_date IS NULL))
+            )
+        )
+        ORDER BY cc.brand, cc.model");
+    $stmt->execute([$start_date, $start_date, $end_date, $end_date]);
+    return $stmt->fetchAll();
+}
+
+function getCarMaintenanceHistory($pdo, $car_id, $limit = 10) {
+    $stmt = $pdo->prepare("SELECT cm.*, u.full_name as performed_by_name 
+        FROM car_maintenance cm 
+        LEFT JOIN users u ON cm.performed_by = u.id 
+        WHERE cm.car_id = ? 
+        ORDER BY cm.maintenance_date DESC 
+        LIMIT ?");
+    $stmt->execute([$car_id, $limit]);
+    return $stmt->fetchAll();
+}
+
+function getCarHandoverHistory($pdo, $car_id, $limit = 10) {
+    $stmt = $pdo->prepare("SELECT ch.*, 
+        u1.full_name as approved_by_name,
+        u2.full_name as received_by_name,
+        u3.full_name as returned_by_name
+        FROM car_handovers ch 
+        LEFT JOIN users u1 ON ch.approved_by = u1.id 
+        LEFT JOIN users u2 ON ch.received_by = u2.id 
+        LEFT JOIN users u3 ON ch.returned_by = u3.id 
+        WHERE ch.car_id = ? 
+        ORDER BY ch.handover_date DESC 
+        LIMIT ?");
+    $stmt->execute([$car_id, $limit]);
+    return $stmt->fetchAll();
+}
+
+function uploadCarDocument($pdo, $car_id, $file, $document_type, $document_name, $document_number = null, $expiry_date = null) {
+    $upload_dir = __DIR__ . '/uploads/car_fleet/documents/';
+    if (!is_dir($upload_dir)) {
+        @mkdir($upload_dir, 0755, true);
+    }
+    
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed_types = ['pdf','jpg','jpeg','png','doc','docx'];
+    if (!in_array($file_ext, $allowed_types)) {
+        throw new Exception('نوع فایل مجاز نیست');
+    }
+    
+    if ($file['size'] > (10 * 1024 * 1024)) {
+        throw new Exception('حجم فایل بیش از حد مجاز است');
+    }
+    
+    $file_name = time() . '_' . bin2hex(random_bytes(6)) . '.' . $file_ext;
+    $target_file = $upload_dir . $file_name;
+    
+    if (!move_uploaded_file($file['tmp_name'], $target_file)) {
+        throw new Exception('خطا در ذخیره فایل');
+    }
+    
+    $stmt = $pdo->prepare("INSERT INTO car_documents (
+        car_id, document_type, document_name, document_number, expiry_date,
+        file_path, file_size, mime_type, uploaded_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([
+        $car_id,
+        $document_type,
+        $document_name,
+        $document_number,
+        $expiry_date,
+        $target_file,
+        $file['size'],
+        $file['type'],
+        $_SESSION['user_id']
+    ]);
+    
+    logAction($pdo, 'CAR_DOCUMENT_UPLOAD', "مدرک خودرو آپلود شد: $document_name");
+    return $pdo->lastInsertId();
 }
 
 function getVisitRequests($pdo, $filters = []) {
