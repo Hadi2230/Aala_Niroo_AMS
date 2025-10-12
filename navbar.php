@@ -239,16 +239,62 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
               <?php if($is_admin): ?>
               <a href="survey_admin.php" class="menu-card">
                 <i class="fas fa-cog"></i>
-                <h6 class="lang" data-fa="مدیریت نظرسنجی" data-en="Survey Management"></h6>
-                <p class="lang" data-fa="مدیریت فرم و سوالات" data-en="Manage forms and questions"></p>
+                <h6 class="lang" data-fa="مدیریت نظرسنج        <!-- Cars Mega Menu -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $active(['cars.php','car_handovers.php','car_drivers.php','car_maintenance.php','car_fuel.php','car_reports.php','car_alerts.php']); ?>" href="#" id="carsMenuTrigger">
+            <i class="fas fa-car"></i><span class="lang" data-fa="خودروها" data-en="Cars"></span>
+          </a>
+          <div class="mega-menu" id="carsMegaMenu" aria-labelledby="carsMenuTrigger">
+            <div class="menu-grid">
+              <a href="cars.php" class="menu-card">
+                <i class="fas fa-car-side"></i>
+                <h6 class="lang" data-fa="مدیریت خودروها" data-en="Car Management"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت ناوگان" data-en="Fleet registration & management"></p>
               </a>
-              <?php endif; ?>
+              <a href="car_handovers.php" class="menu-card">
+                <i class="fas fa-exchange-alt"></i>
+                <h6 class="lang" data-fa="تحویل و عودت" data-en="Handover & Return"></h6>
+                <p class="lang" data-fa="مدیریت تحویل خودرو" data-en="Manage car handovers"></p>
+              </a>
+              <a href="car_drivers.php" class="menu-card">
+                <i class="fas fa-id-badge"></i>
+                <h6 class="lang" data-fa="رانندگان" data-en="Drivers"></h6>
+                <p class="lang" data-fa="مدیریت رانندگان و امتیازات" data-en="Manage drivers & scores"></p>
+              </a>
+              <a href="car_maintenance.php" class="menu-card">
+                <i class="fas fa-wrench"></i>
+                <h6 class="lang" data-fa="تعمیرات و نگهداری" data-en="Maintenance"></h6>
+                <p class="lang" data-fa="سرویس و تعمیرات دوره‌ای" data-en="Service & periodic maintenance"></p>
+              </a>
+              <a href="car_fuel.php" class="menu-card">
+                <i class="fas fa-gas-pump"></i>
+                <h6 class="lang" data-fa="سوخت‌گیری" data-en="Fuel Management"></h6>
+                <p class="lang" data-fa="ثبت و گزارش مصرف سوخت" data-en="Fuel consumption tracking"></p>
+              </a>
+              <a href="car_reports.php" class="menu-card">
+                <i class="fas fa-chart-line"></i>
+                <h6 class="lang" data-fa="گزارشات خودرو" data-en="Car Reports"></h6>
+                <p class="lang" data-fa="آمار و تحلیل ناوگان" data-en="Fleet statistics & analytics"></p>
+              </a>
+              <a href="car_reservations.php" class="menu-card">
+                <i class="fas fa-calendar-check"></i>
+                <h6 class="lang" data-fa="رزرو خودرو" data-en="Car Reservation"></h6>
+                <p class="lang" data-fa="رزرو و برنامه‌ریزی" data-en="Booking & scheduling"></p>
+              </a>
+              <a href="car_alerts.php" class="menu-card">
+                <i class="fas fa-bell"></i>
+                <h6 class="lang" data-fa="هشدارها" data-en="Alerts"></h6>
+                <p class="lang" data-fa="یادآوری بیمه و معاینه" data-en="Insurance & inspection reminders"></p>
+              </a>
             </div>
           </div>
         </li>
 
         <!-- Training Mega -->
         <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $trainingActive; ?>" href="#" id="trainingMenuTrigger">
+            <i class="fas fa-graduation-cap"></i><span class="lang" data-fa="آموزش" data-en="Training"></span>
+          </a>"nav-item position-relative">
           <a class="nav-link<?php echo $trainingActive; ?>" href="#" id="trainingMenuTrigger">
             <i class="fas fa-graduation-cap"></i><span class="lang" data-fa="آموزش" data-en="Training"></span>
           </a>
@@ -419,16 +465,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.querySelectorAll('.nav-item').forEach((el,i)=> setTimeout(()=> el.classList.add('show'), i * 70));
 
-  function setupMega(triggerId, menuId){
-    const trigger = document.getElementById(triggerId);
-    const menu    = document.getElementById(menuId);
-    if(!trigger || !menu) return;
-    trigger.addEventListener('click', function(e){
-      e.preventDefault();
-      document.querySelectorAll('.mega-menu').forEach(m=>{ if(m !== menu) m.classList.remove('show'); });
-      menu.classList.toggle('show');
-    });
-  }
+  fu  setupMega('workflowMenuTrigger','workflowMegaMenu');
+  setupMega('assetsMenuTrigger','assetsMegaMenu');
+  setupMega('warrantyMenuTrigger','warrantyMegaMenu');
+  setupMega('reportsMenuTrigger','reportsMegaMenu');
+  setupMega('surveyMenuTrigger','surveyMegaMenu');
+  setupMega('adminMenuTrigger','adminMegaMenu');
+  setupMega('trainingMenuTrigger','trainingMegaMenu');
+  setupMega('financeMenuTrigger','financeMegaMenu');
+  setupMega('carsMenuTrigger','carsMegaMenu');
   setupMega('workflowMenuTrigger','workflowMegaMenu');
   setupMega('assetsMenuTrigger','assetsMegaMenu');
   setupMega('warrantyMenuTrigger','warrantyMegaMenu');
