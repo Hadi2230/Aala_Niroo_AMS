@@ -14,7 +14,7 @@ $surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','su
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
 $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php']);
-$workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
+$workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php','vehicles.php','vehicle_handovers.php','vehicle_reports.php']);
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 $trainingActive = $active(['training.php','training_forms.php','training_gallery.php','training_videos.php','training_articles.php','training_forms_admin.php','training_gallery_admin.php','training_videos_admin.php','training_articles_admin.php']);
 $financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);
@@ -155,6 +155,21 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
                 <i class="fas fa-tools"></i>
                 <h6 class="lang" data-fa="تعمیرات دوره‌ای" data-en="Maintenance"></h6>
                 <p class="lang" data-fa="برنامه‌ریزی و مدیریت تعمیرات" data-en="Schedule and manage maintenance"></p>
+              </a>
+              <a href="vehicles.php" class="menu-card workflow">
+                <i class="fas fa-car"></i>
+                <h6 class="lang" data-fa="خودروهای شرکتی" data-en="Company Vehicles"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت خودرو" data-en="Register and manage vehicles"></p>
+              </a>
+              <a href="vehicle_handovers.php" class="menu-card workflow">
+                <i class="fas fa-key"></i>
+                <h6 class="lang" data-fa="تحویل/عودت خودرو" data-en="Handover & Return"></h6>
+                <p class="lang" data-fa="ثبت تحویل و عودت" data-en="Record handover and return"></p>
+              </a>
+              <a href="vehicle_reports.php" class="menu-card workflow">
+                <i class="fas fa-chart-line"></i>
+                <h6 class="lang" data-fa="گزارش ناوگان" data-en="Fleet Reports"></h6>
+                <p class="lang" data-fa="کیلومتر، سوخت، سررسیدها" data-en="KM, fuel, expiries"></p>
               </a>
               <a href="notifications.php" class="menu-card workflow">
                 <i class="fas fa-bell"></i>
