@@ -18,6 +18,7 @@ $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 $trainingActive = $active(['training.php','training_forms.php','training_gallery.php','training_videos.php','training_articles.php','training_forms_admin.php','training_gallery_admin.php','training_videos_admin.php','training_articles_admin.php']);
 $financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);
+$carFleetActive = $active(['car_fleet.php','car_fleet_reports.php','car_fleet_maintenance.php']);
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -275,9 +276,32 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
                 <p class="lang" data-fa="تماشای آموزش‌های ویدیویی" data-en="Watch training videos"></p>
               </a>
               <a href="training_articles.php" class="menu-card">
-                <i class="fas fa-newspaper"></i>
-                <h6 class="lang" data-fa="مقالات و نشریات" data-en="Articles & Publications"></h6>
-                <p class="lang" data-fa="مطالعه و دانلود مقالات" data-en="Read & download articles"></p>
+                <i class="fas fa-newspaper"></        <!-- Car Fleet Management Mega -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $carFleetActive; ?>" href="#" id="carFleetMenuTrigger">
+            <i class="fas fa-car"></i><span class="lang" data-fa="ناوگان خودرو" data-en="Car Fleet"></span>
+          </a>
+          <div class="mega-menu" id="carFleetMegaMenu" aria-labelledby="carFleetMenuTrigger">
+            <div class="menu-grid">
+              <a href="car_fleet.php" class="menu-card">
+                <i class="fas fa-car"></i>
+                <h6 class="lang" data-fa="مدیریت ناوگان" data-en="Fleet Management"></h6>
+                <p class="lang" data-fa="خودروها، تحویل، بازگشت" data-en="Cars, handover, return"></p>
+              </a>
+              <a href="car_fleet.php#maintenance-tab" class="menu-card">
+                <i class="fas fa-wrench"></i>
+                <h6 class="lang" data-fa="سرویس و نگهداری" data-en="Maintenance"></h6>
+                <p class="lang" data-fa="سرویس، تعمیر، سوخت‌گیری" data-en="Service, repair, fueling"></p>
+              </a>
+              <a href="car_fleet.php#handovers-tab" class="menu-card">
+                <i class="fas fa-exchange-alt"></i>
+                <h6 class="lang" data-fa="تحویل‌های فعال" data-en="Active Handovers"></h6>
+                <p class="lang" data-fa="خودروهای در حال استفاده" data-en="Cars in use"></p>
+              </a>
+              <a href="car_fleet.php#alerts-tab" class="menu-card">
+                <i class="fas fa-bell"></i>
+                <h6 class="lang" data-fa="هشدارها" data-en="Alerts"></h6>
+                <p class="lang" data-fa="سرویس، اسناد، تخلفات" data-en="Service, documents, violations"></p>
               </a>
             </div>
           </div>
@@ -309,6 +333,12 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
               <a href="contracts_admin.php" class="menu-card">
                 <i class="fas fa-user-shield"></i>
                 <h6 class="lang" data-fa="مدیریت قراردادها (ادمین)" data-en="Contracts Admin"></h6>
+                <p class="lang" data-fa="آپلود نسخه‌ها و دسترسی‌ها" data-en="Upload versions and permissions"></p>
+              </a>
+              <?php endif; ?>
+            </div>
+          </div>
+        </li>             <h6 class="lang" data-fa="مدیریت قراردادها (ادمین)" data-en="Contracts Admin"></h6>
                 <p class="lang" data-fa="آپلود نسخه‌ها و دسترسی‌ها" data-en="Upload versions and permissions"></p>
               </a>
               <?php endif; ?>
@@ -437,6 +467,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupMega('adminMenuTrigger','adminMegaMenu');
   setupMega('trainingMenuTrigger','trainingMegaMenu');
   setupMega('financeMenuTrigger','financeMegaMenu');
+  setupMega('carFleetMenuTrigger','carFleetMegaMenu');
 
   document.addEventListener('click', function(e){
     const anyOpen = document.querySelector('.mega-menu.show');
