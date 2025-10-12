@@ -60,10 +60,21 @@ function createDatabaseTables($pdo) {
         @mkdir(__DIR__ . '/uploads/installations', 0755, true);
         @mkdir(__DIR__ . '/uploads/assets', 0755, true);
         @mkdir(__DIR__ . '/uploads/filters', 0755, true);
+        @mkdir(__DIR__ . '/uploads/vehicles', 0755, true);
+        @mkdir(__DIR__ . '/uploads/vehicle_usages', 0755, true);
         file_put_contents(
             __DIR__ . '/uploads/.htaccess',
             "Order deny,allow\nDeny from all\n<Files ~ \"\\.(jpg|jpeg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|mp4|webm|ogg)$\">\nAllow from all\n</Files>"
         );
+    } else {
+        // اطمینان از وجود دایرکتوری‌های مرتبط با ناوگان خودرو
+        foreach (['/uploads/vehicles','/uploads/vehicle_usages'] as $subDir) {
+            $dir = __DIR__ . $subDir;
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            @chmod($dir, 0775);
+        }
     }
 
     // اطمینان از وجود دایرکتوری‌های ماژول آموزش
@@ -184,6 +195,90 @@ function createDatabaseTables($pdo) {
             INDEX idx_status (status),
             INDEX idx_serial (serial_number),
             INDEX idx_name (name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        // ناوگان خودروهای شرکتی
+        "CREATE TABLE IF NOT EXISTS vehicles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            plate_number VARCHAR(20) NOT NULL UNIQUE,
+            vin VARCHAR(64) UNIQUE NULL,
+            make VARCHAR(100),
+            model VARCHAR(100),
+            year INT,
+            color VARCHAR(50),
+            fuel_type ENUM('بنزین','دیزل','گاز','هیبرید','الکتریکی') DEFAULT 'بنزین',
+            ownership_type ENUM('شرکتی','اجاره‌ای') DEFAULT 'شرکتی',
+            status ENUM('فعال','در حال استفاده','در تعمیر','غیرفعال') DEFAULT 'فعال',
+            current_odometer INT DEFAULT 0,
+            insurance_expiry DATE NULL,
+            inspection_expiry DATE NULL,
+            purchase_date DATE NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_status (status),
+            INDEX idx_plate (plate_number)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS vehicle_documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            vehicle_id INT NOT NULL,
+            doc_type ENUM('insurance','inspection','registration','fuel_card','other') DEFAULT 'other',
+            file_path VARCHAR(500) NOT NULL,
+            file_name VARCHAR(255),
+            expires_at DATE NULL,
+            uploaded_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+            FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_vehicle_id (vehicle_id),
+            INDEX idx_doc_type (doc_type),
+            INDEX idx_expires_at (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS vehicle_usages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            vehicle_id INT NOT NULL,
+            driver_user_id INT NULL,
+            driver_name VARCHAR(255) NULL,
+            purpose VARCHAR(255),
+            start_datetime DATETIME NOT NULL,
+            end_datetime DATETIME NULL,
+            start_odometer INT NOT NULL,
+            end_odometer INT NULL,
+            start_fuel_percent TINYINT NULL,
+            end_fuel_percent TINYINT NULL,
+            handover_method VARCHAR(100),
+            delivered_by_user_id INT NULL,
+            returned_to_user_id INT NULL,
+            start_location VARCHAR(255),
+            end_location VARCHAR(255),
+            route_notes TEXT,
+            damage_notes TEXT,
+            status ENUM('ongoing','completed','cancelled') DEFAULT 'ongoing',
+            distance_km INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+            FOREIGN KEY (driver_user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (delivered_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (returned_to_user_id) REFERENCES users(id) ON DELETE SET NULL,
+            INDEX idx_vehicle (vehicle_id),
+            INDEX idx_driver (driver_user_id),
+            INDEX idx_status (status),
+            INDEX idx_start (start_datetime),
+            INDEX idx_end (end_datetime)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
+
+        "CREATE TABLE IF NOT EXISTS vehicle_usage_photos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            usage_id INT NOT NULL,
+            photo_type ENUM('start','end','damage','receipt','other') DEFAULT 'other',
+            file_path VARCHAR(500) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (usage_id) REFERENCES vehicle_usages(id) ON DELETE CASCADE,
+            INDEX idx_usage_id (usage_id),
+            INDEX idx_photo_type (photo_type)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci",
 
         // تصاویر دارایی
