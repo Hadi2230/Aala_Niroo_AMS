@@ -5,10 +5,10 @@ $username       = $_SESSION['username'] ?? 'کاربر';
 $rawRole        = trim((string)($_SESSION['role'] ?? ''));
 $roleLower      = mb_strtolower($rawRole, 'UTF-8');
 $is_admin       = ($roleLower === 'ادمین' || $roleLower === 'admin' || $roleLower === 'administrator');
-$is_logged_in   = !empty($_SESSION['user_id']);
+$is_logged_in   = !empty($_SESSION['user_i$current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
+$active         = function($files) use ($current) { return in_array($current, (array)$files, true) ? ' active' : ''; };
 
-$current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
-$active         = fn($files) => in_array($current, (array)$files, true) ? ' activ$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
+$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);rt.php']);
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
 $vehiclesActive = $active(['cars.php','car_assignments.php','car_maintenance.php','car_fuel.php','car_incidents.php','car_drivers.php','car_reservations.php','car_reports.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);

@@ -35,6 +35,83 @@ if (!isset($_SESSION['csrf_token'])) {
 
 // ایجاد جداول ساده
 try {
+    // جدول کاربران
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255),
+        role ENUM('ادمین','کاربر عادی','اپراتور','مدیر عملیات','تکنسین','پشتیبانی') DEFAULT 'کاربر عادی',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // جدول مشتریان
+    $pdo->exec("CREATE TABLE IF NOT EXISTS customers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20) NOT NULL UNIQUE,
+        company VARCHAR(255),
+        customer_type ENUM('حقیقی','حقوقی') DEFAULT 'حقیقی',
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // جدول انواع دارایی
+    $pdo->exec("CREATE TABLE IF NOT EXISTS asset_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL UNIQUE,
+        display_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // جدول دارایی‌ها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type_id INT NOT NULL,
+        serial_number VARCHAR(255) UNIQUE,
+        status ENUM('فعال','غیرفعال','در حال تعمیر','آماده بهره‌برداری') DEFAULT 'فعال',
+        brand VARCHAR(255),
+        model VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (type_id) REFERENCES asset_types(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // جدول انتساب دارایی‌ها
+    $pdo->exec("CREATE TABLE IF NOT EXISTS asset_assignments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_id INT NOT NULL,
+        customer_id INT NOT NULL,
+        assignment_date DATE,
+        assignment_status ENUM('فعال','خاتمه یافته','موقت') DEFAULT 'فعال',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+        FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // جدول لاگ سیستم
+    $pdo->exec("CREATE TABLE IF NOT EXISTS system_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        action VARCHAR(100) NOT NULL,
+        description TEXT,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci");
+
+    // درج داده‌های اولیه
+    $check_users = $pdo->query("SELECT COUNT(*) as count FROM users")->fetch();
+    if ($check_users['count'] == 0) {
+        $pdo->exec("INSERT INTO users (username, password, full_name, role) VALUES ('admin', '" . password_hash('admin', PASSWORD_DEFAULT) . "', 'مدیر سیستم', 'ادمین')");
+    }
+
+    $check_types = $pdo->query("SELECT COUNT(*) as count FROM asset_types")->fetch();
+    if ($check_types['count'] == 0) {
+        $pdo->exec("INSERT INTO asset_types (name, display_name) VALUES ('generator','ژنراتور'), ('power_motor','موتور برق'), ('consumable','اقلام مصرفی')");
+    }
+
     // جدول خودروها
     $pdo->exec("CREATE TABLE IF NOT EXISTS company_cars (
         id INT AUTO_INCREMENT PRIMARY KEY,
