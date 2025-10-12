@@ -8,16 +8,15 @@ $is_admin       = ($roleLower === 'ادمین' || $roleLower === 'admin' || $rol
 $is_logged_in   = !empty($_SESSION['user_id']);
 
 $current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
-$active         = fn($files) => in_array($current, (array)$files, true) ? ' active' : '';
-
-$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
+$active         = fn($files) => in_array($current, (array)$files, true) ? ' activ$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
+$carsActive     = $active(['cars.php','car_assignments.php','car_maintenance.php','car_fuel.php','car_incidents.php','car_drivers.php','car_reservations.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
 $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php']);
 $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 $trainingActive = $active(['training.php','training_forms.php','training_gallery.php','training_videos.php','training_articles.php','training_forms_admin.php','training_gallery_admin.php','training_videos_admin.php','training_articles_admin.php']);
-$financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);
+$financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);racts_admin.php']);
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -78,9 +77,7 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
 
     <div class="collapse navbar-collapse" id="navMain">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link<?php echo $active('dashboard.php'); ?>" href="dashboard.php"><i class="fas fa-tachometer-alt"></i><span class="lang" data-fa="داشبورد" data-en="Dashboard"></span></a></li>
-
-        <!-- Assets Mega -->
+        <li class="nav-item"><a class="nav-link<?php echo $active('dashboard.php'); ?>" href="dashboard.php"><i class="fas fa-tachometer-alt"></i><spa        <!-- Assets Mega -->
         <li class="nav-item position-relative">
           <a class="nav-link<?php echo $assetsActive; ?>" href="#" id="assetsMenuTrigger">
             <i class="fas fa-server"></i><span class="lang" data-fa="دارایی‌ها" data-en="Assets"></span>
@@ -112,6 +109,52 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
                 <i class="fas fa-warehouse"></i>
                 <h6 class="lang" data-fa="مدیریت انبار" data-en="Inventory"></h6>
                 <p class="lang" data-fa="نمایش/افزایش/کاهش موجودی" data-en="View & adjust stock"></p>
+              </a>
+              <?php endif; ?>
+            </div>
+          </div>
+        </li>
+
+        <!-- Cars Mega -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $carsActive; ?>" href="#" id="carsMenuTrigger">
+            <i class="fas fa-car"></i><span class="lang" data-fa="خودروهای شرکتی" data-en="Company Cars"></span>
+          </a>
+          <div class="mega-menu" id="carsMegaMenu" aria-labelledby="carsMenuTrigger">
+            <div class="menu-grid">
+              <a href="cars.php" class="menu-card">
+                <i class="fas fa-car"></i>
+                <h6 class="lang" data-fa="مدیریت خودروها" data-en="Car Management"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت خودروهای شرکتی" data-en="Register and manage company cars"></p>
+              </a>
+              <a href="car_assignments.php" class="menu-card">
+                <i class="fas fa-user-check"></i>
+                <h6 class="lang" data-fa="انتساب خودروها" data-en="Car Assignments"></h6>
+                <p class="lang" data-fa="تحویل و برگشت خودروها" data-en="Assign and return cars"></p>
+              </a>
+              <a href="car_maintenance.php" class="menu-card">
+                <i class="fas fa-wrench"></i>
+                <h6 class="lang" data-fa="تعمیرات خودرو" data-en="Car Maintenance"></h6>
+                <p class="lang" data-fa="ثبت و پیگیری تعمیرات" data-en="Record and track maintenance"></p>
+              </a>
+              <a href="car_fuel.php" class="menu-card">
+                <i class="fas fa-gas-pump"></i>
+                <h6 class="lang" data-fa="مدیریت سوخت" data-en="Fuel Management"></h6>
+                <p class="lang" data-fa="ثبت مصرف و هزینه سوخت" data-en="Record fuel consumption and costs"></p>
+              </a>
+              <a href="car_incidents.php" class="menu-card">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h6 class="lang" data-fa="حوادث خودرو" data-en="Car Incidents"></h6>
+                <p class="lang" data-fa="گزارش و پیگیری حوادث" data-en="Report and track incidents"></p>
+              </a>
+              <a href="car_drivers.php" class="menu-card">
+                <i class="fas fa-id-card"></i>
+                <h6 class="lang" data-fa="مدیریت رانندگان" data-en="Driver Management"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت اطلاعات رانندگان" data-en="Register and manage driver info"></p>
+              </a>
+            </div>
+          </div>
+        </li>></p>
               </a>
               <?php endif; ?>
             </div>
@@ -419,17 +462,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.querySelectorAll('.nav-item').forEach((el,i)=> setTimeout(()=> el.classList.add('show'), i * 70));
 
-  function setupMega(triggerId, menuId){
-    const trigger = document.getElementById(triggerId);
-    const menu    = document.getElementById(menuId);
-    if(!trigger || !menu) return;
-    trigger.addEventListener('click', function(e){
-      e.preventDefault();
-      document.querySelectorAll('.mega-menu').forEach(m=>{ if(m !== menu) m.classList.remove('show'); });
-      menu.classList.toggle('show');
-    });
-  }
-  setupMega('workflowMenuTrigger','workflowMegaMenu');
+  function setupMega(triggerId, menuI  setupMega('workflowMenuTrigger','workflowMegaMenu');
+  setupMega('assetsMenuTrigger','assetsMegaMenu');
+  setupMega('carsMenuTrigger','carsMegaMenu');
+  setupMega('warrantyMenuTrigger','warrantyMegaMenu');
+  setupMega('reportsMenuTrigger','reportsMegaMenu');
+  setupMega('surveyMenuTrigger','surveyMegaMenu');
+  setupMega('adminMenuTrigger','adminMegaMenu');
+  setupMega('trainingMenuTrigger','trainingMegaMenu');
+  setupMega('financeMenuTrigger','financeMegaMenu');','workflowMegaMenu');
   setupMega('assetsMenuTrigger','assetsMegaMenu');
   setupMega('warrantyMenuTrigger','warrantyMegaMenu');
   setupMega('reportsMenuTrigger','reportsMegaMenu');
