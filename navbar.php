@@ -5,10 +5,12 @@ $username       = $_SESSION['username'] ?? 'کاربر';
 $rawRole        = trim((string)($_SESSION['role'] ?? ''));
 $roleLower      = mb_strtolower($rawRole, 'UTF-8');
 $is_admin       = ($roleLower === 'ادمین' || $roleLower === 'admin' || $roleLower === 'administrator');
-$is_logged_in   = !empty($_SESSION['user_i$current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
+$is_logged_in   = !empty($_SESSION['user_id']);
+
+$current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $active         = function($files) use ($current) { return in_array($current, (array)$files, true) ? ' active' : ''; };
 
-$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);rt.php']);
+$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
 $vehiclesActive = $active(['cars.php','car_assignments.php','car_maintenance.php','car_fuel.php','car_incidents.php','car_drivers.php','car_reservations.php','car_reports.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
@@ -16,7 +18,7 @@ $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php'])
 $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
 $adminActive    = $active(['users.php','email_settings.php','system_logs.php']);
 $trainingActive = $active(['training.php','training_forms.php','training_gallery.php','training_videos.php','training_articles.php','training_forms_admin.php','training_gallery_admin.php','training_videos_admin.php','training_articles_admin.php']);
-$financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);racts_admin.php']);
+$financeActive  = $active(['finance.php','finance_admin.php','contracts.php','contracts_admin.php']);
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
