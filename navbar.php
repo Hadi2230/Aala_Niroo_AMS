@@ -12,6 +12,7 @@ $active         = fn($files) => in_array($current, (array)$files, true) ? ' acti
 
 $surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
+$fleetActive    = $active(['vehicles.php','vehicle_usage.php','vehicle_reports.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
 $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php']);
 $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
@@ -114,6 +115,32 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
                 <p class="lang" data-fa="نمایش/افزایش/کاهش موجودی" data-en="View & adjust stock"></p>
               </a>
               <?php endif; ?>
+            </div>
+          </div>
+        </li>
+
+        <!-- Fleet (Vehicles) Mega -->
+        <li class="nav-item position-relative">
+          <a class="nav-link<?php echo $fleetActive; ?>" href="#" id="fleetMenuTrigger">
+            <i class="fas fa-car-side"></i><span class="lang" data-fa="ناوگان" data-en="Fleet"></span>
+          </a>
+          <div class="mega-menu" id="fleetMegaMenu" aria-labelledby="fleetMenuTrigger">
+            <div class="menu-grid">
+              <a href="vehicles.php" class="menu-card">
+                <i class="fas fa-car"></i>
+                <h6 class="lang" data-fa="مدیریت خودروها" data-en="Manage Vehicles"></h6>
+                <p class="lang" data-fa="ثبت و مدیریت خودروها" data-en="Create and manage vehicles"></p>
+              </a>
+              <a href="vehicle_usage.php" class="menu-card">
+                <i class="fas fa-route"></i>
+                <h6 class="lang" data-fa="تحویل/عودت" data-en="Handover/Return"></h6>
+                <p class="lang" data-fa="شروع و پایان ماموریت" data-en="Start and complete trips"></p>
+              </a>
+              <a href="vehicle_reports.php" class="menu-card">
+                <i class="fas fa-chart-line"></i>
+                <h6 class="lang" data-fa="گزارش ناوگان" data-en="Fleet Reports"></h6>
+                <p class="lang" data-fa="کارکرد، کیلومتر، بهره‌وری" data-en="Distance, usage, KPIs"></p>
+              </a>
             </div>
           </div>
         </li>
@@ -431,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   setupMega('workflowMenuTrigger','workflowMegaMenu');
   setupMega('assetsMenuTrigger','assetsMegaMenu');
+  setupMega('fleetMenuTrigger','fleetMegaMenu');
   setupMega('warrantyMenuTrigger','warrantyMegaMenu');
   setupMega('reportsMenuTrigger','reportsMegaMenu');
   setupMega('surveyMenuTrigger','surveyMegaMenu');
