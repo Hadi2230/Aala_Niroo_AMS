@@ -10,7 +10,7 @@ $is_logged_in   = !empty($_SESSION['user_id']);
 $current        = basename($_SERVER['SCRIPT_NAME'] ?? '');
 $active         = fn($files) => in_array($current, (array)$files, true) ? ' activ$surveyActive   = $active(['survey.php','survey_list.php','survey_admin.php','survey_customer_search.php','survey_response.php','survey_answer.php','survey_edit.php','survey_report.php']);
 $assetsActive   = $active(['assets.php','profiles_list.php','customers.php','assignments.php','inventory.php']);
-$carsActive     = $active(['cars.php','car_assignments.php','car_maintenance.php','car_fuel.php','car_incidents.php','car_drivers.php','car_reservations.php']);
+$vehiclesActive = $active(['cars.php','car_assignments.php','car_maintenance.php','car_fuel.php','car_incidents.php','car_drivers.php','car_reservations.php','car_reports.php']);
 $warrantyActive = $active(['create_guaranty.php','print_warranty.php','print_guaranty.php']);
 $reportsActive  = $active(['reports.php','survey_report.php','system_logs.php']);
 $workflowActive = $active(['tickets.php','maintenance.php','notifications.php','messages.php','request_management.php','request_management_final.php','request_workflow_professional.php','request_tracking_final.php']);
@@ -115,12 +115,12 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
           </div>
         </li>
 
-        <!-- Cars Mega -->
+        <!-- Vehicles Mega -->
         <li class="nav-item position-relative">
-          <a class="nav-link<?php echo $carsActive; ?>" href="#" id="carsMenuTrigger">
-            <i class="fas fa-car"></i><span class="lang" data-fa="خودروهای شرکتی" data-en="Company Cars"></span>
+          <a class="nav-link<?php echo $vehiclesActive; ?>" href="#" id="vehiclesMenuTrigger">
+            <i class="fas fa-car-side"></i><span class="lang" data-fa="مدیریت وسایل نقلیه" data-en="Vehicle Management"></span>
           </a>
-          <div class="mega-menu" id="carsMegaMenu" aria-labelledby="carsMenuTrigger">
+          <div class="mega-menu" id="vehiclesMegaMenu" aria-labelledby="vehiclesMenuTrigger">
             <div class="menu-grid">
               <a href="cars.php" class="menu-card">
                 <i class="fas fa-car"></i>
@@ -151,6 +151,16 @@ html[data-theme="dark"] .menu-card.workflow{background:#1a2235; border-color:#2d
                 <i class="fas fa-id-card"></i>
                 <h6 class="lang" data-fa="مدیریت رانندگان" data-en="Driver Management"></h6>
                 <p class="lang" data-fa="ثبت و مدیریت اطلاعات رانندگان" data-en="Register and manage driver info"></p>
+              </a>
+              <a href="car_reservations.php" class="menu-card">
+                <i class="fas fa-calendar-check"></i>
+                <h6 class="lang" data-fa="رزرو خودرو" data-en="Car Reservations"></h6>
+                <p class="lang" data-fa="رزرو و برنامه‌ریزی استفاده" data-en="Reserve and schedule usage"></p>
+              </a>
+              <a href="car_reports.php" class="menu-card">
+                <i class="fas fa-chart-line"></i>
+                <h6 class="lang" data-fa="گزارشات خودرو" data-en="Vehicle Reports"></h6>
+                <p class="lang" data-fa="آمار و گزارشات تفصیلی" data-en="Statistics and detailed reports"></p>
               </a>
             </div>
           </div>
@@ -464,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function setupMega(triggerId, menuI  setupMega('workflowMenuTrigger','workflowMegaMenu');
   setupMega('assetsMenuTrigger','assetsMegaMenu');
-  setupMega('carsMenuTrigger','carsMegaMenu');
+  setupMega('vehiclesMenuTrigger','vehiclesMegaMenu');
   setupMega('warrantyMenuTrigger','warrantyMegaMenu');
   setupMega('reportsMenuTrigger','reportsMegaMenu');
   setupMega('surveyMenuTrigger','surveyMegaMenu');
